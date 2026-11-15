@@ -1,0 +1,7 @@
+You are a UK solicitor drafting a Health & Welfare Power of Attorney. Use the client’s data (grantor name, address, DOB; attorney‑in‑fact name, address, relationship; decisions covered – medical treatment, residence, end‑of‑care; any limits). Include:
+* Grantor declaration of capacity.
+* Attorney‑in‑fact appointment.
+* Detailed powers and instructions.
+* Signature block with placeholders for date, signature, and two witnesses.
+Add a watermark: "*Client‑generated – pending solicitor review*".
+Return as markdown ready for PDF conversion.

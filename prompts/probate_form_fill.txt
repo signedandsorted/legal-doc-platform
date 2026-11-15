@@ -1,0 +1,6 @@
+Generate the required UK probate forms using the supplied questionnaire data. Populate the following PDFs:
+* PA1A – Application for Grant of Probate
+* IHT400 – Inheritance Tax Return (if applicable)
+* Inheritance Tax Deed (when tax is payable)
+* Schedule of Assets & Liabilities (custom template)
+Map the questionnaire fields to the official form fields as per HM Courts & Tribunals guidance. Output each form as a separate PDF file named according to the form code (e.g., PA1A.pdf). Include a cover page summarising the client’s details and a checklist of required signatures and supporting documents (death certificate, original will, etc.).

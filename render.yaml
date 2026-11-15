@@ -1,0 +1,28 @@
+services:
+  legal-doc-platform:
+    type: web
+    repo: https://github.com/signedandsorted/legal-doc-platform
+    branch: main
+    env:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL}
+    buildCommand: docker compose build
+    startCommand: docker compose up -d
+    healthCheck:
+      path: /healthz
+      intervalSeconds: 10
+      timeoutSeconds: 5
+      startPeriodSeconds: 30
+    addOns:
+      - type: postgresql
+        plan: starter
+        env:
+          POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    disk:
+      sizeGB: 5
+    cpu: 1
+    memoryGB: 2
+    autoDeploy: true
