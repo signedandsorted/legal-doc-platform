@@ -1,25 +1,6 @@
-# Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-venv/
-ENV/
-env/
-
-# Node
-node_modules/
-
-# Docker
-Dockerfile
-docker-compose.yml
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Secrets
 .env
-
-# Media (large)
-media/
+local.db
+test.db
+.venv/

@@ -1,28 +1,28 @@
 services:
-  legal-doc-platform:
-    type: web
-    repo: https://github.com/signedandsorted/legal-doc-platform
+  - type: web
+    name: legal-doc-platform
+    runtime: python
+    region: oregon
+    plan: free
     branch: main
-    env:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL}
-      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL}
-    buildCommand: docker compose build
-    startCommand: docker compose up -d
-    healthCheck:
-      path: /healthz
-      intervalSeconds: 10
-      timeoutSeconds: 5
-      startPeriodSeconds: 30
-    addOns:
-      - type: postgresql
-        plan: starter
-        env:
-          POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    disk:
-      sizeGB: 5
-    cpu: 1
-    memoryGB: 2
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
     autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL
+        fromDatabase:
+          name: legal-doc-db
+          property: connectionString
+
+databases:
+  - name: legal-doc-db
+    region: oregon
+    plan: basic-1gb
+    postgresMajorVersion: "16"
+    diskSizeGB: 10
+    databaseName: legal_doc_db_wj1j
+    user: legal_doc_db_wj1j_user
+    ipAllowList: []
