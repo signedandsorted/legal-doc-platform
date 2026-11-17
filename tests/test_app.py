@@ -119,10 +119,11 @@ def test_index_sets_csrf_cookie_and_page_paths_serve_the_app():
         r = c.get("/")
         assert r.status_code == 200
         assert c.cookies.get("sas_csrf")
-        assert "no-cache" in r.headers.get("cache-control", "").lower()
+        assert "no-store" in r.headers.get("cache-control", "").lower() or "no-cache" in r.headers.get("cache-control", "").lower()
         js = c.get("/static/app.js")
         assert js.status_code == 200 and "ensureCsrf" in js.text
-        assert "no-cache" in js.headers.get("cache-control", "").lower()
+        cc = js.headers.get("cache-control", "").lower()
+        assert "no-store" in cc or "no-cache" in cc
         for path in ("/wills", "/lpa", "/login", "/admin"):
             page = c.get(path)
             assert page.status_code == 200, path
@@ -131,3 +132,31 @@ def test_index_sets_csrf_cookie_and_page_paths_serve_the_app():
         missing = c.get("/api/definitely-missing")
         assert missing.status_code == 404
         assert missing.headers.get("content-type", "").startswith("application/json")
+
+
+def test_start_button_is_visible_and_assets_are_cache_busted():
+    import hashlib
+    from pathlib import Path
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    js_ver = hashlib.sha256(Path("static/app.js").read_bytes()).hexdigest()[:12]
+    css_ver = hashlib.sha256(Path("static/styles.css").read_bytes()).hexdigest()[:12]
+    with TestClient(app) as c:
+        for path in ("/", "/wills", "/lpa", "/login"):
+            r = c.get(path)
+            assert r.status_code == 200, path
+            assert "text/html" in r.headers.get("content-type", "")
+            assert "no-store" in r.headers.get("cache-control", "").lower()
+            assert f"/static/app.js?v={js_ver}" in r.text
+            assert f"/static/styles.css?v={css_ver}" in r.text
+        js = c.get(f"/static/app.js?v={js_ver}")
+        assert js.status_code == 200
+        text = js.text
+        assert "data-start=" in text
+        assert "function goToSignIn" in text and "function bindStart" in text
+        assert "Please create an account or sign in" in text
+        assert "Starting…" in text
+        # logged-out Start must not silently no-op: it shows a sign-in page
+        assert 'location.hash = dest' in text or "goToSignIn(" in text
+

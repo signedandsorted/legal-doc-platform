@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
+import hashlib
 from pathlib import Path
 
 import re
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import delete, insert, select, text, update
@@ -46,8 +47,8 @@ async def csrf_and_headers(request: Request, call_next):
     response.headers.setdefault("Referrer-Policy", "same-origin")
     if request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
-    elif request.url.path == "/" or request.url.path.startswith("/static/app.js") or request.url.path.startswith("/static/styles.css") or request.url.path == "/static/index.html":
-        response.headers["Cache-Control"] = "no-cache"
+    elif request.url.path == "/" or request.url.path.startswith("/static/app.js") or request.url.path.startswith("/static/styles.css") or request.url.path == "/static/index.html" or "text/html" in response.headers.get("content-type", ""):
+        response.headers["Cache-Control"] = "no-store"
     # Set the CSRF cookie on the page and on API GETs, not only /api/auth/me, so a
     # first click to start a draft is not rejected as an expired session.
     if request.method in {"GET", "HEAD"} and response.status_code == 200 and (
@@ -77,9 +78,20 @@ def healthz():
     return {"ok": True, "database": engine().dialect.name}
 
 
+def asset_tag(name: str) -> str:
+    return hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
+
+
+def app_shell() -> HTMLResponse:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    html = html.replace("/static/styles.css", f"/static/styles.css?v={asset_tag('styles.css')}", 1)
+    html = html.replace("/static/app.js", f"/static/app.js?v={asset_tag('app.js')}", 1)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/")
 def index():
-    return FileResponse(STATIC / "index.html")
+    return app_shell()
 
 
 @app.get("/api/services")
@@ -308,5 +320,5 @@ def spa(path: str):
     first = path.split("/", 1)[0]
     if first in {"api", "static", "docs", "redoc", "openapi.json", "healthz"}:
         raise HTTPException(404, "Not Found")
-    return FileResponse(STATIC / "index.html")
+    return app_shell()
 
