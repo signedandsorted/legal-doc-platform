@@ -4,10 +4,11 @@ import zipfile
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402,F401
 from reportlab.pdfgen import canvas  # noqa: E402
 
-from app.main import app  # noqa: E402
+from app.main import app  # noqa: E402,F401
+from tests.helpers import user_client  # noqa: E402
 from tests.test_lpa import lpa  # noqa: E402
 
 WILL_TEXT = "This is the last will and testament of me, I, Ada Mary Lovelace, of 1 High St London. I appoint Charles Babbage of 2 Low Rd to be my executor. Dated 3rd March 2015."
@@ -32,7 +33,7 @@ def docx_bytes(text: str) -> bytes:
 
 
 def test_probate_upload_pdf_reads_text_and_suggests():
-    with TestClient(app) as c:
+    with user_client() as c:
         d = c.post("/api/drafts", json={"service": "probate", "answers": {}}).json()
         r = c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("will.pdf", pdf_bytes(WILL_TEXT + " Date of death: 1 October 2026"), "application/pdf")}).json()
         assert r["read_as"] == "pdf" and r["kind"] == "Old will"
@@ -45,7 +46,7 @@ def test_probate_upload_pdf_reads_text_and_suggests():
 
 
 def test_upload_rejects_bad_types_and_big_files():
-    with TestClient(app) as c:
+    with user_client() as c:
         d = c.post("/api/drafts", json={"service": "probate", "answers": {}}).json()
         assert c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("x.exe", b"MZ", "application/octet-stream")}).status_code == 400
         assert c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("big.pdf", b"0" * (10 * 1024 * 1024 + 1), "application/pdf")}).status_code == 400
@@ -54,7 +55,7 @@ def test_upload_rejects_bad_types_and_big_files():
 
 
 def test_lpa_upload_flags_certificate_provider_named_in_old_lpa():
-    with TestClient(app) as c:
+    with user_client() as c:
         d = c.post("/api/drafts", json={"service": "lpa_property", "answers": lpa()}).json()
         txt = "Lasting power of attorney LP1F. Attorneys: Dr Eve Five of Surgery Road."
         r = c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("old.docx", docx_bytes(txt), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}).json()
@@ -66,7 +67,7 @@ def test_lpa_upload_flags_certificate_provider_named_in_old_lpa():
 
 
 def test_no_uploads_after_submission():
-    with TestClient(app) as c:
+    with user_client() as c:
         d = c.post("/api/drafts", json={"service": "lpa_property", "answers": lpa()}).json()
         assert c.post(f"/api/drafts/{d['id']}/submit").status_code == 200
         assert c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("a.txt", b"hello", "text/plain")}).status_code == 409

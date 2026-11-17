@@ -2,9 +2,10 @@ import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402,F401
 
-from app.main import app  # noqa: E402
+from app.main import app  # noqa: E402,F401
+from tests.helpers import user_client  # noqa: E402
 
 WILL = {
     "about_you": {"full_name": "Ada Lovelace", "date_of_birth": "1980-12-10", "address": "1 High St, London", "email": "ada@example.com", "marital_status": "Married", "domicile": "England or Wales"},
@@ -20,7 +21,7 @@ WILL = {
 
 
 def test_services_and_health():
-    with TestClient(app) as client:
+    with user_client() as client:
         assert client.get("/healthz").json()["ok"] is True
         assert {s["id"] for s in client.get("/api/services").json()} == {"will", "lpa_property", "lpa_health", "probate"}
         assert client.get("/").status_code == 200
@@ -30,7 +31,7 @@ def test_services_and_health():
 
 
 def test_will_flow_to_pdf_and_review():
-    with TestClient(app) as client:
+    with user_client() as client:
         draft = client.post("/api/drafts", json={"service": "will", "answers": {}}).json()
         assert draft["missing"]
         assert client.get(f"/api/drafts/{draft['id']}/pdf").status_code == 400
@@ -54,7 +55,7 @@ def test_will_flow_to_pdf_and_review():
 
 
 def test_will_conditional_questions_and_issues():
-    with TestClient(app) as client:
+    with user_client() as client:
         a = {**WILL, "about_you": {**WILL["about_you"], "expecting_marriage": "Yes", "domicile": "Outside the UK", "assets_abroad": "Yes, and I have a separate will there"}, "family": {"children": [{"full_name": "Kid", "date_of_birth": "2020-01-01"}]}}
         d = client.post("/api/drafts", json={"service": "will", "answers": a}).json()
         assert any("future spouse" in m for m in d["missing"])
@@ -68,7 +69,7 @@ def test_will_conditional_questions_and_issues():
 
 
 def test_discretionary_trust_replaces_fixed_shares():
-    with TestClient(app) as client:
+    with user_client() as client:
         a = {**WILL, "trusts": {"discretionary": "Yes"}}
         d = client.post("/api/drafts", json={"service": "will", "answers": a}).json()
         text = " ".join(client.get(f"/api/drafts/{d['id']}/document").json()["sections"][0]["paragraphs"])
@@ -76,7 +77,7 @@ def test_discretionary_trust_replaces_fixed_shares():
 
 
 def test_will_upload_suggests_old_executors():
-    with TestClient(app) as client:
+    with user_client() as client:
         d = client.post("/api/drafts", json={"service": "will", "answers": {}}).json()
         txt = b"This is the last will of me, I, Ada Mary Lovelace, of 1 High St. I appoint Charles Babbage of 2 Low Rd to be my executor."
         r = client.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("old-will.txt", txt, "text/plain")}).json()
@@ -85,7 +86,7 @@ def test_will_upload_suggests_old_executors():
 
 
 def test_frontend_assets_and_video_metadata():
-    with TestClient(app) as client:
+    with user_client() as client:
         html = client.get("/").text
         assert "/static/app.js" in html and "Wills · Powers of attorney · Probate" in html
         assert client.get("/static/app.js").status_code == 200 and client.get("/static/styles.css").status_code == 200

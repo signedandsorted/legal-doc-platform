@@ -2,10 +2,11 @@ import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402,F401
 
 from app.doc_probate import plan  # noqa: E402
-from app.main import app  # noqa: E402
+from app.main import app  # noqa: E402,F401
+from tests.helpers import user_client  # noqa: E402
 
 
 def answers(**over):
@@ -70,7 +71,7 @@ def test_tnrb_excepted_up_to_650k_and_charity_rate():
 
 
 def test_probate_document_api():
-    with TestClient(app) as c:
+    with user_client() as c:
         d = c.post("/api/drafts", json={"service": "probate", "answers": answers()}).json()
         assert d["missing"] == []
         doc = c.get(f"/api/drafts/{d['id']}/document").json()

@@ -3,13 +3,16 @@ from pathlib import Path
 
 import re
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import delete, insert, select, text, update
 
+from .admin import router as admin_router
+from .auth import require_user, router as auth_router, seed_admin
 from .db import drafts, engine, init_db, new_id, now, uploads
+from .security import audit, client_ip, csrf_ok
 from .documents import build_document, find_issues, missing_fields
 from .extract import detect_kind, extract_text, suggest
 from .guides import SERVICES
@@ -24,11 +27,30 @@ ALLOWED_EXT = {".pdf", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".heic", ".webp
 @asynccontextmanager
 async def lifespan(_):
     init_db()
+    seed_admin()
     yield
 
 
 app = FastAPI(title="Legal Doc Platform", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@app.middleware("http")
+async def csrf_and_headers(request: Request, call_next):
+    if request.method in UNSAFE and request.url.path.startswith("/api/") and not csrf_ok(request):
+        return JSONResponse({"detail": "Your session has expired. Please refresh the page and try again."}, status_code=403)
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    if request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 class DraftIn(BaseModel):
@@ -86,10 +108,11 @@ def _client(answers: dict) -> tuple[str, str | None]:
     return applicant.get("full_name") or "", applicant.get("email")
 
 
-def _row(draft_id: str):
+def _row(draft_id: str, user: dict):
+    """Only the signed-in owner can reach a draft. Anyone else gets 404, so ids reveal nothing."""
     with engine().connect() as conn:
         row = conn.execute(select(drafts).where(drafts.c.id == draft_id)).mappings().first()
-    if not row:
+    if not row or row["user_id"] != user["id"]:
         raise HTTPException(404, "Draft not found")
     return row
 
@@ -111,31 +134,40 @@ def _out(row) -> dict:
             "issues": find_issues(row["service"], row["answers"], _uploads_text(row["id"]) if ups else ""), "uploads": ups, "updated_at": row["updated_at"].isoformat()}
 
 
+@app.get("/api/drafts")
+def my_drafts(user: dict = Depends(require_user)):
+    with engine().connect() as conn:
+        rows = conn.execute(select(drafts.c.id, drafts.c.service, drafts.c.client_name, drafts.c.status, drafts.c.updated_at)
+                            .where(drafts.c.user_id == user["id"]).order_by(drafts.c.updated_at.desc())).mappings().all()
+    return [{**dict(r), "title": SERVICES.get(r["service"], {}).get("title", r["service"]), "updated_at": r["updated_at"].isoformat()} for r in rows]
+
+
 @app.post("/api/drafts")
-def create_draft(body: DraftIn):
+def create_draft(body: DraftIn, request: Request, user: dict = Depends(require_user)):
     if body.service not in SERVICES:
         raise HTTPException(400, "Unknown service")
     name, email = _client(body.answers)
     draft_id = new_id()
     with engine().begin() as conn:
-        conn.execute(insert(drafts).values(id=draft_id, service=body.service, client_name=name, client_email=email, answers=body.answers, status="draft", created_at=now(), updated_at=now()))
-    return _out(_row(draft_id))
+        conn.execute(insert(drafts).values(id=draft_id, user_id=user["id"], service=body.service, client_name=name, client_email=email, answers=body.answers, status="draft", created_at=now(), updated_at=now()))
+    audit("draft_created", user, "draft", draft_id, {"service": body.service}, client_ip(request))
+    return _out(_row(draft_id, user))
 
 
 @app.get("/api/drafts/{draft_id}")
-def get_draft(draft_id: str):
-    return _out(_row(draft_id))
+def get_draft(draft_id: str, user: dict = Depends(require_user)):
+    return _out(_row(draft_id, user))
 
 
 @app.put("/api/drafts/{draft_id}")
-def save_draft(draft_id: str, body: AnswersIn):
-    row = _row(draft_id)
+def save_draft(draft_id: str, body: AnswersIn, user: dict = Depends(require_user)):
+    row = _row(draft_id, user)
     if row["status"] != "draft":
         raise HTTPException(409, "This draft has been sent for review and can no longer be changed")
     name, email = _client(body.answers)
     with engine().begin() as conn:
         conn.execute(update(drafts).where(drafts.c.id == draft_id).values(answers=body.answers, client_name=name, client_email=email, updated_at=now()))
-    return _out(_row(draft_id))
+    return _out(_row(draft_id, user))
 
 
 def _complete(row):
@@ -150,37 +182,38 @@ def _complete(row):
 
 
 @app.get("/api/drafts/{draft_id}/document")
-def preview(draft_id: str):
-    return _complete(_row(draft_id))
+def preview(draft_id: str, user: dict = Depends(require_user)):
+    return _complete(_row(draft_id, user))
 
 
 @app.get("/api/drafts/{draft_id}/pdf")
-def pdf(draft_id: str):
-    row = _row(draft_id)
+def pdf(draft_id: str, user: dict = Depends(require_user)):
+    row = _row(draft_id, user)
     document = _complete(row)
     filename = f"{row['service']}-{(row['client_name'] or 'draft').replace(' ', '-')}.pdf"
     return Response(render_pdf(document), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 @app.post("/api/drafts/{draft_id}/submit")
-def submit(draft_id: str):
-    row = _row(draft_id)
+def submit(draft_id: str, request: Request, user: dict = Depends(require_user)):
+    row = _row(draft_id, user)
     _complete(row)
     with engine().begin() as conn:
         conn.execute(update(drafts).where(drafts.c.id == draft_id).values(status="submitted_for_review", updated_at=now()))
-    return _out(_row(draft_id))
+    audit("draft_submitted", user, "draft", draft_id, ip=client_ip(request))
+    return _out(_row(draft_id, user))
 
 
-def _editable(draft_id: str):
-    row = _row(draft_id)
+def _editable(draft_id: str, user: dict):
+    row = _row(draft_id, user)
     if row["status"] != "draft":
         raise HTTPException(409, "This draft has been sent for review and can no longer be changed")
     return row
 
 
 @app.post("/api/drafts/{draft_id}/uploads")
-async def upload(draft_id: str, file: UploadFile = File(...), kind: str = Form("")):
-    row = _editable(draft_id)
+async def upload(draft_id: str, request: Request, file: UploadFile = File(...), kind: str = Form(""), user: dict = Depends(require_user)):
+    row = _editable(draft_id, user)
     if len(_uploads(draft_id)) >= MAX_UPLOADS_PER_DRAFT:
         raise HTTPException(400, f"You can upload up to {MAX_UPLOADS_PER_DRAFT} documents")
     filename = re.sub(r"[^\w.\- ]", "_", Path(file.filename or "document").name)[:120] or "document"
@@ -198,17 +231,23 @@ async def upload(draft_id: str, file: UploadFile = File(...), kind: str = Form("
     with engine().begin() as conn:
         conn.execute(insert(uploads).values(id=upload_id, draft_id=draft_id, filename=filename, content_type=file.content_type or "application/octet-stream", kind=kind,
                                             size=len(data), data=data, text=text_, read_as=read_as, suggestions=sugg, created_at=now()))
+    audit("upload_added", user, "upload", upload_id, {"draft_id": draft_id, "filename": filename, "size": len(data)}, client_ip(request))
     return [u for u in _uploads(draft_id) if u["id"] == upload_id][0]
 
 
 @app.get("/api/drafts/{draft_id}/uploads")
-def list_uploads(draft_id: str):
-    _row(draft_id)
+def list_uploads(draft_id: str, user: dict = Depends(require_user)):
+    _row(draft_id, user)
     return _uploads(draft_id)
 
 
 @app.get("/api/drafts/{draft_id}/uploads/{upload_id}")
-def download_upload(draft_id: str, upload_id: str):
+def download_upload(draft_id: str, upload_id: str, user: dict = Depends(require_user)):
+    _row(draft_id, user)
+    return upload_response(draft_id, upload_id)
+
+
+def upload_response(draft_id: str, upload_id: str) -> Response:
     with engine().connect() as conn:
         r = conn.execute(select(uploads).where(uploads.c.id == upload_id, uploads.c.draft_id == draft_id)).mappings().first()
     if not r:
@@ -217,10 +256,11 @@ def download_upload(draft_id: str, upload_id: str):
 
 
 @app.delete("/api/drafts/{draft_id}/uploads/{upload_id}")
-def delete_upload(draft_id: str, upload_id: str):
-    _editable(draft_id)
+def delete_upload(draft_id: str, upload_id: str, request: Request, user: dict = Depends(require_user)):
+    _editable(draft_id, user)
     with engine().begin() as conn:
         n = conn.execute(delete(uploads).where(uploads.c.id == upload_id, uploads.c.draft_id == draft_id)).rowcount
     if not n:
         raise HTTPException(404, "Document not found")
+    audit("upload_deleted", user, "upload", upload_id, {"draft_id": draft_id}, client_ip(request))
     return {"ok": True}

@@ -2,7 +2,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, LargeBinary, MetaData, String, Table, Text, create_engine
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, LargeBinary, MetaData, String, Table, Text, create_engine
 
 metadata = MetaData()
 
@@ -17,6 +17,68 @@ drafts = Table(
     Column("status", String(32), nullable=False, default="draft"),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    Column("user_id", String(36), index=True),  # added by migration 2; NULL only for drafts made before logins existed
+)
+
+users = Table(
+    "users",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("email", String(254), nullable=False, unique=True),
+    Column("password_hash", Text, nullable=False),
+    Column("role", String(16), nullable=False, default="client"),  # client | admin
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("last_login_at", DateTime(timezone=True)),
+)
+
+sessions = Table(
+    "sessions",
+    metadata,
+    Column("token_hash", String(64), primary_key=True),
+    Column("user_id", String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("ip", String(64)),
+)
+
+password_resets = Table(
+    "password_resets",
+    metadata,
+    Column("token_hash", String(64), primary_key=True),
+    Column("user_id", String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("used", Boolean, nullable=False, default=False),
+)
+
+login_attempts = Table(
+    "login_attempts",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("bucket", String(300), nullable=False, index=True),  # e.g. "login:ip:1.2.3.4" or "login:email:a@b.c"
+    Column("at", DateTime(timezone=True), nullable=False, index=True),
+)
+
+audit_log = Table(
+    "audit_log",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("at", DateTime(timezone=True), nullable=False, index=True),
+    Column("actor_id", String(36)),
+    Column("actor_email", String(254)),
+    Column("action", String(64), nullable=False),
+    Column("target_type", String(32)),
+    Column("target_id", String(64)),
+    Column("detail", JSON),
+    Column("ip", String(64)),
+)
+
+schema_migrations = Table(
+    "schema_migrations",
+    metadata,
+    Column("version", Integer, primary_key=True),
+    Column("name", Text, nullable=False),
+    Column("applied_at", DateTime(timezone=True), nullable=False),
 )
 
 uploads = Table(
@@ -56,7 +118,23 @@ def engine():
 
 
 def init_db() -> None:
-    metadata.create_all(engine())
+    from .migrations import migrate
+    migrate(engine())
+
+
+def reset_engine() -> None:
+    """Tests only: drop the cached engine so a new DATABASE_URL takes effect."""
+    global _engine
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+
+
+def utc(dt: datetime | None) -> datetime | None:
+    """SQLite returns naive datetimes; treat them as UTC."""
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def now() -> datetime:
