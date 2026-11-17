@@ -9,7 +9,7 @@ const cookie = name => (document.cookie.split("; ").find(c => c.startsWith(name 
 async function ensureCsrf() {
   let token = cookie("sas_csrf");
   if (!token) {
-    await fetch("/api/auth/me", { credentials: "same-origin" });
+    await fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" });
     token = cookie("sas_csrf");
   }
   return token;
@@ -60,10 +60,11 @@ async function home() {
   $app.innerHTML = '<section class="hero"><div><p class="eyebrow">England and Wales</p><h1>Your will, power of attorney or probate, sorted step by step</h1>'
     + '<p class="lead">Short videos and plain-English help on every step. Upload your old documents and we suggest answers. A solicitor checks everything before you sign.</p></div>'
     + '<div class="hero-card" aria-label="What you get"><ul><li>Guided questions with a video on each step</li><li>Built on the official GOV.UK forms (LP1F, LP1H, PA1P, PA1A, IHT400)</li><li>Upload an old will, LPA or probate papers</li><li>Download a PDF and send it for solicitor review</li></ul></div></section>'
-    + '<h2>What would you like to do?</h2><div class="grid">' + list.map(s => '<article class="card svc"><span class="icon" aria-hidden="true">' + (ICONS[s.id] || "📄") + '</span><h3>' + esc(s.title) + '</h3><p class="muted">' + esc(s.summary) + '</p><p class="meta">' + s.steps + ' steps · about ' + (s.steps * 3) + ' minutes</p><a class="btn" href="#/s/' + s.id + '">Start</a></article>').join("") + '</div>'
+    + '<h2>What would you like to do?</h2><div class="grid">' + list.map(s => '<article class="card svc"><span class="icon" aria-hidden="true">' + (ICONS[s.id] || "📄") + '</span><h3>' + esc(s.title) + '</h3><p class="muted">' + esc(s.summary) + '</p><p class="meta">' + s.steps + ' steps · about ' + (s.steps * 3) + ' minutes</p><a class="btn" href="#/s/' + s.id + '" data-start="' + s.id + '">Start</a></article>').join("") + '</div>'
     + '<h2>How it works</h2><div class="how"><div><b>1. Answer</b>Watch the short video, read the help and answer a few questions. Your answers save automatically.</div><div><b>2. Check</b>See your draft with a plain-English note on every clause, and any points to fix.</div><div><b>3. Review</b>Send it to a solicitor. They check it with you before anything is signed or sent.</div></div>'
     + '<h2>Carry on where you left off</h2><div class="card">' + (ME ? '<p>You are signed in as <b>' + esc(ME.email) + '</b>.</p><p><a class="btn ghost" href="#/mine">Go to my documents</a></p>'
       : '<p>Your drafts and documents are kept in your account. Sign in to carry on.</p><p><a class="btn ghost" href="#/login">Sign in</a> <a class="btn ghost" href="#/register">Create an account</a></p>') + '</div>';
+  bindStart();
 }
 
 function authPage(kind) {
@@ -148,11 +149,52 @@ async function adminPage(parts) {
   bind();
 }
 
+function goToSignIn(next) {
+  const dest = "#/register?next=" + encodeURIComponent(next);
+  $app.innerHTML = '<h1>Please create an account or sign in</h1><p>You need an account to start a will, lasting power of attorney or probate draft. We will bring you back afterwards.</p><p><a class="btn accent" href="#/register?next=' + encodeURIComponent(next) + '">Create account</a> <a class="btn ghost" href="#/login?next=' + encodeURIComponent(next) + '">Sign in</a></p>';
+  if (location.hash !== dest) location.hash = dest;
+  else authPage("register");
+}
+
 async function start(id) {
-  if (!ME) { location.hash = "#/register?next=" + encodeURIComponent("s/" + id); return; }
-  const d = await api("/api/drafts", { method: "POST", body: { service: id, answers: {} } });
-  remember(d);
-  location.replace("#/d/" + d.id + "/0");
+  if (!id) {
+    $app.innerHTML = '<h1>Sorry, that document was not found</h1><p><a class="btn ghost" href="#/">Back to the start</a></p>';
+    return;
+  }
+  $app.innerHTML = '<h1>Starting…</h1><p class="muted">Please wait.</p>';
+  if (!ME) { goToSignIn("s/" + id); return; }
+  try {
+    const d = await api("/api/drafts", { method: "POST", body: { service: id, answers: {} } });
+    remember(d);
+    location.replace("#/d/" + d.id + "/0");
+  } catch (e) {
+    if (e.quiet) return;
+    if (e.status === 403) {
+      await fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" });
+      try {
+        const d = await api("/api/drafts", { method: "POST", body: { service: id, answers: {} } });
+        remember(d);
+        location.replace("#/d/" + d.id + "/0");
+        return;
+      } catch (e2) {
+        if (e2.quiet) return;
+        e = e2;
+      }
+    }
+    $app.innerHTML = '<h1>Sorry, something went wrong</h1><div class="alert error">' + esc(e.message) + '</div><p><a class="btn ghost" href="#/">Back to the start</a></p>';
+  }
+}
+
+function bindStart() {
+  $app.querySelectorAll("[data-start]").forEach(a => {
+    a.addEventListener("click", ev => {
+      ev.preventDefault();
+      const sid = a.getAttribute("data-start");
+      const dest = "#/s/" + sid;
+      if (location.hash === dest) start(sid);
+      else location.hash = dest;
+    });
+  });
 }
 
 const visible = (f, container) => !f.show_if || f.show_if.in.includes((container || {})[f.show_if.field]);
