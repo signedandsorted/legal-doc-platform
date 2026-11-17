@@ -82,3 +82,15 @@ def test_will_upload_suggests_old_executors():
         r = client.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("old-will.txt", txt, "text/plain")}).json()
         assert r["kind"] == "Old will"
         assert {"step": "executors", "field": "executors"}.items() <= [s for s in r["suggestions"] if s["mode"] == "append"][0].items()
+
+
+def test_frontend_assets_and_video_metadata():
+    with TestClient(app) as client:
+        html = client.get("/").text
+        assert "/static/app.js" in html and "Wills · Powers of attorney · Probate" in html
+        assert client.get("/static/app.js").status_code == 200 and client.get("/static/styles.css").status_code == 200
+        for sid in ("will", "lpa_property", "lpa_health", "probate"):
+            svc = client.get(f"/api/services/{sid}").json()
+            for st in svc["steps"]:
+                v = st["video"]
+                assert v is None or (v["src"].endswith(".mp4") and client.get(v["src"]).status_code == 200)

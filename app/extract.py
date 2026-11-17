@@ -80,7 +80,12 @@ def suggest(service_id: str, text: str, upload_id: str, filename: str) -> list[d
     appointed = _names_after(r"\bI appoint(?: my \w+)?", flat)
     executors = [n for n in appointed if re.search(re.escape(n) + r"[^.]{0,120}executor", flat, re.I)] or appointed
     guardians = [n for n in appointed if re.search(re.escape(n) + r"[^.]{0,120}guardian", flat, re.I)]
-    attorneys = _names_after(r"\b(?:attorney|attorneys)[:\s]+(?:is|are)?", flat)
+    attorneys = []
+    for m in re.finditer(r"\b[Aa]ttorneys?(?: (?:is|are))?[:\s]+((?:[A-Z][a-zA-Z'\-]+(?:\s+and\s+|,\s*|\s+)?){2,12})", flat):
+        for part in re.split(r",\s*|\s+and\s+", m.group(1)):
+            n = _clean(part.strip())
+            if n and n not in attorneys:
+                attorneys.append(n)
     gifts_to = _names_after(r"\bto my (?:wife|husband|partner|son|daughter|brother|sister|mother|father|friend|grandson|granddaughter|nephew|niece|civil partner)", flat)
     if service_id == "will":
         if maker:
