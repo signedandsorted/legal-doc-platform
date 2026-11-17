@@ -1,0 +1,188 @@
+{
+ "will_intro": {
+  "title": "Making your will",
+  "lines": [
+   "Hello, and welcome. I'm going to walk you through making your will, one step at a time.",
+   "Your will says who looks after your estate, who inherits it, and who would care for any children under eighteen.",
+   "For it to be valid, you need to be eighteen or over, make it by choice, and sign it in front of two adult witnesses, who then sign it in front of you.",
+   "If you have an old will, you can upload it later, and we'll use it to fill in names for you.",
+   "Your answers save as you go, so you can stop and come back whenever you like."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 29.3,
+  "bytes": 964193,
+  "rendered": "2026-11-17T08:15:57-05:00"
+ },
+ "will_about_you": {
+  "title": "About you",
+  "lines": [
+   "First, a little about you.",
+   "Please use your full legal name, as it appears on your passport or driving licence, and tell us any other names you've used.",
+   "We'll also ask whether your permanent home is in England or Wales, and whether you own anything abroad, because that can change the advice you need.",
+   "And if you're planning to marry or form a civil partnership soon, tell us. Marriage normally cancels a will, unless the will says it was made expecting that marriage."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 27.5,
+  "bytes": 905754,
+  "rendered": "2026-11-17T08:23:34-05:00"
+ },
+ "will_family": {
+  "title": "Children and guardians",
+  "lines": [
+   "Now let's talk about your children.",
+   "If you have children under eighteen, you can choose guardians to look after them if there's no surviving parent with parental responsibility.",
+   "Do ask your guardians first, and think about a back-up in case your first choice can't do it.",
+   "Please list all of your children, even if you're not leaving them anything. It helps your solicitor make sure the will is robust."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 22.9,
+  "bytes": 734161,
+  "rendered": "2026-11-17T08:28:58-05:00"
+ },
+ "will_executors": {
+  "title": "Your executors",
+  "lines": [
+   "Next, your executors. These are the people who'll sort out your estate after you die.",
+   "Choose between one and four adults you trust. They can also be people who inherit from you.",
+   "It's wise to add a replacement, in case someone can't act when the time comes.",
+   "If you'd like a professional firm to act, we'll add a charging clause so they can be paid for their work.",
+   "You can also name someone to deal with your online accounts and digital files."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 25.7,
+  "bytes": 787355,
+  "rendered": "2026-11-17T08:36:14-05:00"
+ },
+ "will_gifts": {
+  "title": "Gifts",
+  "lines": [
+   "This is where you leave particular gifts: an item, a sum of money, your home, or a gift to charity.",
+   "Describe each item clearly. My gold wedding ring is much better than my jewellery.",
+   "Tell us what should happen if the person dies before you.",
+   "Gifts to a UK charity are free of inheritance tax, and if ten per cent or more of your estate goes to charity, the rate on some of the rest can fall from forty to thirty-six per cent.",
+   "You can also make sure your pets are looked after, with money for their care."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 30.0,
+  "bytes": 1023123,
+  "rendered": "2026-11-17T08:42:56-05:00"
+ },
+ "will_residue": {
+  "title": "The rest of your estate",
+  "lines": [
+   "Your residuary estate is everything that's left after debts, funeral costs and gifts. For most people, it's the biggest part.",
+   "Give each person a share. One and one means half each.",
+   "For younger people, you can choose whether they inherit at eighteen, twenty-one or twenty-five. Until then, your trustees can use the money for their education and upkeep.",
+   "We'll also add a survivorship period, so someone has to outlive you by, say, twenty-eight days to inherit."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 28.1,
+  "bytes": 925126,
+  "rendered": "2026-11-17T08:49:08-05:00"
+ },
+ "will_trusts": {
+  "title": "Trusts",
+  "lines": [
+   "Trusts can protect what you leave behind, and this is where our service goes further than most.",
+   "A life interest trust lets a partner live in your home for the rest of their life, while protecting its value for your children.",
+   "A discretionary trust lets your trustees decide who benefits and when, guided by your letter of wishes.",
+   "There are also trusts for someone who is disabled or vulnerable, and for passing on a family business.",
+   "If none of these apply, simply answer no. Your solicitor checks every trust before you sign."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 30.6,
+  "bytes": 1040301,
+  "rendered": "2026-11-17T08:56:15-05:00"
+ },
+ "will_extras": {
+  "title": "Extra wishes",
+  "lines": [
+   "A few extra wishes now. They're optional, but they make life much easier for your family.",
+   "Tell us where your list of online accounts is kept. Never put passwords in your will.",
+   "You can cancel loans you've made to family, and say whether big lifetime gifts should count against someone's share.",
+   "If you're leaving someone out who might expect to inherit, explain why in a separate statement. Your solicitor will review it.",
+   "And you can record your funeral and organ donation wishes, and write a private letter of wishes for your executors."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 31.2,
+  "bytes": 959596,
+  "rendered": "2026-11-17T09:02:31-05:00"
+ },
+ "will_documents": {
+  "title": "Your documents",
+  "lines": [
+   "If you have an old will, codicils, or other papers, upload them here. A photo or a scan is fine.",
+   "We read the text and suggest names and details, and you choose which ones to use with a single tap.",
+   "Your new will cancels all earlier wills, but please don't destroy your old original until the new one is signed."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 19.1,
+  "bytes": 706981,
+  "rendered": "2026-11-17T09:06:36-05:00"
+ },
+ "will_review": {
+  "title": "Check and send",
+  "lines": [
+   "Well done, you're nearly there.",
+   "Read through your draft. Every clause has a short, plain English note explaining what it does.",
+   "When you're happy, send it for review. A solicitor checks it and gets in touch. Nothing is signed or filed for you.",
+   "To sign, you'll need two witnesses over eighteen who can both see you sign. They mustn't inherit anything, and neither should their husband, wife or civil partner."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 24.1,
+  "bytes": 749163,
+  "rendered": "2026-11-17T09:11:35-05:00"
+ },
+ "lpa_property_intro": {
+  "title": "LPA for financial decisions",
+  "lines": [
+   "Hello. Let's prepare your lasting power of attorney for financial decisions. That's the official form L P one F.",
+   "It lets people you trust run your bank accounts, pay your bills, and buy or sell your home if you ever need help.",
+   "You'll need attorneys, a certificate provider, and witnesses. Replacement attorneys and people to notify are optional, but they add protection.",
+   "Everyone signs the same original paper form. Then it's registered with the Office of the Public Guardian, which costs ninety-two pounds and takes eight to ten weeks."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 32.5,
+  "bytes": 1009153,
+  "rendered": "2026-11-17T09:18:10-05:00"
+ },
+ "lpa_property_when": {
+  "title": "When can they act?",
+  "lines": [
+   "Section five asks when your attorneys can make decisions.",
+   "You can let them act as soon as the LPA is registered, with your permission while you can still decide for yourself.",
+   "Or you can say they can only act when you don't have mental capacity.",
+   "Many people choose the first option because it's practical, for example if you're in hospital or can't get to the bank."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 21.5,
+  "bytes": 677925,
+  "rendered": "2026-11-17T09:22:40-05:00"
+ },
+ "lpa_health_intro": {
+  "title": "LPA for health and care",
+  "lines": [
+   "Hello. Let's prepare your lasting power of attorney for health and care decisions. That's the official form L P one H.",
+   "It lets people you trust make decisions about your daily care, medical treatment, or moving into a care home, if you can't decide yourself.",
+   "You'll need attorneys, a certificate provider, and witnesses. Replacement attorneys and people to notify are optional, but they add protection.",
+   "Everyone signs the same original paper form. Then it's registered with the Office of the Public Guardian, which costs ninety-two pounds and takes eight to ten weeks."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 34.4,
+  "bytes": 1056832,
+  "rendered": "2026-11-17T09:29:44-05:00"
+ },
+ "lpa_health_life_sustaining": {
+  "title": "Life-sustaining treatment",
+  "lines": [
+   "Section five is about life-sustaining treatment. This is care or medicine needed to keep you alive.",
+   "Option A gives your attorneys the authority to give or refuse consent to it on your behalf.",
+   "Option B means they can't. Doctors will decide, taking your attorneys' views into account.",
+   "Take your time with this one. You'll sign this section in front of a witness, at the same time as you sign section nine."
+  ],
+  "voice": "tts:bf_emma",
+  "seconds": 24.1,
+  "bytes": 753061,
+  "rendered": "2026-11-17T09:36:54-05:00"
+ }
+}

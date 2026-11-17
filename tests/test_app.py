@@ -2,62 +2,111 @@ import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402,F401
 
-from app.main import app  # noqa: E402
+from app.main import app  # noqa: E402,F401
+from tests.helpers import user_client  # noqa: E402
 
 WILL = {
-    "about_you": {"full_name": "Ada Lovelace", "date_of_birth": "1980-12-10", "address": "1 High St, London", "email": "ada@example.com", "marital_status": "Married"},
-    "executors": {"executors": [{"full_name": "Charles Babbage", "address": "2 High St, London", "relationship": "Friend"}]},
-    "guardians": {},
-    "gifts": {"gifts": [{"gift": "my piano", "beneficiary": "Mary Somerville"}]},
-    "residue": {"residuary_beneficiaries": [{"full_name": "Byron King", "share": "1"}, {"full_name": "Anne King", "share": "1"}], "substitution": "Their children take their share"},
-    "wishes": {"funeral_wishes": "Cremation"},
+    "about_you": {"full_name": "Ada Lovelace", "date_of_birth": "1980-12-10", "address": "1 High St, London", "email": "ada@example.com", "marital_status": "Married", "domicile": "England or Wales"},
+    "family": {"children": [{"full_name": "Byron King", "date_of_birth": "2015-01-01"}], "guardians": [{"full_name": "Mary Somerville", "address": "9 Park Rd"}]},
+    "executors": {"executors": [{"full_name": "Charles Babbage", "address": "2 High St, London", "relationship": "Friend"}], "professional_executor": "Yes", "digital_executor": {"full_name": "Grace Hopper", "address": "5 Lane"}},
+    "gifts": {"gifts": [{"type": "An item", "gift": "my piano", "beneficiary": "Mary Somerville"},
+                        {"type": "A gift to charity", "gift": "£5,000", "beneficiary": "Cancer Research UK", "charity_number": "1089464"},
+                        {"type": "My pet, with money for its care", "gift": "my dog Rex", "beneficiary": "Grace Hopper", "pet_money": "2000"}]},
+    "residue": {"residuary_beneficiaries": [{"full_name": "Byron King", "share": "1"}, {"full_name": "Anne King", "share": "1"}], "inherit_age": "25", "substitution": "Their children take their share"},
+    "trusts": {"life_interest": "Yes, over my share of my home", "life_tenant": "William King", "vulnerable_beneficiary": "Anne King"},
+    "extras": {"funeral_wishes": "Cremation", "organ_donation": "I wish to donate my organs and tissue", "loans_forgiven": "£2,000 lent to my brother", "exclude_person": "Yes", "exclusion_name": "Ralph King", "exclusion_reason": "We have not spoken for 20 years", "letter_of_wishes": "Look after the garden."},
 }
 
 
 def test_services_and_health():
-    with TestClient(app) as client:
+    with user_client() as client:
         assert client.get("/healthz").json()["ok"] is True
         assert {s["id"] for s in client.get("/api/services").json()} == {"will", "lpa_property", "lpa_health", "probate"}
         assert client.get("/").status_code == 200
-        assert client.get("/static/videos/will_intro.mp4").status_code == 200
+        svc = client.get("/api/services/will").json()
+        assert [s["id"] for s in svc["steps"]] == ["intro", "about_you", "family", "executors", "gifts", "residue", "trusts", "extras", "documents"]
+        assert all(s.get("sources") for s in svc["steps"])
 
 
 def test_will_flow_to_pdf_and_review():
-    with TestClient(app) as client:
+    with user_client() as client:
         draft = client.post("/api/drafts", json={"service": "will", "answers": {}}).json()
         assert draft["missing"]
         assert client.get(f"/api/drafts/{draft['id']}/pdf").status_code == 400
         saved = client.put(f"/api/drafts/{draft['id']}", json={"answers": WILL}).json()
         assert saved["missing"] == []
         doc = client.get(f"/api/drafts/{draft['id']}/document").json()
-        text = " ".join(p for s in doc["sections"] for p in s["paragraphs"])
-        assert "revoke all my earlier wills" in text and "Byron King (beneficiary): 50%" in text and "my piano" in text
+        will = doc["sections"][0]
+        text = " ".join(will["paragraphs"])
+        for phrase in ("revoke all my earlier wills", "Byron King (beneficiary): 50%", "my piano", "may charge", "digital executor",
+                       "guardian", "registered charity number 1089464", "my dog Rex", "for the rest of their life", "reach the age of 25",
+                       "means-tested benefits", "release the following debts", "cremated", "donate my organs"):
+            assert phrase in text, phrase
+        assert len(will["notes"]) == len(will["paragraphs"])
+        heads = [s["heading"] for s in doc["sections"]]
+        assert any(h.startswith("Statement of reasons") for h in heads) and any(h.startswith("Letter of wishes") for h in heads)
+        assert "Ralph King" not in text
         pdf = client.get(f"/api/drafts/{draft['id']}/pdf")
         assert pdf.headers["content-type"] == "application/pdf" and pdf.content.startswith(b"%PDF")
         assert client.post(f"/api/drafts/{draft['id']}/submit").json()["status"] == "submitted_for_review"
         assert client.put(f"/api/drafts/{draft['id']}", json={"answers": WILL}).status_code == 409
 
 
-def test_lpa_and_probate_documents():
-    with TestClient(app) as client:
-        person = {"full_name": "Jo Bloggs", "date_of_birth": "1970-01-01", "address": "3 Low Rd"}
-        lpa = {
-            "donor": {**person, "email": "jo@example.com"},
-            "attorneys": {"attorneys": [person], "decisions": "Only one attorney"},
-            "life_sustaining": {"life_sustaining": "My attorneys can give or refuse consent"},
-            "notify": {"certificate_provider": {"full_name": "Dr Who", "address": "Surgery", "basis": "Professional (doctor, solicitor, social worker etc.)"}},
-        }
-        d = client.post("/api/drafts", json={"service": "lpa_health", "answers": lpa}).json()
+def test_will_conditional_questions_and_issues():
+    with user_client() as client:
+        a = {**WILL, "about_you": {**WILL["about_you"], "expecting_marriage": "Yes", "domicile": "Outside the UK", "assets_abroad": "Yes, and I have a separate will there"}, "family": {"children": [{"full_name": "Kid", "date_of_birth": "2020-01-01"}]}}
+        d = client.post("/api/drafts", json={"service": "will", "answers": a}).json()
+        assert any("future spouse" in m for m in d["missing"])
+        msgs = " ".join(i["message"] for i in d["issues"])
+        assert "outside England and Wales" in msgs and "assets abroad" in msgs and "not named guardians" in msgs
+        a["about_you"]["partner_name"] = "Charles Babbage"
+        d = client.put(f"/api/drafts/{d['id']}", json={"answers": a}).json()
         assert d["missing"] == []
-        assert "life-sustaining" in client.get(f"/api/drafts/{d['id']}/document").json()["sections"][4]["heading"]
-        probate = {
-            "deceased": {"full_name": "Sam Smith", "date_of_death": "2026-10-01", "address": "4 Mill Lane", "death_registered": "Yes"},
-            "will": {"has_will": "No", "applicant": {"full_name": "Pat Smith", "address": "5 Mill Lane", "email": "pat@example.com"}},
-            "estate": {"assets": [{"description": "House", "value": "300000"}], "debts": [{"description": "Funeral", "value": "4000"}]},
-        }
-        p = client.post("/api/drafts", json={"service": "probate", "answers": probate}).json()
-        doc = client.get(f"/api/drafts/{p['id']}/document").json()
-        text = " ".join(x for s in doc["sections"] for x in s["paragraphs"])
-        assert "PA1A" in text and "£296,000.00" in text
+        text = " ".join(client.get(f"/api/drafts/{d['id']}/document").json()["sections"][0]["paragraphs"])
+        assert "expecting to marry" in text and "so far as they relate to my property in England and Wales" in text
+
+
+def test_discretionary_trust_replaces_fixed_shares():
+    with user_client() as client:
+        a = {**WILL, "trusts": {"discretionary": "Yes"}}
+        d = client.post("/api/drafts", json={"service": "will", "answers": a}).json()
+        text = " ".join(client.get(f"/api/drafts/{d['id']}/document").json()["sections"][0]["paragraphs"])
+        assert "discretionary trust" in text and "50%" not in text
+
+
+def test_will_upload_suggests_old_executors():
+    with user_client() as client:
+        d = client.post("/api/drafts", json={"service": "will", "answers": {}}).json()
+        txt = b"This is the last will of me, I, Ada Mary Lovelace, of 1 High St. I appoint Charles Babbage of 2 Low Rd to be my executor."
+        r = client.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("old-will.txt", txt, "text/plain")}).json()
+        assert r["kind"] == "Old will"
+        assert {"step": "executors", "field": "executors"}.items() <= [s for s in r["suggestions"] if s["mode"] == "append"][0].items()
+
+
+def test_frontend_assets_and_video_metadata():
+    with user_client() as client:
+        html = client.get("/").text
+        assert "/static/app.js" in html and "Wills · Powers of attorney · Probate" in html
+        assert client.get("/static/app.js").status_code == 200 and client.get("/static/styles.css").status_code == 200
+        for sid in ("will", "lpa_property", "lpa_health", "probate"):
+            svc = client.get(f"/api/services/{sid}").json()
+            for st in svc["steps"]:
+                v = st["video"]
+                assert v is None or (v["src"].endswith(".mp4") and client.get(v["src"]).status_code == 200)
+                if v:
+                    assert "presenters" in v
+                    for p in v["presenters"]:
+                        assert p["id"] in ("female", "male") and p["src"].endswith(".mp4")
+                        assert client.get(p["src"]).status_code == 200
+
+
+def test_frontend_has_accounts_admin_and_ai_label():
+    with user_client() as client:
+        html, js = client.get("/").text, client.get("/static/app.js").text
+        assert 'id="acct"' in html
+        assert "X-CSRF-Token" in js and "#/login" in js and "/api/admin/" in js
+        assert "Your reference number" not in js  # no more reference-number-only access
+        assert "AI-generated video: the presenter is not a real person and the voice is an AI-generated voice" in js
+        assert "Choose a presenter" in js and "ldp-presenter" in js

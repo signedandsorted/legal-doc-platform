@@ -1,6 +1,11 @@
-__pycache__/
+*.db
 *.pyc
 .env
-local.db
-test.db
 .venv/
+__pycache__/
+local.db
+static/videos.tar.gz
+test.db
+video/voice/josh/josh_reference.*
+
+voice/josh/josh_reference.*
