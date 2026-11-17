@@ -7,3 +7,5 @@ local.db
 static/videos.tar.gz
 test.db
 video/voice/josh/josh_reference.*
+
+voice/josh/josh_reference.*
