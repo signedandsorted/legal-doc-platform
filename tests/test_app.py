@@ -110,3 +110,24 @@ def test_frontend_has_accounts_admin_and_ai_label():
         assert "Your reference number" not in js  # no more reference-number-only access
         assert "AI-generated video: the presenter is not a real person and the voice is an AI-generated voice" in js
         assert "Choose a presenter" in js and "ldp-presenter" in js
+
+
+def test_index_sets_csrf_cookie_and_page_paths_serve_the_app():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    with TestClient(app) as c:
+        r = c.get("/")
+        assert r.status_code == 200
+        assert c.cookies.get("sas_csrf")
+        assert "no-cache" in r.headers.get("cache-control", "").lower()
+        js = c.get("/static/app.js")
+        assert js.status_code == 200 and "ensureCsrf" in js.text
+        assert "no-cache" in js.headers.get("cache-control", "").lower()
+        for path in ("/wills", "/lpa", "/login", "/admin"):
+            page = c.get(path)
+            assert page.status_code == 200, path
+            assert "text/html" in page.headers.get("content-type", "")
+            assert "/static/app.js" in page.text
+        missing = c.get("/api/definitely-missing")
+        assert missing.status_code == 404
+        assert missing.headers.get("content-type", "").startswith("application/json")

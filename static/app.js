@@ -6,10 +6,18 @@ const cache = {};
 
 let ME = null;
 const cookie = name => (document.cookie.split("; ").find(c => c.startsWith(name + "=")) || "").slice(name.length + 1);
+async function ensureCsrf() {
+  let token = cookie("sas_csrf");
+  if (!token) {
+    await fetch("/api/auth/me", { credentials: "same-origin" });
+    token = cookie("sas_csrf");
+  }
+  return token;
+}
 async function api(path, opts = {}) {
   const isForm = opts.body instanceof FormData;
   const headers = isForm ? {} : { "Content-Type": "application/json" };
-  if (opts.method && opts.method !== "GET") headers["X-CSRF-Token"] = decodeURIComponent(cookie("sas_csrf"));
+  if (opts.method && opts.method !== "GET") headers["X-CSRF-Token"] = decodeURIComponent(await ensureCsrf());
   const res = await fetch(path, { ...opts, credentials: "same-origin", headers, body: opts.body === undefined ? undefined : isForm ? opts.body : JSON.stringify(opts.body) });
   const data = res.headers.get("content-type")?.includes("json") ? await res.json() : null;
   if (res.status === 401 && !path.startsWith("/api/auth/")) { ME = null; nav(); location.hash = "#/login?next=" + encodeURIComponent(location.hash.slice(2)); throw Object.assign(new Error("Please sign in"), { quiet: true }); }
