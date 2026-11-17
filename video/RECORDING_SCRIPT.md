@@ -2,7 +2,7 @@
 
 ## Option A (quickest): 2 minutes so the computer voice matches yours
 
-Josh asked for the narration voice to match his. No recording of Josh's voice was found on the server or in the archive (checked 17 Nov 2026), so nothing has been cloned yet.
+Josh asked for the narration voice to match his. The 2-minute reference recording was copied to the server on 17 Nov 2026 (America/Detroit). OpenVoice cloning and the male-presenter renders are queued for the overnight window (10 PM–6 AM ET), one clip at a time, behind the memory watchdog. The reference file is not committed to the repo.
 
 1. In a quiet room, read any 4 or 5 blocks below aloud (about 2 minutes; at least 1 minute of clean speech, no music or other voices). A phone voice memo is fine.
 2. Put the file on the server at `~/legal-doc-platform/video/voice/josh/josh_reference.m4a` (or `.wav`/`.mp3`).

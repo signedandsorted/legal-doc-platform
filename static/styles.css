@@ -64,3 +64,4 @@ h1:focus{outline:none}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 18px}.tabs a{padding:8px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);text-decoration:none;color:var(--navy)}.tabs a[aria-current=page]{background:var(--navy);color:#fff;border-color:var(--navy)}
 pre.answers{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;max-height:480px;font-size:13px}
 .ai-label{margin:-10px 0 16px;color:var(--muted)}
+.presenter-choice{border:0;margin:0 0 8px;padding:0}.presenter-choice legend{font-weight:600;margin:0 0 6px;color:var(--navy)}.presenter-opt{display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0;cursor:pointer}

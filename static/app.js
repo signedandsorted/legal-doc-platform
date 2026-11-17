@@ -192,12 +192,34 @@ function readForm(form) {
   return out;
 }
 
+function chosenPresenter(v) {
+  const list = (v && v.presenters) || [];
+  if (!list.length) return null;
+  const want = localStorage.getItem("ldp-presenter") || v.default_presenter || "female";
+  return list.find(p => p.id === want) || list[0];
+}
 function videoHtml(v, title) {
   if (!v) return "";
-  return '<div class="video"><video controls preload="none" playsinline' + (v.poster ? ' poster="' + esc(v.poster) + '"' : "") + ' aria-label="Video: ' + esc(title) + '"><source src="' + esc(v.src) + '" type="video/mp4">'
-    + (v.captions ? '<track kind="captions" srclang="en" label="English" src="' + esc(v.captions) + '" default>' : "") + '</video></div>'
+  const ch = chosenPresenter(v) || v;
+  const choice = (v.presenters && v.presenters.length > 1)
+    ? '<fieldset class="presenter-choice"><legend>Choose a presenter</legend>'
+      + v.presenters.map(p => {
+          const on = ch && ch.id === p.id;
+          return '<label class="presenter-opt"><input type="radio" name="ldp-presenter" value="' + esc(p.id) + '"' + (on ? " checked" : "") + '><span>' + esc(p.label) + '</span></label>';
+        }).join("")
+      + '</fieldset>'
+    : "";
+  return choice
+    + '<div class="video"><video controls preload="none" playsinline' + (ch.poster ? ' poster="' + esc(ch.poster) + '"' : "") + ' aria-label="Video: ' + esc(title) + '"><source src="' + esc(ch.src) + '" type="video/mp4">'
+    + (ch.captions ? '<track kind="captions" srclang="en" label="English" src="' + esc(ch.captions) + '" default>' : "") + '</video></div>'
     + '<p class="ai-label small"><span aria-hidden="true">ⓘ</span> AI-generated video: the presenter is not a real person and the voice is an AI-generated voice.</p>';
 }
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (!t || t.name !== "ldp-presenter") return;
+  localStorage.setItem("ldp-presenter", t.value);
+  if (typeof route === "function") route();
+});
 const sourcesHtml = list => list && list.length ? '<details class="sources"><summary>Official GOV.UK guidance for this step</summary><ul>' + list.map(s => '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title) + '</a></li>').join("") + '</ul></details>' : "";
 const issuesHtml = issues => ["error", "warning", "info"].map(level => { const xs = (issues || []).filter(i => i.level === level); return xs.length ? '<div class="alert ' + level + '" role="' + (level === "error" ? "alert" : "status") + '"><b>' + ({ error: "Please change", warning: "Please check", info: "Good to know" })[level] + '</b><ul>' + xs.map(i => '<li>' + esc(i.message) + '</li>').join("") + '</ul></div>' : ""; }).join("");
 

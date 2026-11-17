@@ -13,8 +13,11 @@ Swap in Josh's voice: record each script in video/RECORDING_SCRIPT.md as video/v
 Any video without a recording falls back to the TTS voice, so he can do them a few at a time.
 
 Usage: render.py [--only id1,id2] [--force] [--voice bf_emma] [--voice-dir DIR]
+                 [--presenter female|male] [--source-image PNG] [--openvoice-ref FILE]
 Env:   VIDEO_TOOLS (default ~/video-tools) holding env/, tts-env/, SadTalker/, models/kokoro/, presenter.png
 The script pauses itself during Josh's no-heavy-work windows (11:50-12:40 and 14:50-15:40 US Eastern).
+Overnight-only by default (10 PM–6 AM ET) unless VIDEO_ALLOW_DAYTIME=1. Checks ~/.openclaw/logs/memwatch.pause
+and MemAvailable >= 20 GB before each clip.
 """
 import argparse
 import json
@@ -36,6 +39,8 @@ BLACKOUTS = [((11, 50), (12, 40)), ((14, 50), (15, 40))]
 ET = ZoneInfo("America/New_York")
 GAP = 0.35  # seconds of silence between sentences
 LEAD = 0.5
+PAUSE_FLAG = Path.home() / ".openclaw/logs/memwatch.pause"
+OVERNIGHT_ONLY = os.environ.get("VIDEO_ALLOW_DAYTIME") != "1"
 
 
 def wait_for_window():
@@ -51,6 +56,35 @@ def wait_for_window():
                 break
         else:
             return
+
+
+def in_overnight_window() -> bool:
+    now = datetime.now(ET)
+    return now.hour >= 22 or now.hour < 6
+
+
+def mem_available_gb() -> int:
+    for line in Path("/proc/meminfo").read_text().splitlines():
+        if line.startswith("MemAvailable:"):
+            return int(line.split()[1]) // 1048576
+    return 0
+
+
+def wait_for_memwatch():
+    """Honor the memory watchdog and the overnight window before starting a clip."""
+    while True:
+        if OVERNIGHT_ONLY and not in_overnight_window():
+            raise SystemExit("outside overnight window 10 PM–6 AM ET (set VIDEO_ALLOW_DAYTIME=1 to override)")
+        if PAUSE_FLAG.exists():
+            print("[pause] memwatch pause flag set; sleeping 60s", flush=True)
+            time.sleep(60)
+            continue
+        avail = mem_available_gb()
+        if avail < 20:
+            print(f"[pause] MemAvailable {avail} GB is below 20 GB; sleeping 60s", flush=True)
+            time.sleep(60)
+            continue
+        return
 
 
 def run(cmd, **kw):
@@ -105,11 +139,11 @@ def narration(vid: str, lines: list[str], work: Path, voice: str, voice_dir: Pat
     return audio, cues, f"tts:{voice}"
 
 
-def talking_head(audio: Path, work: Path) -> Path:
+def talking_head(audio: Path, work: Path, source_image: Path) -> Path:
     res = work / "sadtalker"
     shutil.rmtree(res, ignore_errors=True)
     env = {**os.environ, "PYTORCH_ALLOC_CONF": "expandable_segments:True", "MIOPEN_FIND_MODE": "FAST"}
-    run([str(TOOLS / "env/bin/python"), "inference.py", "--driven_audio", str(audio), "--source_image", str(TOOLS / "presenter.png"),
+    run([str(TOOLS / "env/bin/python"), "inference.py", "--driven_audio", str(audio), "--source_image", str(source_image),
          "--result_dir", str(res), "--still", "--preprocess", "full", "--size", "256", "--batch_size", "1"], cwd=TOOLS / "SadTalker", env=env)
     vids = sorted(res.glob("*.mp4"))
     if not vids:
@@ -121,9 +155,10 @@ def esc(s: str) -> str:
     return s.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\u2019").replace("%", "\\%")
 
 
-def compose(vid: str, title: str, head: Path, audio: Path, cues, work: Path):
+def compose(vid: str, title: str, head: Path, audio: Path, cues, work: Path, stem: str | None = None):
     OUT.mkdir(parents=True, exist_ok=True)
-    mp4, vtt, jpg = OUT / f"{vid}.mp4", OUT / f"{vid}.vtt", OUT / f"{vid}.jpg"
+    stem = stem or vid
+    mp4, vtt, jpg = OUT / f"{stem}.mp4", OUT / f"{stem}.vtt", OUT / f"{stem}.jpg"
     # Lower third with the step title for the first 6 seconds, small brand mark throughout.
     vf = (f"scale=960:540:flags=lanczos,unsharp=5:5:0.6,"
           f"drawbox=x=0:y=ih-92:w=iw*0.62:h=60:color=0x14213d@0.82:t=fill:enable='between(t,0.3,6.5)',"
@@ -137,36 +172,90 @@ def compose(vid: str, title: str, head: Path, audio: Path, cues, work: Path):
     return mp4
 
 
+def apply_openvoice(ref: Path, audio: Path, work: Path) -> Path:
+    """Clone Josh's tone onto the narration with OpenVoice (MIT)."""
+    out = work / "narration_josh.wav"
+    py = TOOLS / "openvoice-env/bin/python"
+    if not py.exists():
+        raise SystemExit("OpenVoice env missing; run ~/video-tools/openvoice_setup.sh overnight first")
+    script = ROOT / "video/openvoice_convert.py"
+    run([str(py), str(script), str(ref), str(audio), str(out)])
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default="")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--voice", default="bf_emma")
     ap.add_argument("--voice-dir", default="")
+    ap.add_argument("--presenter", choices=("female", "male"), default="female")
+    ap.add_argument("--source-image", default="")
+    ap.add_argument("--openvoice-ref", default="")
     args = ap.parse_args()
     scripts = {k: v for k, v in json.loads((ROOT / "video/scripts.json").read_text()).items() if not k.startswith("_")}
     only = [x for x in args.only.split(",") if x]
     voice_dir = Path(args.voice_dir) if args.voice_dir else None
+    source_image = Path(args.source_image) if args.source_image else (TOOLS / "presenter.png")
+    if not source_image.exists():
+        raise SystemExit(f"presenter image missing: {source_image}")
     manifest_path = OUT / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     for vid, s in scripts.items():
         if only and vid not in only:
             continue
-        if not args.force and (OUT / f"{vid}.mp4").exists() and manifest.get(vid, {}).get("lines") == s["lines"]:
-            print(f"[skip] {vid} (up to date)")
-            continue
+        stem = f"{vid}_{args.presenter}"
+        # Female also keeps the unsuffixed path for older app clients.
+        skip_ok = (OUT / f"{stem}.mp4").exists() or (args.presenter == "female" and (OUT / f"{vid}.mp4").exists())
+        man_key = stem
+        prev = manifest.get(man_key) or (manifest.get(vid) if args.presenter == "female" else None)
+        if not args.force and skip_ok and prev and prev.get("lines") == s["lines"] and prev.get("presenter") in (args.presenter, None) and (args.presenter == "female" or prev.get("voice", "").startswith("openvoice")):
+            # Re-render male when a previous clip is female-only or has no OpenVoice tag.
+            if args.presenter == "female" and (OUT / f"{stem}.mp4").exists():
+                print(f"[skip] {stem} (up to date)")
+                continue
+            if args.presenter == "female" and not (OUT / f"{stem}.mp4").exists():
+                # Existing unsuffixed female file counts as up to date; link/copy suffix for the new API.
+                for ext in ("mp4", "vtt", "jpg"):
+                    src, dst = OUT / f"{vid}.{ext}", OUT / f"{stem}.{ext}"
+                    if src.exists() and not dst.exists():
+                        os.link(src, dst) if hasattr(os, "link") else shutil.copy2(src, dst)
+                print(f"[skip] {vid} (up to date female; linked {stem})")
+                continue
+            if args.presenter == "male":
+                print(f"[skip] {stem} (up to date)")
+                continue
+        wait_for_memwatch()
         wait_for_window()
         t0 = time.time()
-        work = TOOLS / "work" / vid
+        work = TOOLS / "work" / stem
         shutil.rmtree(work, ignore_errors=True)
         work.mkdir(parents=True)
         audio, cues, voice_used = narration(vid, s["lines"], work, args.voice, voice_dir)
-        head = talking_head(audio, work)
-        mp4 = compose(vid, s["title"], head, audio, cues, work)
-        manifest[vid] = {"title": s["title"], "lines": s["lines"], "voice": voice_used, "seconds": round(wav_seconds(audio), 1),
-                         "bytes": mp4.stat().st_size, "rendered": datetime.now(ET).isoformat(timespec="seconds")}
+        if args.openvoice_ref:
+            ref = Path(args.openvoice_ref)
+            if not ref.exists():
+                raise SystemExit(f"OpenVoice reference missing: {ref}")
+            audio = apply_openvoice(ref, audio, work)
+            voice_used = f"openvoice:josh from {voice_used}"
+        head = talking_head(audio, work, source_image)
+        mp4 = compose(vid, s["title"], head, audio, cues, work, stem=stem)
+        if args.presenter == "female":
+            # Keep unsuffixed names in sync for existing players.
+            for ext in ("mp4", "vtt", "jpg"):
+                src, dst = OUT / f"{stem}.{ext}", OUT / f"{vid}.{ext}"
+                if src.exists():
+                    if dst.exists() or dst.is_symlink():
+                        dst.unlink()
+                    os.link(src, dst)
+        entry = {"title": s["title"], "lines": s["lines"], "voice": voice_used, "presenter": args.presenter,
+                 "seconds": round(wav_seconds(audio), 1), "bytes": mp4.stat().st_size,
+                 "rendered": datetime.now(ET).isoformat(timespec="seconds")}
+        manifest[man_key] = entry
+        if args.presenter == "female":
+            manifest[vid] = {**entry, "alias_of": stem}
         manifest_path.write_text(json.dumps(manifest, indent=1))
-        print(f"[done] {vid}: {manifest[vid]['seconds']}s, {mp4.stat().st_size // 1024} KB, {voice_used}, took {int(time.time() - t0)}s", flush=True)
+        print(f"[done] {stem}: {entry['seconds']}s, {mp4.stat().st_size // 1024} KB, {voice_used}, took {int(time.time() - t0)}s", flush=True)
 
 
 if __name__ == "__main__":

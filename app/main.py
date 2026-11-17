@@ -86,13 +86,41 @@ def service(service_id: str):
     return _with_videos(SERVICES[service_id])
 
 
-def _video(vid: str | None) -> dict | None:
-    if not vid or not (STATIC / "videos" / f"{vid}.mp4").exists():
+def _video_assets(stem: str) -> dict | None:
+    if not (STATIC / "videos" / f"{stem}.mp4").exists():
         return None
-    out = {"id": vid, "src": f"/static/videos/{vid}.mp4"}
+    out = {"src": f"/static/videos/{stem}.mp4"}
     for ext, key in (("vtt", "captions"), ("jpg", "poster")):
-        if (STATIC / "videos" / f"{vid}.{ext}").exists():
-            out[key] = f"/static/videos/{vid}.{ext}"
+        if (STATIC / "videos" / f"{stem}.{ext}").exists():
+            out[key] = f"/static/videos/{stem}.{ext}"
+    return out
+
+
+def _video(vid: str | None) -> dict | None:
+    if not vid:
+        return None
+    female = _video_assets(f"{vid}_female") or _video_assets(vid)
+    male = _video_assets(f"{vid}_male")
+    if not female and not male:
+        return None
+    default = female or male
+    out = {"id": vid, **default, "default_presenter": "female" if female else "male"}
+    presenters = []
+    if female:
+        presenters.append({
+            "id": "female",
+            "label": "Female presenter",
+            "voice": "Licensed female voice: Kokoro-82M bf_emma (Apache-2.0)",
+            **female,
+        })
+    if male:
+        presenters.append({
+            "id": "male",
+            "label": "Male presenter",
+            "voice": "Male presenter with Josh's cloned voice (OpenVoice, MIT)",
+            **male,
+        })
+    out["presenters"] = presenters
     return out
 
 

@@ -95,6 +95,11 @@ def test_frontend_assets_and_video_metadata():
             for st in svc["steps"]:
                 v = st["video"]
                 assert v is None or (v["src"].endswith(".mp4") and client.get(v["src"]).status_code == 200)
+                if v:
+                    assert "presenters" in v
+                    for p in v["presenters"]:
+                        assert p["id"] in ("female", "male") and p["src"].endswith(".mp4")
+                        assert client.get(p["src"]).status_code == 200
 
 
 def test_frontend_has_accounts_admin_and_ai_label():
@@ -104,3 +109,4 @@ def test_frontend_has_accounts_admin_and_ai_label():
         assert "X-CSRF-Token" in js and "#/login" in js and "/api/admin/" in js
         assert "Your reference number" not in js  # no more reference-number-only access
         assert "AI-generated video: the presenter is not a real person and the voice is an AI-generated voice" in js
+        assert "Choose a presenter" in js and "ldp-presenter" in js
