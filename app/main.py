@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import insert, select, text, update
 
 from .db import drafts, engine, init_db, new_id, now
-from .documents import build_document, missing_fields
+from .documents import build_document, find_issues, missing_fields
 from .guides import SERVICES
 from .pdf import render_pdf
 
@@ -55,7 +55,21 @@ def services():
 def service(service_id: str):
     if service_id not in SERVICES:
         raise HTTPException(404, "Unknown service")
-    return SERVICES[service_id]
+    return _with_videos(SERVICES[service_id])
+
+
+def _video(vid: str | None) -> dict | None:
+    if not vid or not (STATIC / "videos" / f"{vid}.mp4").exists():
+        return None
+    out = {"id": vid, "src": f"/static/videos/{vid}.mp4"}
+    for ext, key in (("vtt", "captions"), ("jpg", "poster")):
+        if (STATIC / "videos" / f"{vid}.{ext}").exists():
+            out[key] = f"/static/videos/{vid}.{ext}"
+    return out
+
+
+def _with_videos(s: dict) -> dict:
+    return {**s, "review_video": _video(s.get("review_video")), "steps": [{**st, "video": _video(st.get("video"))} for st in s["steps"]]}
 
 
 def _client(answers: dict) -> tuple[str, str | None]:
@@ -75,7 +89,7 @@ def _row(draft_id: str):
 
 
 def _out(row) -> dict:
-    return {"id": row["id"], "service": row["service"], "answers": row["answers"], "status": row["status"], "missing": missing_fields(row["service"], row["answers"]), "updated_at": row["updated_at"].isoformat()}
+    return {"id": row["id"], "service": row["service"], "answers": row["answers"], "status": row["status"], "missing": missing_fields(row["service"], row["answers"]), "issues": find_issues(row["service"], row["answers"]), "updated_at": row["updated_at"].isoformat()}
 
 
 @app.post("/api/drafts")
@@ -109,6 +123,9 @@ def _complete(row):
     missing = missing_fields(row["service"], row["answers"])
     if missing:
         raise HTTPException(400, {"message": "Some answers are missing", "missing": missing})
+    errors = [i["message"] for i in find_issues(row["service"], row["answers"]) if i["level"] == "error"]
+    if errors:
+        raise HTTPException(400, {"message": "Some answers need changing", "missing": errors})
     return build_document(row["service"], row["answers"])
 
 

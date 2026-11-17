@@ -1,3 +1,5 @@
+from .guide_lpa import LPA_HEALTH, LPA_PROPERTY
+
 PERSON = [
     {"name": "full_name", "label": "Full name", "type": "text", "required": True},
     {"name": "address", "label": "Address", "type": "textarea", "required": True},
@@ -14,7 +16,7 @@ WILL = {
         {
             "id": "intro",
             "title": "Before you start",
-            "video": "/static/videos/will_intro.mp4",
+            "video": "will_intro",
             "guidance": [
                 "A will says who looks after your estate (your executors), who receives it (your beneficiaries) and who cares for your children under 18 (guardians).",
                 "You will need the full names and addresses of the people you want to include, and a rough idea of what you own and owe.",
@@ -115,127 +117,6 @@ WILL = {
     ],
 }
 
-ATTORNEYS = [
-    {"name": "full_name", "label": "Full name", "type": "text", "required": True},
-    {"name": "date_of_birth", "label": "Date of birth", "type": "date", "required": True},
-    {"name": "address", "label": "Address", "type": "textarea", "required": True},
-    {"name": "email", "label": "Email (optional)", "type": "email"},
-]
-
-
-def _lpa(kind: str) -> dict:
-    property_kind = kind == "lpa_property"
-    steps = [
-        {
-            "id": "intro",
-            "title": "Before you start",
-            "guidance": [
-                "A lasting power of attorney (LPA) lets you choose people (attorneys) to make decisions for you if you cannot make them yourself.",
-                ("This LPA covers property and financial affairs: bank accounts, bills, benefits, pensions and selling your home." if property_kind else
-                 "This LPA covers health and welfare: daily care, medical treatment, where you live and, if you choose, life-sustaining treatment."),
-                "You must have mental capacity when you make the LPA. It must be registered with the Office of the Public Guardian (OPG) before it can be used.",
-                "We prepare your answers so they can be entered on the official GOV.UK LPA service or the OPG form, and a solicitor checks them first.",
-            ],
-            "fields": [],
-        },
-        {
-            "id": "donor",
-            "title": "About you (the donor)",
-            "guidance": ["Use your full legal name and current address."],
-            "fields": [
-                {"name": "full_name", "label": "Your full name", "type": "text", "required": True},
-                {"name": "date_of_birth", "label": "Date of birth", "type": "date", "required": True},
-                {"name": "address", "label": "Your address", "type": "textarea", "required": True},
-                {"name": "email", "label": "Email", "type": "email", "required": True},
-            ],
-        },
-        {
-            "id": "attorneys",
-            "title": "Your attorneys",
-            "guidance": [
-                "Attorneys must be 18 or over. Choose people you trust who understand your wishes." + (" A property and financial affairs attorney must not be bankrupt or subject to a debt relief order." if property_kind else ""),
-                "If you appoint more than one, choose how they decide: jointly (all must agree on everything), jointly and severally (together or on their own), or jointly for some decisions and jointly and severally for others.",
-            ],
-            "fields": [
-                {"name": "attorneys", "label": "Attorneys", "type": "list", "min": 1, "max": 5, "fields": ATTORNEYS},
-                {"name": "decisions", "label": "How should they make decisions?", "type": "select", "required": True, "options": ["Only one attorney", "Jointly and severally", "Jointly", "Jointly for some decisions, jointly and severally for others"]},
-                {"name": "joint_decisions", "label": "If mixed: which decisions must be made jointly? (optional)", "type": "textarea"},
-            ],
-        },
-        {
-            "id": "replacements",
-            "title": "Replacement attorneys",
-            "guidance": ["A replacement attorney can step in if an attorney can no longer act. This is optional."],
-            "fields": [
-                {"name": "replacement_attorneys", "label": "Replacement attorneys (optional)", "type": "list", "min": 0, "max": 5, "fields": ATTORNEYS},
-            ],
-        },
-    ]
-    if property_kind:
-        steps.append({
-            "id": "when",
-            "title": "When it can be used",
-            "guidance": [
-                "You can let your attorneys use the LPA as soon as it is registered (with your permission while you still have capacity), or only once you no longer have mental capacity.",
-                "Many people choose \"as soon as registered\" because it is easier for banks to accept.",
-            ],
-            "fields": [
-                {"name": "when_used", "label": "When can your attorneys use the LPA?", "type": "select", "required": True, "options": ["As soon as it is registered", "Only when I do not have mental capacity"]},
-            ],
-        })
-    else:
-        steps.append({
-            "id": "life_sustaining",
-            "title": "Life-sustaining treatment",
-            "guidance": [
-                "Life-sustaining treatment is care needed to keep you alive, for example a ventilator or CPR.",
-                "Choose whether your attorneys can give or refuse consent to it on your behalf. If not, your doctors decide.",
-            ],
-            "fields": [
-                {"name": "life_sustaining", "label": "Life-sustaining treatment", "type": "select", "required": True, "options": ["My attorneys can give or refuse consent", "My attorneys cannot give or refuse consent"]},
-            ],
-        })
-    steps += [
-        {
-            "id": "notify",
-            "title": "People to notify and your certificate provider",
-            "guidance": [
-                "You can name up to five people to be told when the LPA is registered, so they can raise concerns. This is optional.",
-                "A certificate provider confirms you understand the LPA and are not under pressure. They must be someone you have known well for at least two years, or a professional such as a doctor or solicitor, and must not be an attorney or a family member.",
-            ],
-            "fields": [
-                {"name": "people_to_notify", "label": "People to notify (optional)", "type": "list", "min": 0, "max": 5, "fields": PERSON[:2]},
-                {"name": "certificate_provider", "label": "Certificate provider", "type": "group", "fields": [PERSON[0], PERSON[1], {"name": "basis", "label": "How you know them", "type": "select", "required": True, "options": ["Known me well for at least 2 years", "Professional (doctor, solicitor, social worker etc.)"]}]},
-            ],
-        },
-        {
-            "id": "preferences",
-            "title": "Preferences and instructions",
-            "guidance": [
-                "Preferences are wishes your attorneys should take into account. Instructions are rules they must follow.",
-                "Keep instructions short and practical. An instruction that cannot work legally may stop the LPA being registered.",
-            ],
-            "fields": [
-                {"name": "preferences", "label": "Preferences (optional)", "type": "textarea"},
-                {"name": "instructions", "label": "Instructions (optional)", "type": "textarea"},
-            ],
-        },
-    ]
-    return {
-        "id": kind,
-        "title": "Lasting power of attorney: " + ("property and financial affairs" if property_kind else "health and welfare"),
-        "summary": "Prepare an LPA for England and Wales with step-by-step help. A solicitor checks it before you sign and register it.",
-        "steps": steps,
-        "next_steps": [
-            "A solicitor reviews your answers and contacts you with any questions.",
-            "Enter the checked answers on the GOV.UK \"Make a lasting power of attorney\" service, or we prepare the official form for you.",
-            "Sign in this order: you (the donor) first, then the certificate provider, then the attorneys and replacement attorneys. Signatures must be witnessed as the form explains.",
-            "Register the LPA with the Office of the Public Guardian and pay the registration fee (check the current fee on GOV.UK; reductions and exemptions are available).",
-            "Registration can take several weeks. The LPA cannot be used until it is registered.",
-        ],
-    }
-
-
 PROBATE = {
     "id": "probate",
     "title": "Probate helper",
@@ -305,4 +186,4 @@ PROBATE = {
     ],
 }
 
-SERVICES = {s["id"]: s for s in (WILL, _lpa("lpa_property"), _lpa("lpa_health"), PROBATE)}
+SERVICES = {s["id"]: s for s in (WILL, LPA_PROPERTY, LPA_HEALTH, PROBATE)}

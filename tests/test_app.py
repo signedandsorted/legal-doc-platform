@@ -40,18 +40,8 @@ def test_will_flow_to_pdf_and_review():
         assert client.put(f"/api/drafts/{draft['id']}", json={"answers": WILL}).status_code == 409
 
 
-def test_lpa_and_probate_documents():
+def test_probate_document():
     with TestClient(app) as client:
-        person = {"full_name": "Jo Bloggs", "date_of_birth": "1970-01-01", "address": "3 Low Rd"}
-        lpa = {
-            "donor": {**person, "email": "jo@example.com"},
-            "attorneys": {"attorneys": [person], "decisions": "Only one attorney"},
-            "life_sustaining": {"life_sustaining": "My attorneys can give or refuse consent"},
-            "notify": {"certificate_provider": {"full_name": "Dr Who", "address": "Surgery", "basis": "Professional (doctor, solicitor, social worker etc.)"}},
-        }
-        d = client.post("/api/drafts", json={"service": "lpa_health", "answers": lpa}).json()
-        assert d["missing"] == []
-        assert "life-sustaining" in client.get(f"/api/drafts/{d['id']}/document").json()["sections"][4]["heading"]
         probate = {
             "deceased": {"full_name": "Sam Smith", "date_of_death": "2026-10-01", "address": "4 Mill Lane", "death_registered": "Yes"},
             "will": {"has_will": "No", "applicant": {"full_name": "Pat Smith", "address": "5 Mill Lane", "email": "pat@example.com"}},

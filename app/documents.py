@@ -1,8 +1,11 @@
 from datetime import date
 
+from .common import DRAFT_NOTICE, missing_in
+from .common import money as _money
+from .common import names as _names  # noqa: F401
+from .common import person as _person
+from .doc_lpa import build_lpa, lpa_issues
 from .guides import SERVICES
-
-DRAFT_NOTICE = "DRAFT FOR SOLICITOR REVIEW. This document has not been checked by a solicitor and must not be signed until it has."
 
 
 def missing_fields(service_id: str, answers: dict) -> list[str]:
@@ -10,49 +13,34 @@ def missing_fields(service_id: str, answers: dict) -> list[str]:
     for step in SERVICES[service_id]["steps"]:
         section = answers.get(step["id"]) or {}
         for field in step["fields"]:
-            missing += _missing(field, section.get(field["name"]), step["title"])
+            missing += missing_in(field, section.get(field["name"]), step["title"], section)
     return missing
 
 
-def _missing(field: dict, value, where: str) -> list[str]:
-    label = f"{where}: {field['label']}"
-    if field["type"] == "list":
-        items = value or []
-        out = [f"{label} (at least {field['min']})"] if len(items) < field.get("min", 0) else []
-        for i, item in enumerate(items, 1):
-            for sub in field["fields"]:
-                out += _missing(sub, (item or {}).get(sub["name"]), f"{label} {i}")
-        return out
-    if field["type"] == "group":
-        return [m for sub in field["fields"] for m in _missing(sub, (value or {}).get(sub["name"]), label)]
-    if field.get("required") and (value is None or str(value).strip() == ""):
-        return [label]
+def find_issues(service_id: str, answers: dict, uploads_text: str = "") -> list[dict]:
+    if service_id.startswith("lpa_"):
+        return lpa_issues(service_id, answers, uploads_text)
     return []
 
 
-def _names(people) -> str:
-    names = [p.get("full_name", "").strip() for p in people or [] if p and p.get("full_name")]
-    if len(names) < 2:
-        return "".join(names)
-    return ", ".join(names[:-1]) + " and " + names[-1]
+def _dedupe(sources: list) -> list:
+    seen, out = set(), []
+    for x in sources:
+        if x["url"] not in seen:
+            seen.add(x["url"])
+            out.append(x)
+    return out
 
 
-def _person(p: dict) -> str:
-    parts = [p.get("full_name", "")]
-    if p.get("address"):
-        parts.append("of " + " ".join(p["address"].split()))
-    return " ".join(parts)
-
-
-def _money(value) -> str:
-    try:
-        return f"£{float(value):,.2f}"
-    except (TypeError, ValueError):
-        return str(value)
-
-
-def build_document(service_id: str, answers: dict) -> dict:
-    return {"will": _will, "lpa_property": _lpa, "lpa_health": _lpa, "probate": _probate}[service_id](service_id, answers)
+def build_document(service_id: str, answers: dict, uploads: list | None = None) -> dict:
+    if service_id.startswith("lpa_"):
+        doc = build_lpa(service_id, answers, uploads)
+    else:
+        doc = {"will": _will, "probate": _probate}[service_id](service_id, answers)
+        doc["sources"] = [x for st in SERVICES[service_id]["steps"] for x in st.get("sources", [])]
+    doc["sources"] = _dedupe(doc.get("sources", []))
+    doc["issues"] = find_issues(service_id, answers, " ".join(u.get("text", "") for u in uploads or []))
+    return doc
 
 
 def _will(_, a: dict) -> dict:
@@ -96,29 +84,6 @@ def _will(_, a: dict) -> dict:
         "Witness 2 signature, full name, address and occupation: ______________________________________________",
     ]})
     return {"title": "Will: " + me.get("full_name", ""), "notice": DRAFT_NOTICE, "sections": sections, "next_steps": SERVICES["will"]["next_steps"]}
-
-
-def _lpa(service_id: str, a: dict) -> dict:
-    s = SERVICES[service_id]
-    donor = a.get("donor", {})
-    att = a.get("attorneys", {})
-    rows = [
-        {"heading": "Section 1: the donor", "paragraphs": [_person(donor), "Date of birth: " + donor.get("date_of_birth", "")]},
-        {"heading": "Section 2: the attorneys", "paragraphs": [f"{_person(p)} (born {p.get('date_of_birth', '')})" for p in att.get("attorneys") or []]},
-        {"heading": "Section 3: how decisions are made", "paragraphs": [att.get("decisions", "")] + ([att["joint_decisions"]] if att.get("joint_decisions") else [])},
-        {"heading": "Section 4: replacement attorneys", "paragraphs": [f"{_person(p)} (born {p.get('date_of_birth', '')})" for p in a.get("replacements", {}).get("replacement_attorneys") or []] or ["None"]},
-    ]
-    if service_id == "lpa_property":
-        rows.append({"heading": "Section 5: when the LPA can be used", "paragraphs": [a.get("when", {}).get("when_used", "")]})
-    else:
-        rows.append({"heading": "Section 5: life-sustaining treatment", "paragraphs": [a.get("life_sustaining", {}).get("life_sustaining", "")]})
-    notify = a.get("notify", {})
-    rows.append({"heading": "Section 6: people to notify", "paragraphs": [_person(p) for p in notify.get("people_to_notify") or []] or ["None"]})
-    prefs = a.get("preferences", {})
-    rows.append({"heading": "Section 7: preferences and instructions", "paragraphs": ["Preferences: " + (prefs.get("preferences") or "None"), "Instructions: " + (prefs.get("instructions") or "None")]})
-    cp = notify.get("certificate_provider") or {}
-    rows.append({"heading": "Certificate provider", "paragraphs": [_person(cp), cp.get("basis", "")]})
-    return {"title": s["title"] + ": " + donor.get("full_name", ""), "notice": DRAFT_NOTICE + " This is a summary of your answers to transfer to the official LPA form or GOV.UK service; it is not itself the LPA.", "sections": rows, "next_steps": s["next_steps"]}
 
 
 def _probate(_, a: dict) -> dict:
