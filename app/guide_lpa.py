@@ -160,7 +160,7 @@ def lpa_service(kind: str) -> dict:
             ],
         },
         {
-            "id": "documents", "title": "Your documents", "video": "lpa_documents", "uploads": True,
+            "id": "documents", "title": "Your documents", "video": "lpa_documents", "uploads": ["Existing LPA", "Enduring power of attorney (EPA)", "Other"],
             "guidance": [
                 "If you already have an LPA or an enduring power of attorney, upload it. We use it to suggest details and to check that nobody named in it is acting as your certificate provider.",
                 "LPAs made on older forms (LPA114 or LPA117 before 1 January 2016, LP PA or LP PW before 1 April 2011) can still be registered with form LP2. Otherwise a new LPA is needed.",

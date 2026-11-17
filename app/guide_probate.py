@@ -130,7 +130,7 @@ PROBATE = {
             ] + [{"name": k, "label": label, "type": "checkbox"} for k, label in FULL_DETAIL_TRIGGERS],
         },
         {
-            "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": True,
+            "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Other"],
             "guidance": [
                 "Upload copies of the will, codicils, the death certificate, bank letters and valuations. Photos and scans are fine.",
                 "We read text from PDFs and Word files and suggest names, dates and values you can add with one tap. Keep the original will safe: it goes to the probate registry only when you apply.",
