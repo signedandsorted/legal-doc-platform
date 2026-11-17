@@ -1,4 +1,5 @@
 from .guide_lpa import LPA_HEALTH, LPA_PROPERTY
+from .guide_probate import PROBATE
 
 PERSON = [
     {"name": "full_name", "label": "Full name", "type": "text", "required": True},
@@ -114,75 +115,6 @@ WILL = {
         "A witness must not be a beneficiary, or the husband, wife or civil partner of a beneficiary, or that person's gift can fail.",
         "Keep the signed original somewhere safe and tell your executors where it is. You can also store it with the Probate Service.",
         "Review your will after major life events: marriage, divorce, children, a house move or a large change in your finances.",
-    ],
-}
-
-PROBATE = {
-    "id": "probate",
-    "title": "Probate helper",
-    "summary": "A step-by-step checklist for dealing with the estate of someone who has died in England or Wales, with a summary a solicitor can check.",
-    "steps": [
-        {
-            "id": "intro",
-            "title": "Before you start",
-            "guidance": [
-                "We are sorry for your loss. This helper walks you through the main steps of administering an estate and records what you know so far.",
-                "Probate is the legal right to deal with someone's estate. It is called a grant of probate if there is a will, or letters of administration if there is not.",
-                "You may not need probate for small estates or where everything was jointly owned; banks set their own limits.",
-            ],
-            "fields": [],
-        },
-        {
-            "id": "deceased",
-            "title": "About the person who died",
-            "guidance": ["A death must normally be registered within 5 days in England and Wales. You will need the death certificate for most steps."],
-            "fields": [
-                {"name": "full_name", "label": "Their full name", "type": "text", "required": True},
-                {"name": "date_of_death", "label": "Date of death", "type": "date", "required": True},
-                {"name": "address", "label": "Their last address", "type": "textarea", "required": True},
-                {"name": "death_registered", "label": "Has the death been registered?", "type": "select", "required": True, "options": ["Yes", "No"]},
-            ],
-        },
-        {
-            "id": "will",
-            "title": "The will",
-            "guidance": [
-                "If there is a will, the executors named in it apply for probate. If there is no will, the closest relatives apply under the intestacy rules.",
-                "Look for the original signed will. A copy is not usually enough.",
-            ],
-            "fields": [
-                {"name": "has_will", "label": "Is there a will?", "type": "select", "required": True, "options": ["Yes, I have the original", "Yes, but I only have a copy", "No", "Not sure"]},
-                {"name": "applicant", "label": "You (the person applying)", "type": "group", "fields": PERSON + [{"name": "email", "label": "Email", "type": "email", "required": True}]},
-            ],
-        },
-        {
-            "id": "estate",
-            "title": "Value of the estate",
-            "guidance": [
-                "List what they owned (property, money, investments, possessions) and what they owed at the date of death. Estimates are fine for now.",
-                "Inheritance Tax may be due if the estate is worth more than the tax-free thresholds. Many estates are \"excepted estates\" that do not need a full Inheritance Tax account; check GOV.UK for the current thresholds.",
-            ],
-            "fields": [
-                {"name": "assets", "label": "Assets", "type": "list", "min": 0, "max": 30, "fields": [
-                    {"name": "description", "label": "Description", "type": "text", "required": True},
-                    {"name": "value", "label": "Value (£)", "type": "number", "required": True},
-                    {"name": "jointly_owned", "label": "Jointly owned?", "type": "select", "options": ["No", "Yes"]},
-                ]},
-                {"name": "debts", "label": "Debts and funeral costs", "type": "list", "min": 0, "max": 30, "fields": [
-                    {"name": "description", "label": "Description", "type": "text", "required": True},
-                    {"name": "value", "label": "Amount (£)", "type": "number", "required": True},
-                ]},
-                {"name": "gifts_in_last_7_years", "label": "Gifts they made in the 7 years before death (optional)", "type": "textarea"},
-            ],
-        },
-    ],
-    "next_steps": [
-        "Report the estate's value to HMRC. If Inheritance Tax is due or the estate is not an excepted estate, send form IHT400 and wait 20 working days before applying for probate.",
-        "Apply for probate on GOV.UK (or by post on form PA1P with a will, PA1A without one). Check the current application fee on GOV.UK.",
-        "Once you have the grant, collect the assets, pay the debts, taxes and expenses, and keep a record of everything.",
-        "Consider placing a deceased estates notice in The Gazette to protect you from unknown creditors.",
-        "Wait at least 6 months from the grant before distributing in full, because claims under the Inheritance (Provision for Family and Dependants) Act 1975 can be made in that time.",
-        "Prepare estate accounts and distribute the estate to the beneficiaries.",
     ],
 }
 

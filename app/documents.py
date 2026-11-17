@@ -5,6 +5,7 @@ from .common import money as _money
 from .common import names as _names  # noqa: F401
 from .common import person as _person
 from .doc_lpa import build_lpa, lpa_issues
+from .doc_probate import build_probate, probate_issues
 from .guides import SERVICES
 
 
@@ -20,6 +21,8 @@ def missing_fields(service_id: str, answers: dict) -> list[str]:
 def find_issues(service_id: str, answers: dict, uploads_text: str = "") -> list[dict]:
     if service_id.startswith("lpa_"):
         return lpa_issues(service_id, answers, uploads_text)
+    if service_id == "probate":
+        return probate_issues(answers)
     return []
 
 
@@ -35,8 +38,10 @@ def _dedupe(sources: list) -> list:
 def build_document(service_id: str, answers: dict, uploads: list | None = None) -> dict:
     if service_id.startswith("lpa_"):
         doc = build_lpa(service_id, answers, uploads)
+    elif service_id == "probate":
+        doc = build_probate(service_id, answers, uploads)
     else:
-        doc = {"will": _will, "probate": _probate}[service_id](service_id, answers)
+        doc = _will(service_id, answers)
         doc["sources"] = [x for st in SERVICES[service_id]["steps"] for x in st.get("sources", [])]
     doc["sources"] = _dedupe(doc.get("sources", []))
     doc["issues"] = find_issues(service_id, answers, " ".join(u.get("text", "") for u in uploads or []))
@@ -84,23 +89,3 @@ def _will(_, a: dict) -> dict:
         "Witness 2 signature, full name, address and occupation: ______________________________________________",
     ]})
     return {"title": "Will: " + me.get("full_name", ""), "notice": DRAFT_NOTICE, "sections": sections, "next_steps": SERVICES["will"]["next_steps"]}
-
-
-def _probate(_, a: dict) -> dict:
-    d = a.get("deceased", {})
-    w = a.get("will", {})
-    e = a.get("estate", {})
-    assets = e.get("assets") or []
-    debts = e.get("debts") or []
-    gross = sum(float(x.get("value") or 0) for x in assets)
-    owed = sum(float(x.get("value") or 0) for x in debts)
-    sections = [
-        {"heading": "The person who died", "paragraphs": [_person(d), "Date of death: " + d.get("date_of_death", ""), "Death registered: " + d.get("death_registered", "")]},
-        {"heading": "Will and applicant", "paragraphs": ["Will: " + w.get("has_will", ""), "Applicant: " + _person(w.get("applicant") or {}), "Likely application: " + ("grant of probate (form PA1P)" if str(w.get("has_will", "")).startswith("Yes") else "letters of administration (form PA1A)")]},
-        {"heading": "Assets", "paragraphs": [f"{x.get('description')}: {_money(x.get('value'))}{' (jointly owned)' if x.get('jointly_owned') == 'Yes' else ''}" for x in assets] or ["None listed yet"]},
-        {"heading": "Debts and funeral costs", "paragraphs": [f"{x.get('description')}: {_money(x.get('value'))}" for x in debts] or ["None listed yet"]},
-        {"heading": "Estimated estate", "paragraphs": [f"Gross estate: {_money(gross)}", f"Debts: {_money(owed)}", f"Net estate: {_money(gross - owed)}", "These are estimates. A solicitor will check whether Inheritance Tax is due and which HMRC forms are needed."]},
-    ]
-    if e.get("gifts_in_last_7_years"):
-        sections.append({"heading": "Gifts in the 7 years before death", "paragraphs": [e["gifts_in_last_7_years"]]})
-    return {"title": "Probate summary: " + d.get("full_name", ""), "notice": "Prepared " + date.today().strftime("%d %B %Y") + ". " + DRAFT_NOTICE, "sections": sections, "next_steps": SERVICES["probate"]["next_steps"]}

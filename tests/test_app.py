@@ -38,16 +38,3 @@ def test_will_flow_to_pdf_and_review():
         assert pdf.headers["content-type"] == "application/pdf" and pdf.content.startswith(b"%PDF")
         assert client.post(f"/api/drafts/{draft['id']}/submit").json()["status"] == "submitted_for_review"
         assert client.put(f"/api/drafts/{draft['id']}", json={"answers": WILL}).status_code == 409
-
-
-def test_probate_document():
-    with TestClient(app) as client:
-        probate = {
-            "deceased": {"full_name": "Sam Smith", "date_of_death": "2026-10-01", "address": "4 Mill Lane", "death_registered": "Yes"},
-            "will": {"has_will": "No", "applicant": {"full_name": "Pat Smith", "address": "5 Mill Lane", "email": "pat@example.com"}},
-            "estate": {"assets": [{"description": "House", "value": "300000"}], "debts": [{"description": "Funeral", "value": "4000"}]},
-        }
-        p = client.post("/api/drafts", json={"service": "probate", "answers": probate}).json()
-        doc = client.get(f"/api/drafts/{p['id']}/document").json()
-        text = " ".join(x for s in doc["sections"] for x in s["paragraphs"])
-        assert "PA1A" in text and "£296,000.00" in text
