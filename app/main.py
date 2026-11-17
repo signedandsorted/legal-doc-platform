@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, insert, select, text, update
 
 from .admin import router as admin_router
-from .auth import require_user, router as auth_router, seed_admin
+from .auth import require_user, router as auth_router, seed_admin, set_csrf_cookie
 from .db import drafts, engine, init_db, new_id, now, uploads
 from .security import audit, client_ip, csrf_ok
 from .documents import build_document, find_issues, missing_fields
@@ -46,6 +46,14 @@ async def csrf_and_headers(request: Request, call_next):
     response.headers.setdefault("Referrer-Policy", "same-origin")
     if request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
+    elif request.url.path == "/" or request.url.path.startswith("/static/app.js") or request.url.path.startswith("/static/styles.css") or request.url.path == "/static/index.html":
+        response.headers["Cache-Control"] = "no-cache"
+    # Set the CSRF cookie on the page and on API GETs, not only /api/auth/me, so a
+    # first click to start a draft is not rejected as an expired session.
+    if request.method in {"GET", "HEAD"} and response.status_code == 200 and (
+        request.url.path == "/" or request.url.path.startswith("/api/") or "text/html" in response.headers.get("content-type", "")
+    ):
+        set_csrf_cookie(response, request)
     return response
 
 
@@ -292,3 +300,13 @@ def delete_upload(draft_id: str, upload_id: str, request: Request, user: dict = 
         raise HTTPException(404, "Document not found")
     audit("upload_deleted", user, "upload", upload_id, {"draft_id": draft_id}, client_ip(request))
     return {"ok": True}
+
+
+@app.get("/{path:path}")
+def spa(path: str):
+    """Serve the app shell for page URLs such as /wills, /lpa, /login and /admin."""
+    first = path.split("/", 1)[0]
+    if first in {"api", "static", "docs", "redoc", "openapi.json", "healthz"}:
+        raise HTTPException(404, "Not Found")
+    return FileResponse(STATIC / "index.html")
+
