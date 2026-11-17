@@ -1,5 +1,17 @@
 # Recording script for Josh
 
+## Option A (quickest): 2 minutes so the computer voice matches yours
+
+Josh asked for the narration voice to match his. No recording of Josh's voice was found on the server or in the archive (checked 17 Nov 2026), so nothing has been cloned yet.
+
+1. In a quiet room, read any 4 or 5 blocks below aloud (about 2 minutes; at least 1 minute of clean speech, no music or other voices). A phone voice memo is fine.
+2. Put the file on the server at `~/legal-doc-platform/video/voice/josh/josh_reference.m4a` (or `.wav`/`.mp3`).
+3. Tell Grok Bot "voice recording is in". It will clone the voice with a free local model under the memory limits and re-render the videos. The page label will keep saying the voice is AI-generated.
+
+The recording is used only to make these videos and is not committed to the repo.
+
+## Option B: record every clip yourself (your real voice, no AI voice)
+
 Record each block as one file named exactly as the heading, e.g. `video/voice/josh/will_intro.wav`.
 Speak naturally at a calm pace in a quiet room; a phone voice-memo is fine (convert to .wav or .m4a -> .wav with ffmpeg).
 Then run `python video/render.py --voice-dir video/voice/josh --force --only will_intro` (or leave `--only` off to redo all).
