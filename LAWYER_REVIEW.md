@@ -32,14 +32,22 @@ Every clause and its plain-English note. In particular:
 
 ## 4. Guidance text and videos
 - All step guidance in `app/guide_*.py`.
-- Video narration in `video/scripts.json` (rendered with an open-source British English voice and an AI-generated presenter). The presenter is synthetic, not a real person; consider saying so on the page. Josh can replace the voice with his own recordings (`video/RECORDING_SCRIPT.md`).
+- Video narration in `video/scripts.json` (rendered with an open-source British English voice and an AI-generated presenter). The presenter is synthetic, not a real person, and every video now carries the on-page label "AI-generated video: the presenter is not a real person and the voice is an AI-generated voice." Josh asked for the voice to match his own; that needs about 2 minutes of his recorded speech (`video/RECORDING_SCRIPT.md`). Until then the voice is a stock open-source voice. Please check the label wording, and whether a cloned voice of Josh needs any extra disclosure.
 
 ## 5. Uploads and data protection
-- Uploaded documents (wills, LPAs, death certificates) are stored in the `uploads` table in `legal-doc-db`, up to 10 MB each, 15 per draft. Needs: a privacy notice, a retention period and a deletion process, and access control (drafts are currently reachable by anyone with the reference number, as before).
+- Uploaded documents (wills, LPAs, death certificates) are stored in the `uploads` table in `legal-doc-db`, up to 10 MB each, 15 per draft. Access control is now in place: clients sign in with email and password (argon2id hashes), every draft and upload belongs to one account, and only that account and admins can open it; the reference number alone no longer gives access. Admins can view, download and delete client data, and every admin view, download and deletion is written to an audit log. Still needed from the solicitor/Josh: a privacy notice, a retention period, and the wording of the account sign-up page (what we keep and why).
+- Drafts made before accounts existed have no owner; only admins can see them (Admin → Drafts).
 - Suggestions from documents are heuristic; the client must confirm each one.
 
 ## 6. Josh's decisions before merge
+Decided by Josh on 17 Nov 2026:
+- Lawyer review: **yes**, use this file as the checklist for the solicitor.
+- Client logins: **yes**, added (email + password, password reset, rate limits, CSRF protection).
+- Admin area in the database: **yes**, added (clients, drafts, uploads, roles, audit log) using the existing `legal-doc-db` with additive migrations.
+- Videos: **stay in the repo** (`static/videos/`).
+- Voice: **match Josh's voice**. Waiting on a recording from Josh (see `video/RECORDING_SCRIPT.md`).
+
+Still open:
 - Approve the legal wording after solicitor review.
-- Approve committing ~30 MB of videos to the repo, or move them to storage.
-- Decide whether to add authentication before real client documents are uploaded.
+- Set the environment variables in `README.md` → "Before merge" on the Render service.
 - Then say "merge" (main auto-deploys to Render).

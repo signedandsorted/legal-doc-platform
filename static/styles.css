@@ -55,3 +55,12 @@ h1:focus{outline:none}
 .layout>*{min-width:0}
 .actions .btn{flex:0 0 auto}
 .clause p{margin:0}
+.acct{margin-left:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}.acct a,.linkbtn{color:#fff;font-size:15px}.acct .btn{color:var(--navy)}
+.linkbtn{background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;font:inherit}
+.narrow{max-width:520px}
+.table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}.tbl th,.tbl td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}.tbl th{background:#f9fafb;color:var(--muted);font-weight:600}.tbl tr:last-child td{border:0}
+.nowrap{white-space:nowrap}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 18px}.tabs a{padding:8px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);text-decoration:none;color:var(--navy)}.tabs a[aria-current=page]{background:var(--navy);color:#fff;border-color:var(--navy)}
+pre.answers{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;max-height:480px;font-size:13px}
+.ai-label{margin:-10px 0 16px;color:var(--muted)}

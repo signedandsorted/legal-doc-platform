@@ -4,42 +4,144 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const ICONS = { will: "📜", lpa_property: "🏦", lpa_health: "🩺", probate: "⚖️" };
 const cache = {};
 
+let ME = null;
+const cookie = name => (document.cookie.split("; ").find(c => c.startsWith(name + "=")) || "").slice(name.length + 1);
 async function api(path, opts = {}) {
   const isForm = opts.body instanceof FormData;
-  const res = await fetch(path, { ...opts, headers: isForm ? {} : { "Content-Type": "application/json" }, body: opts.body === undefined ? undefined : isForm ? opts.body : JSON.stringify(opts.body) });
+  const headers = isForm ? {} : { "Content-Type": "application/json" };
+  if (opts.method && opts.method !== "GET") headers["X-CSRF-Token"] = decodeURIComponent(cookie("sas_csrf"));
+  const res = await fetch(path, { ...opts, credentials: "same-origin", headers, body: opts.body === undefined ? undefined : isForm ? opts.body : JSON.stringify(opts.body) });
   const data = res.headers.get("content-type")?.includes("json") ? await res.json() : null;
+  if (res.status === 401 && !path.startsWith("/api/auth/")) { ME = null; nav(); location.hash = "#/login?next=" + encodeURIComponent(location.hash.slice(2)); throw Object.assign(new Error("Please sign in"), { quiet: true }); }
   if (!res.ok) throw Object.assign(new Error((data && (data.detail?.message || data.detail)) || "Something went wrong. Please try again."), { data, status: res.status });
   return data;
 }
 const service = async id => cache[id] ||= await api("/api/services/" + id);
-const remember = d => localStorage.setItem("lastDraft", d.id);
+const remember = () => {};
+async function whoami() { ME = (await api("/api/auth/me")).user; nav(); }
+function nav() {
+  const el = document.getElementById("acct");
+  if (!el) return;
+  el.innerHTML = ME ? '<a href="#/mine">My documents</a>' + (ME.role === "admin" ? '<a href="#/admin">Admin</a>' : "") + '<button type="button" class="linkbtn" id="signout">Sign out</button>'
+    : '<a href="#/login">Sign in</a><a href="#/register" class="btn small accent">Create account</a>';
+  const so = document.getElementById("signout");
+  if (so) so.onclick = async () => { await api("/api/auth/logout", { method: "POST" }); ME = null; nav(); location.hash = "#/"; };
+}
+const query = () => new URLSearchParams((location.hash.split("?")[1]) || "");
 const focusMain = () => { const h = $app.querySelector("h1"); if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); } window.scrollTo(0, 0); };
 
 async function route() {
-  const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  const parts = location.hash.replace(/^#\/?/, "").split("?")[0].split("/").filter(Boolean);
   try {
+    if (["login", "register", "forgot"].includes(parts[0])) return authPage(parts[0]);
+    if (parts[0] === "reset") return resetPage(parts[1]);
+    if (parts[0] === "mine") return await mine();
+    if (parts[0] === "admin") return await adminPage(parts.slice(1));
     if (parts[0] === "s") return await start(parts[1]);
     if (parts[0] === "d" && parts[2] === "review") return await review(parts[1]);
     if (parts[0] === "d") return await step(parts[1], Number(parts[2] || 0));
     return await home();
   } catch (e) {
+    if (e.quiet) return;
     $app.innerHTML = '<h1>Sorry, something went wrong</h1><div class="alert error">' + esc(e.message) + '</div><p><a class="btn ghost" href="#/">Back to the start</a></p>';
   } finally { focusMain(); }
 }
 
 async function home() {
   const list = await api("/api/services");
-  const last = localStorage.getItem("lastDraft");
   $app.innerHTML = '<section class="hero"><div><p class="eyebrow">England and Wales</p><h1>Your will, power of attorney or probate, sorted step by step</h1>'
     + '<p class="lead">Short videos and plain-English help on every step. Upload your old documents and we suggest answers. A solicitor checks everything before you sign.</p></div>'
     + '<div class="hero-card" aria-label="What you get"><ul><li>Guided questions with a video on each step</li><li>Built on the official GOV.UK forms (LP1F, LP1H, PA1P, PA1A, IHT400)</li><li>Upload an old will, LPA or probate papers</li><li>Download a PDF and send it for solicitor review</li></ul></div></section>'
     + '<h2>What would you like to do?</h2><div class="grid">' + list.map(s => '<article class="card svc"><span class="icon" aria-hidden="true">' + (ICONS[s.id] || "📄") + '</span><h3>' + esc(s.title) + '</h3><p class="muted">' + esc(s.summary) + '</p><p class="meta">' + s.steps + ' steps · about ' + (s.steps * 3) + ' minutes</p><a class="btn" href="#/s/' + s.id + '">Start</a></article>').join("") + '</div>'
     + '<h2>How it works</h2><div class="how"><div><b>1. Answer</b>Watch the short video, read the help and answer a few questions. Your answers save automatically.</div><div><b>2. Check</b>See your draft with a plain-English note on every clause, and any points to fix.</div><div><b>3. Review</b>Send it to a solicitor. They check it with you before anything is signed or sent.</div></div>'
-    + '<h2>Carry on where you left off</h2><form class="card" id="resume"><label class="legend" for="ref">Your reference number</label><input id="ref" value="' + esc(last || "") + '" placeholder="for example 3f2b…" autocomplete="off"><p><button class="btn ghost">Continue</button></p></form>';
-  document.getElementById("resume").onsubmit = e => { e.preventDefault(); const v = document.getElementById("ref").value.trim(); if (v) location.hash = "#/d/" + v + "/0"; };
+    + '<h2>Carry on where you left off</h2><div class="card">' + (ME ? '<p>You are signed in as <b>' + esc(ME.email) + '</b>.</p><p><a class="btn ghost" href="#/mine">Go to my documents</a></p>'
+      : '<p>Your drafts and documents are kept in your account. Sign in to carry on.</p><p><a class="btn ghost" href="#/login">Sign in</a> <a class="btn ghost" href="#/register">Create an account</a></p>') + '</div>';
+}
+
+function authPage(kind) {
+  const next = query().get("next") || "mine";
+  const titles = { login: "Sign in", register: "Create your account", forgot: "Reset your password" };
+  $app.innerHTML = '<div class="narrow"><h1>' + titles[kind] + '</h1>'
+    + (kind === "register" ? '<p class="muted">Your answers and uploaded documents are kept in your account, so only you (and our solicitors) can see them.</p>' : "")
+    + (kind === "forgot" ? '<p class="muted">Enter the email you signed up with. We will send a link to choose a new password.</p>' : "")
+    + '<form class="card" id="auth" novalidate><div id="msg" aria-live="polite"></div>'
+    + '<div class="field"><label for="email">Email address</label><input id="email" type="email" autocomplete="email" required></div>'
+    + (kind !== "forgot" ? '<div class="field"><label for="password">Password</label>' + (kind === "register" ? '<span class="hint" id="pwhint">At least 10 characters. A few random words works well.</span>' : "")
+      + '<input id="password" type="password" autocomplete="' + (kind === "register" ? "new-password" : "current-password") + '" required minlength="' + (kind === "register" ? 10 : 1) + '"' + (kind === "register" ? ' aria-describedby="pwhint"' : "") + '></div>' : "")
+    + '<p><button class="btn">' + ({ login: "Sign in", register: "Create account", forgot: "Send reset link" })[kind] + '</button></p>'
+    + (kind === "login" ? '<p class="small"><a href="#/forgot">Forgotten your password?</a> · <a href="#/register?next=' + encodeURIComponent(next) + '">Create an account</a></p>' : "")
+    + (kind === "register" ? '<p class="small">Already have an account? <a href="#/login?next=' + encodeURIComponent(next) + '">Sign in</a></p>' : "")
+    + '</form></div>';
+  const form = document.getElementById("auth"), msg = document.getElementById("msg");
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const btn = form.querySelector("button"); btn.disabled = true; msg.innerHTML = "";
+    try {
+      const email = document.getElementById("email").value.trim();
+      if (kind === "forgot") { const r = await api("/api/auth/reset-request", { method: "POST", body: { email } }); msg.innerHTML = '<div class="alert ok">' + esc(r.message) + '</div>'; return; }
+      const r = await api("/api/auth/" + kind, { method: "POST", body: { email, password: document.getElementById("password").value } });
+      ME = r.user; nav(); location.hash = "#/" + next;
+    } catch (err) { msg.innerHTML = '<div class="alert error" role="alert">' + esc(err.message) + '</div>'; }
+    finally { btn.disabled = false; }
+  };
+}
+
+function resetPage(token) {
+  $app.innerHTML = '<div class="narrow"><h1>Choose a new password</h1><form class="card" id="auth"><div id="msg" aria-live="polite"></div><div class="field"><label for="password">New password</label><span class="hint" id="pwhint">At least 10 characters.</span><input id="password" type="password" autocomplete="new-password" minlength="10" aria-describedby="pwhint" required></div><p><button class="btn">Save and sign in</button></p></form></div>';
+  document.getElementById("auth").onsubmit = async e => {
+    e.preventDefault();
+    try { const r = await api("/api/auth/reset", { method: "POST", body: { token, password: document.getElementById("password").value } }); ME = r.user; nav(); location.hash = "#/mine"; }
+    catch (err) { document.getElementById("msg").innerHTML = '<div class="alert error" role="alert">' + esc(err.message) + ' <a href="#/forgot">Ask for a new link</a></div>'; }
+  };
+}
+
+const STATUS = { draft: "In progress", submitted_for_review: "Sent for solicitor review" };
+const when = iso => iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "";
+
+async function mine() {
+  if (!ME) { location.hash = "#/login?next=mine"; return; }
+  const list = await api("/api/drafts");
+  $app.innerHTML = '<h1>My documents</h1><p class="muted">Signed in as ' + esc(ME.email) + '</p>'
+    + (list.length ? '<div class="table-wrap"><table class="tbl"><thead><tr><th>Document</th><th>Name</th><th>Status</th><th>Last saved</th><th></th></tr></thead><tbody>'
+      + list.map(d => '<tr><td>' + esc(d.title) + '</td><td>' + esc(d.client_name || "—") + '</td><td><span class="pill">' + esc(STATUS[d.status] || d.status) + '</span></td><td>' + when(d.updated_at) + '</td><td><a class="btn small" href="#/d/' + d.id + '/' + (d.status === "draft" ? "0" : "review") + '">' + (d.status === "draft" ? "Continue" : "View") + '</a></td></tr>').join("")
+      + '</tbody></table></div>' : '<div class="card"><p>You have not started anything yet.</p></div>')
+    + '<h2>Start something new</h2><p><a class="btn ghost" href="#/">Choose a document</a></p>';
+}
+
+async function adminPage(parts) {
+  if (!ME || ME.role !== "admin") { $app.innerHTML = '<h1>Admins only</h1><p><a href="#/login?next=admin">Sign in with an admin account</a></p>'; return; }
+  const tab = parts[0] || "drafts";
+  const tabs = '<nav class="tabs" aria-label="Admin sections">' + [["drafts", "Drafts"], ["users", "Clients"], ["uploads", "Uploads"], ["audit", "Audit log"]].map(([k, t]) => '<a href="#/admin/' + k + '"' + (k === tab ? ' aria-current="page"' : "") + '>' + t + '</a>').join("") + '</nav>';
+  const head = s => '<h1>Admin</h1><p class="muted small">' + s.clients + ' client' + (s.clients === 1 ? '' : 's') + ' · ' + s.drafts + ' draft' + (s.drafts === 1 ? '' : 's') + ' (' + s.submitted + ' sent for review) · ' + s.uploads + ' upload' + (s.uploads === 1 ? '' : 's') + (s.unowned_drafts ? ' · ' + s.unowned_drafts + ' older drafts with no account' : "") + '</p>' + tabs;
+  const s = await api("/api/admin/summary");
+  const dl = u => '<a href="/api/admin/uploads/' + u.id + '/download">' + esc(u.filename) + '</a>';
+  const bind = () => $app.querySelectorAll("[data-api]").forEach(b => b.onclick = async () => {
+    if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+    try { await api(b.dataset.api, { method: b.dataset.method, body: b.dataset.body ? JSON.parse(b.dataset.body) : undefined }); route(); } catch (e) { alert(e.message); }
+  });
+  if (tab === "d") {
+    const d = await api("/api/admin/drafts/" + parts[1]);
+    $app.innerHTML = head(s) + '<h2>' + esc(d.title) + ' · ' + esc(d.client_name || "no name yet") + '</h2><p class="muted small">Owner ' + esc(d.owner_email || "none (made before accounts)") + ' · ' + esc(STATUS[d.status] || d.status) + ' · saved ' + when(d.updated_at) + ' · ref <span class="ref">' + esc(d.id) + '</span></p>'
+      + issuesHtml(d.issues) + (d.missing.length ? '<div class="alert warning"><b>Unanswered</b><ul>' + d.missing.map(m => '<li>' + esc(m) + '</li>').join("") + '</ul></div>' : "")
+      + '<h3>Uploads</h3>' + (d.uploads.length ? '<ul class="files">' + d.uploads.map(u => '<li><span>📄 ' + dl(u) + ' <span class="muted">· ' + esc(u.kind) + '</span></span></li>').join("") + '</ul>' : '<p class="muted">None</p>')
+      + '<h3>Answers</h3><pre class="answers">' + esc(JSON.stringify(d.answers, null, 2)) + '</pre>'
+      + '<p><button class="btn ghost" data-api="/api/admin/drafts/' + d.id + '" data-method="DELETE" data-confirm="Delete this draft and its uploads for good?">Delete draft</button></p>';
+    bind(); return;
+  }
+  const rows = await api("/api/admin/" + tab + (tab === "audit" ? "?limit=300" : "") + (tab === "drafts" && query().get("user") ? "?user_id=" + encodeURIComponent(query().get("user")) : ""));
+  const table = (cols, body) => '<div class="table-wrap"><table class="tbl"><thead><tr>' + cols.map(c => '<th>' + c + '</th>').join("") + '</tr></thead><tbody>' + (body || '<tr><td colspan="' + cols.length + '" class="muted">Nothing yet</td></tr>') + '</tbody></table></div>';
+  let html = "";
+  if (tab === "drafts") html = table(["Document", "Name", "Owner", "Status", "Uploads", "Saved", ""], rows.map(d => '<tr><td>' + esc(d.title) + '</td><td>' + esc(d.client_name || "—") + '</td><td>' + esc(d.owner_email || "—") + '</td><td>' + esc(STATUS[d.status] || d.status) + '</td><td>' + d.uploads + '</td><td>' + when(d.updated_at) + '</td><td class="nowrap"><a class="btn small" href="#/admin/d/' + d.id + '">View</a> <button class="btn ghost small" data-api="/api/admin/drafts/' + d.id + '" data-method="DELETE" data-confirm="Delete this draft and its uploads for good?">Delete</button></td></tr>').join(""));
+  if (tab === "users") html = table(["Email", "Role", "Drafts", "Joined", "Last sign-in", ""], rows.map(u => '<tr><td>' + esc(u.email) + '</td><td>' + esc(u.role) + '</td><td><a href="#/admin/drafts?user=' + u.id + '">' + u.drafts + '</a></td><td>' + when(u.created_at) + '</td><td>' + when(u.last_login_at) + '</td><td class="nowrap">'
+    + (u.id === ME.id ? '<span class="muted small">You</span>' : '<button class="btn ghost small" data-api="/api/admin/users/' + u.id + '" data-method="PATCH" data-body=\'' + JSON.stringify({ role: u.role === "admin" ? "client" : "admin" }) + '\' data-confirm="Change this account to ' + (u.role === "admin" ? "client" : "admin") + '?">' + (u.role === "admin" ? "Make client" : "Make admin") + '</button> <button class="btn ghost small" data-api="/api/admin/users/' + u.id + '" data-method="DELETE" data-confirm="Delete this account and all of its drafts and uploads for good?">Delete</button>') + '</td></tr>').join(""));
+  if (tab === "uploads") html = table(["File", "Kind", "Owner", "Size", "Added", ""], rows.map(u => '<tr><td>' + dl(u) + '</td><td>' + esc(u.kind) + '</td><td>' + esc(u.owner_email || "—") + '</td><td>' + Math.ceil(u.size / 1024) + ' KB</td><td>' + when(u.created_at) + '</td><td class="nowrap"><a class="btn small" href="#/admin/d/' + u.draft_id + '">Draft</a> <button class="btn ghost small" data-api="/api/admin/uploads/' + u.id + '" data-method="DELETE" data-confirm="Delete this file for good?">Delete</button></td></tr>').join(""));
+  if (tab === "audit") html = table(["When", "Who", "Action", "Item", "Detail", "IP"], rows.map(a => '<tr><td class="nowrap">' + when(a.at) + '</td><td>' + esc(a.actor_email || "—") + '</td><td>' + esc(a.action) + '</td><td class="small">' + esc((a.target_type || "") + " " + (a.target_id || "")) + '</td><td class="small">' + esc(a.detail && Object.keys(a.detail).length ? JSON.stringify(a.detail) : "") + '</td><td class="small">' + esc(a.ip || "") + '</td></tr>').join(""));
+  $app.innerHTML = head(s) + html;
+  bind();
 }
 
 async function start(id) {
+  if (!ME) { location.hash = "#/register?next=" + encodeURIComponent("s/" + id); return; }
   const d = await api("/api/drafts", { method: "POST", body: { service: id, answers: {} } });
   remember(d);
   location.replace("#/d/" + d.id + "/0");
@@ -93,7 +195,8 @@ function readForm(form) {
 function videoHtml(v, title) {
   if (!v) return "";
   return '<div class="video"><video controls preload="none" playsinline' + (v.poster ? ' poster="' + esc(v.poster) + '"' : "") + ' aria-label="Video: ' + esc(title) + '"><source src="' + esc(v.src) + '" type="video/mp4">'
-    + (v.captions ? '<track kind="captions" srclang="en" label="English" src="' + esc(v.captions) + '" default>' : "") + '</video></div>';
+    + (v.captions ? '<track kind="captions" srclang="en" label="English" src="' + esc(v.captions) + '" default>' : "") + '</video></div>'
+    + '<p class="ai-label small"><span aria-hidden="true">ⓘ</span> AI-generated video: the presenter is not a real person and the voice is an AI-generated voice.</p>';
 }
 const sourcesHtml = list => list && list.length ? '<details class="sources"><summary>Official GOV.UK guidance for this step</summary><ul>' + list.map(s => '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title) + '</a></li>').join("") + '</ul></details>' : "";
 const issuesHtml = issues => ["error", "warning", "info"].map(level => { const xs = (issues || []).filter(i => i.level === level); return xs.length ? '<div class="alert ' + level + '" role="' + (level === "error" ? "alert" : "status") + '"><b>' + ({ error: "Please change", warning: "Please check", info: "Good to know" })[level] + '</b><ul>' + xs.map(i => '<li>' + esc(i.message) + '</li>').join("") + '</ul></div>' : ""; }).join("");
@@ -231,4 +334,4 @@ async function review(id) {
 }
 
 window.addEventListener("hashchange", route);
-route();
+whoami().catch(() => {}).finally(route);

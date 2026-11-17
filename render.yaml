@@ -16,6 +16,22 @@ services:
         fromDatabase:
           name: legal-doc-db
           property: connectionString
+      - key: APP_BASE_URL
+        value: https://legal-doc-platform-pzjv.onrender.com
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
 
 databases:
   - name: legal-doc-db
