@@ -3,7 +3,7 @@
 Each step is recorded in `schema_migrations` and never runs twice. Only additive changes."""
 from sqlalchemy import Index, inspect, text
 
-from .db import drafts, login_attempts, now, password_resets, schema_migrations, sessions, uploads, users, audit_log
+from .db import audit_log, capacity_statements, drafts, login_attempts, now, password_resets, schema_migrations, sessions, uploads, users
 
 
 def _create(conn, *tables):
@@ -31,7 +31,16 @@ def m2_accounts(conn):
         Index("ix_drafts_user_id", drafts.c.user_id).create(conn)
 
 
-MIGRATIONS = [(1, "base drafts and uploads", m1_base), (2, "accounts, sessions, audit log, drafts.user_id", m2_accounts)]
+def m3_capacity_statements(conn):
+    """Encrypted supporting video statements for a will or LPA."""
+    _create(conn, capacity_statements)
+
+
+MIGRATIONS = [
+    (1, "base drafts and uploads", m1_base),
+    (2, "accounts, sessions, audit log, drafts.user_id", m2_accounts),
+    (3, "capacity video statements", m3_capacity_statements),
+]
 
 
 def migrate(engine) -> list[int]:

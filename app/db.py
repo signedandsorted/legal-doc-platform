@@ -98,6 +98,31 @@ uploads = Table(
 )
 
 
+capacity_statements = Table(
+    "capacity_statements",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("draft_id", String(36), ForeignKey("drafts.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("user_id", String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("service", String(32), nullable=False),
+    Column("document_version_hash", String(64), nullable=False),
+    Column("content_sha256", String(64), nullable=False),
+    Column("filename", Text, nullable=False),
+    Column("content_type", Text, nullable=False),
+    Column("size", Integer, nullable=False),
+    Column("duration_seconds", Integer),
+    Column("source", String(16), nullable=False),
+    Column("prompt_set_id", String(64), nullable=False),
+    Column("consent_text_hash", String(64), nullable=False),
+    Column("medical_assessment_interest", Boolean, nullable=False, default=False),
+    Column("is_current", Boolean, nullable=False, default=True),
+    Column("encrypted_data", LargeBinary, nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("user_agent", Text),
+    Column("ip", String(64)),
+)
+
+
 def database_url() -> str:
     url = os.getenv("DATABASE_URL", "sqlite:///./local.db")
     if url.startswith("postgres://"):

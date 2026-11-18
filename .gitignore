@@ -9,3 +9,4 @@ test.db
 video/voice/josh/josh_reference.*
 
 voice/josh/josh_reference.*
+local.statement_key
