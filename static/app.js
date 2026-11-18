@@ -1,7 +1,7 @@
 "use strict";
 const $app = document.getElementById("app");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const ICONS = { will: "📜", lpa_property: "🏦", lpa_health: "🩺", probate: "⚖️" };
+const ICONS = { will: "📜", lpa_property: "🏦", lpa_health: "🩺", poa_ordinary: "📝", probate: "⚖️" };
 const cache = {};
 
 let ME = null;
@@ -55,12 +55,35 @@ async function route() {
   } finally { focusMain(); }
 }
 
+
+function cardHtml(s) {
+  return '<article class="card svc"><span class="icon" aria-hidden="true">' + (ICONS[s.id] || "📄") + '</span><h3>' + esc(s.title) + '</h3><p class="muted">' + esc(s.summary) + '</p><p class="meta">' + s.steps + ' steps · about ' + (s.steps * 3) + ' minutes</p><a class="btn" href="#/s/' + s.id + '" data-start="' + s.id + '">Start</a></article>';
+}
+function serviceGroups(list) {
+  const order = [];
+  const grouped = {};
+  for (const s of list) {
+    const cat = s.category || "Other";
+    if (!grouped[cat]) { grouped[cat] = []; order.push(cat); }
+    grouped[cat].push(s);
+  }
+  return order.map(cat => '<section class="svc-group"><h2>' + esc(cat) + '</h2><div class="grid">' + grouped[cat].map(cardHtml).join("") + '</div></section>').join("");
+}
+function businessSection() {
+  return '<section class="card business-note"><h2>Business wills and business LPAs</h2>'
+    + '<p>If you own a business, a farm, or shares in a company, you may want to keep those assets separate from your personal plans. Official OPG guidance (LP12) says you can make two property and financial affairs LPAs (form LP1F): one for your personal finances and one for your business affairs, so different attorneys can look after different things.</p>'
+    + '<p>Talk to any co-owners, check the partnership or shareholders\' agreement, and choose attorneys who understand the business. A will can say who should inherit the business; some assets may qualify for Inheritance Tax Business Relief, but a solicitor must check this, especially for deaths on or after 6 April 2026, when 100% relief is capped. This is not legal advice.</p>'
+    + '<p><a class="btn ghost" href="#/s/will" data-start="will">Start a will (includes a Business step)</a> <a class="btn ghost" href="#/s/lpa_property" data-start="lpa_property">Start a financial LPA (includes a Business step)</a></p>'
+    + '<p class="muted small">Sources: <a href="https://www.gov.uk/government/publications/lasting-power-of-attorney-forms/lp12-make-and-register-your-lasting-power-of-attorney-a-guide-web-version" rel="noopener noreferrer" target="_blank">LP12</a> and <a href="https://www.gov.uk/business-relief-inheritance-tax" rel="noopener noreferrer" target="_blank">GOV.UK Business Relief</a>.</p></section>';
+}
+
 async function home() {
   const list = await api("/api/services");
   $app.innerHTML = '<section class="hero"><div><p class="eyebrow">England and Wales</p><h1>Your will, power of attorney or probate, sorted step by step</h1>'
     + '<p class="lead">Short videos and plain-English help on every step. Upload your old documents and we suggest answers. A solicitor checks everything before you sign.</p></div>'
     + '<div class="hero-card" aria-label="What you get"><ul><li>Guided questions with a video on each step</li><li>Built on the official GOV.UK forms (LP1F, LP1H, PA1P, PA1A, IHT400)</li><li>Upload an old will, LPA or probate papers</li><li>Download a PDF and send it for solicitor review</li></ul></div></section>'
-    + '<h2>What would you like to do?</h2><div class="grid">' + list.map(s => '<article class="card svc"><span class="icon" aria-hidden="true">' + (ICONS[s.id] || "📄") + '</span><h3>' + esc(s.title) + '</h3><p class="muted">' + esc(s.summary) + '</p><p class="meta">' + s.steps + ' steps · about ' + (s.steps * 3) + ' minutes</p><a class="btn" href="#/s/' + s.id + '" data-start="' + s.id + '">Start</a></article>').join("") + '</div>'
+    + serviceGroups(list)
+    + businessSection()
     + '<h2>How it works</h2><div class="how"><div><b>1. Answer</b>Watch the short video, read the help and answer a few questions. Your answers save automatically.</div><div><b>2. Check</b>See your draft with a plain-English note on every clause, and any points to fix.</div><div><b>3. Review</b>Send it to a solicitor. They check it with you before anything is signed or sent.</div></div>'
     + '<h2>Carry on where you left off</h2><div class="card">' + (ME ? '<p>You are signed in as <b>' + esc(ME.email) + '</b>.</p><p><a class="btn ghost" href="#/mine">Go to my documents</a></p>'
       : '<p>Your drafts and documents are kept in your account. Sign in to carry on.</p><p><a class="btn ghost" href="#/login">Sign in</a> <a class="btn ghost" href="#/register">Create an account</a></p>') + '</div>';
@@ -226,7 +249,11 @@ function fieldHtml(f, value, path, container) {
       + (items.length < f.max ? '<p><button type="button" class="btn ghost small" data-add="' + id + '">+ Add ' + (items.length ? "another" : "one") + '</button></p>' : "") + '</fieldset>';
   }
   if (f.type === "group") return '<fieldset class="group"><legend class="legend">' + esc(f.label) + '</legend>' + hint + f.fields.map(sf => fieldHtml(sf, (value || {})[sf.name], path.concat(sf.name), value || {})).join("") + '</fieldset>';
-  if (f.type === "checkbox") return '<div class="field"><label class="check"><input type="checkbox" id="' + id + '" name="' + id + '"' + (value === true ? " checked" : "") + req + desc + '><span>' + esc(f.label) + '</span></label>' + hint + '</div>';
+  if (f.type === "checkbox") {
+    const wording = f.wording ? '<p class="wording">Official wording to copy into ' + esc(f.section || "section 7") + ': “' + esc(f.wording) + '”</p>' : "";
+    const warn = f.warning ? '<div class="alert warning">' + esc(f.warning) + '</div>' : "";
+    return '<div class="field' + (f.wording ? " preset" : "") + '"><label class="check"><input type="checkbox" id="' + id + '" name="' + id + '"' + (value === true ? " checked" : "") + req + desc + '><span>' + esc(f.label) + '</span></label>' + wording + warn + hint + '</div>';
+  }
   const label = '<label for="' + id + '">' + esc(f.label) + opt + '</label>' + hint;
   if (f.type === "select") return '<div class="field">' + label + '<select id="' + id + '" name="' + id + '"' + req + desc + '><option value="">Choose…</option>' + f.options.map(o => '<option' + (o === value ? " selected" : "") + '>' + esc(o) + '</option>').join("") + '</select></div>';
   if (f.type === "textarea") return '<div class="field">' + label + '<textarea id="' + id + '" name="' + id + '"' + req + desc + '>' + esc(value) + '</textarea></div>';

@@ -23,10 +23,10 @@ WILL = {
 def test_services_and_health():
     with user_client() as client:
         assert client.get("/healthz").json()["ok"] is True
-        assert {s["id"] for s in client.get("/api/services").json()} == {"will", "lpa_property", "lpa_health", "probate"}
+        assert {s["id"] for s in client.get("/api/services").json()} == {"will", "lpa_property", "lpa_health", "poa_ordinary", "probate"}
         assert client.get("/").status_code == 200
         svc = client.get("/api/services/will").json()
-        assert [s["id"] for s in svc["steps"]] == ["intro", "about_you", "family", "executors", "gifts", "residue", "trusts", "extras", "documents"]
+        assert [s["id"] for s in svc["steps"]] == ["intro", "about_you", "family", "executors", "gifts", "residue", "trusts", "business", "extras", "documents"]
         assert all(s.get("sources") for s in svc["steps"])
 
 
@@ -184,3 +184,17 @@ def test_app_js_rejects_prototype_polluting_form_keys():
     text = Path("static/app.js").read_text(encoding="utf-8")
     assert "function safeFormKey" in text
     assert '"__proto__"' in text and '"constructor"' in text and '"prototype"' in text
+
+
+
+def test_will_business_step_is_a_solicitor_placeholder():
+    from tests.helpers import user_client
+    with user_client() as client:
+        a = {**WILL, "business": {"owns_business": "Yes", "business_type": "Partnership", "business_details": "Smith & Co, leave my share to Byron King", "talked_to_co_owners": "Not yet", "has_agreement": "Not sure", "separate_planning": "Yes"}}
+        d = client.post("/api/drafts", json={"service": "will", "answers": a}).json()
+        msgs = " ".join(i["message"] for i in d["issues"])
+        assert "Business Relief" in msgs and "co-owners" in msgs
+        doc = client.get(f"/api/drafts/{d['id']}/document").json()
+        text = " ".join(p for s in doc["sections"] for p in s["paragraphs"])
+        assert "Smith & Co" in text and "For solicitor drafting" in text
+        assert "Business Relief" in " ".join(n for s in doc["sections"] for n in (s.get("notes") or [])) or "Business Relief" in text

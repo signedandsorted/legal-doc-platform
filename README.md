@@ -1,6 +1,6 @@
 # Legal Doc Platform
 
-Self-service will, lasting power of attorney (financial decisions LP1F; health and care decisions LP1H) and probate helper for England and Wales. Clients answer guided questions step by step with a short video on each step, upload old documents for suggested answers, save and resume with a reference number, preview the draft with a plain-English note on each clause, download a PDF, and send it for solicitor review. Nothing is signed or filed by the app.
+Self-service will, lasting power of attorney (financial decisions LP1F; health and care decisions LP1H), ordinary or general power of attorney (Powers of Attorney Act 1971) and probate helper for England and Wales. Clients answer guided questions step by step with a short video on each step, upload old documents for suggested answers, save and resume with a reference number, preview the draft with a plain-English note on each clause, download a PDF, and send it for solicitor review. Nothing is signed or filed by the app.
 
 Legal wording is draft until a solicitor has reviewed it: see `LAWYER_REVIEW.md`.
 
@@ -41,8 +41,9 @@ pytest -q
 
 ## Layout
 
-- `app/guide_will.py`, `app/guide_lpa.py`, `app/guide_probate.py`: steps, guidance, questions and GOV.UK sources (`app/fields.py` holds the field schema and source links)
-- `app/doc_will.py`: will clauses with notes; `app/doc_lpa.py`: LP1F/LP1H form-filling pack and checks; `app/doc_probate.py`: online/post routing, forms, the 5 estate values, IHT estimate
+- `app/guide_will.py`, `app/guide_lpa.py`, `app/guide_poa.py`, `app/guide_probate.py`: steps, guidance, questions and GOV.UK sources (`app/fields.py` holds the field schema and source links; `app/lpa_presets.py` holds official section 7 tick-box wording)
+- `app/doc_will.py`: will clauses with notes; `app/doc_lpa.py`: LP1F/LP1H form-filling pack and checks; `app/doc_poa.py`: ordinary/general and specific power of attorney deeds; `app/doc_probate.py`: online/post routing, forms, the 5 estate values, IHT estimate
+- `docs/LPA_POA_SOURCES.md`: sources for LPA presets, business guidance and ordinary powers of attorney
 - `app/documents.py`: missing answers, issues and document dispatch
 - `app/extract.py`: reads uploaded PDFs/Word/text and suggests answers
 - `app/pdf.py`: PDF export

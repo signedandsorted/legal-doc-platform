@@ -40,6 +40,15 @@ GOV = {
     "ex160": src("GOV.UK: Help with court fees (EX160)", "https://www.gov.uk/government/publications/apply-for-help-with-court-and-tribunal-fees"),
     "pa11": src("GOV.UK: Form PA11 (appoint someone to apply, will)", "https://www.gov.uk/government/publications/form-pa11-apply-for-power-of-attorney-will"),
     "pa14": src("GOV.UK: Form PA14 (medical certificate)", "https://www.gov.uk/government/publications/form-pa14-medical-certificate-probate"),
+    "lp12": src("GOV.UK: LP12 Make and register your lasting power of attorney: a guide (web version, updated 3 November 2026)", "https://www.gov.uk/government/publications/lasting-power-of-attorney-forms/lp12-make-and-register-your-lasting-power-of-attorney-a-guide-web-version"),
+    "lpa_errors": src("GOV.UK: Avoiding errors when completing a lasting power of attorney form", "https://www.gov.uk/government/publications/avoiding-errors-when-completing-a-lasting-power-of-attorney-form/avoiding-errors-when-completing-a-lasting-power-of-attorney-form"),
+    "poa_act": src("Powers of Attorney Act 1971, section 10", "https://www.legislation.gov.uk/ukpga/1971/27/section/10"),
+    "poa_sch1": src("Powers of Attorney Act 1971, Schedule 1 (form of general power of attorney)", "https://www.legislation.gov.uk/ukpga/1971/27/schedule/1"),
+    "pg9": src("HM Land Registry Practice Guide 9: powers of attorney and registered land", "https://www.gov.uk/government/publications/powers-of-attorney-and-registered-land/practice-guide-9-powers-of-attorney-and-registered-land"),
+    "lpmpa": src("Law of Property (Miscellaneous Provisions) Act 1989, section 1 (deeds)", "https://www.legislation.gov.uk/ukpga/1989/34/section/1"),
+    "business_relief": src("GOV.UK: Business Relief for Inheritance Tax", "https://www.gov.uk/business-relief-inheritance-tax"),
+    "business_relief_qualifies": src("GOV.UK: What qualifies for Business Relief", "https://www.gov.uk/business-relief-inheritance-tax/what-qualifies-for-business-relief"),
+    "law_soc_dfm": src("The Law Society: A good investment (May 2022), quoting the former OPG LP12 standard clause on discretionary investment management", "https://communities.lawsociety.org.uk/may-2022/a-good-investment/6002319.article"),
 }
 
 YES_NO = ["No", "Yes"]

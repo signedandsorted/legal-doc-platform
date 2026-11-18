@@ -51,3 +51,16 @@ Still open:
 - Approve the legal wording after solicitor review.
 - Set the environment variables in `README.md` → "Before merge" on the Render service.
 - Then say "merge" (main auto-deploys to Render).
+
+
+## 7. LPA section 7 presets, business LPAs and ordinary powers of attorney (branch `feat/lpa-presets-business-ordinary-poa`)
+
+New or newly offered wording, all flagged as draft. See `docs/LPA_POA_SOURCES.md` for sources. Please review in particular:
+
+- Tick-box preferences and instructions copied from LP12 (updated 3 November 2026), including professional fee wording, home/care restrictions, gifts, accounts and investment-adviser examples.
+- The discretionary investment / nominee instruction, which is the former OPG LP12 clause (removed in 2022) as quoted by The Law Society in May 2022, not current official wording.
+- Business LPA questions and the official LP12 personal-only and business-only instructions, plus the warning not to split roles between jointly-and-severally appointed attorneys in one LPA.
+- The new Business step in the will, including the Inheritance Tax Business Relief summary (and the 6 April 2026 cap) and the solicitor-drafting placeholder.
+- The new Ordinary or general power of attorney service: the Schedule 1 general deed (filled as a form to the like effect under section 10) and the specific/limited deed, execution as a deed, and the explanation that the power ends on death, bankruptcy or loss of mental capacity and is not a substitute for an LPA.
+
+Still not legal advice. Nothing in this branch should be shown to clients as final until this review is done and Josh has approved a merge.
