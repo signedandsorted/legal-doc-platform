@@ -51,3 +51,14 @@ pytest -q
 - `static/`: the client web app and step videos (`static/videos/<id>.mp4/.vtt/.jpg`)
 - `video/`: free on-server video pipeline (Kokoro TTS, SadTalker, ffmpeg) and narration scripts
 - `prompts/`: LLM prompt drafts (not used yet; drafting is template-based so it works without a model)
+
+
+## Supporting video statement
+
+An optional in-browser recording (or video upload) lets a client make a short supporting statement about a will or lasting power of attorney. The prompts are original wording based on *Banks v Goodfellow* (wills) and the Mental Capacity Act 2005 sections 2 and 3 (LPAs). The recording supports, but does not prove, capacity. Clients are also offered an optional referral conversation about a medical capacity assessment (the “golden rule”).
+
+The file is encrypted with AES-256-GCM before it is stored in the database (the same place as other uploads). A SHA-256 fingerprint, UTC time, user id, document id, document-version hash, IP address and browser are kept in the record and the audit log. Only the client and an admin can play it. There is no third-party video service.
+
+Set `STATEMENT_ENCRYPTION_KEY` on the Render service to a url-safe base64 encoding of 32 random bytes (for example `python -c "from app.statement_crypto import generate_key; print(generate_key())"`). Keep a backup of the key: without it existing recordings cannot be played. In local SQLite development only, a key is written to gitignored `local.statement_key` if the variable is not set.
+
+Defaults (changeable later): maximum 8 minutes or 40 MB; recordings are kept for as long as the document and account are kept. Witnesses and professionals cannot yet add their own recordings.

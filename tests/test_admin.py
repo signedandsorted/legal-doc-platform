@@ -11,7 +11,7 @@ def test_admin_seeded_from_env_and_clients_blocked():
     with admin_client() as adm:
         assert adm.get("/api/auth/me").json()["user"]["role"] == "admin"
     with user_client() as c:
-        for path in ("/api/admin/summary", "/api/admin/users", "/api/admin/drafts", "/api/admin/uploads", "/api/admin/audit"):
+        for path in ("/api/admin/summary", "/api/admin/users", "/api/admin/drafts", "/api/admin/uploads", "/api/admin/audit", "/api/admin/capacity-statements"):
             assert c.get(path).status_code == 403
     assert "test-only-admin-password" not in open("app/auth.py").read()
 
@@ -51,10 +51,10 @@ def test_migration_upgrades_old_schema_and_is_idempotent():
         conn.execute(text("CREATE TABLE drafts (id VARCHAR(36) PRIMARY KEY, service VARCHAR(32) NOT NULL, client_name TEXT NOT NULL, client_email TEXT, "
                           "answers JSON NOT NULL, status VARCHAR(32) NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)"))
         conn.execute(text("INSERT INTO drafts VALUES ('old-1','will','Old Client',NULL,'{}','draft','2026-01-01','2026-01-01')"))
-    assert migrate(eng) == [1, 2]
+    assert migrate(eng) == [1, 2, 3]
     assert migrate(eng) == []
     insp = inspect(eng)
     assert "user_id" in {c["name"] for c in insp.get_columns("drafts")}
-    assert {"users", "sessions", "password_resets", "login_attempts", "audit_log", "uploads", "schema_migrations"} <= set(insp.get_table_names())
+    assert {"users", "sessions", "password_resets", "login_attempts", "audit_log", "uploads", "schema_migrations", "capacity_statements"} <= set(insp.get_table_names())
     with eng.connect() as conn:
         assert conn.execute(text("SELECT client_name, user_id FROM drafts")).all() == [("Old Client", None)]

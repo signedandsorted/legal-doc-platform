@@ -120,8 +120,8 @@ async function mine() {
 async function adminPage(parts) {
   if (!ME || ME.role !== "admin") { $app.innerHTML = '<h1>Admins only</h1><p><a href="#/login?next=admin">Sign in with an admin account</a></p>'; return; }
   const tab = parts[0] || "drafts";
-  const tabs = '<nav class="tabs" aria-label="Admin sections">' + [["drafts", "Drafts"], ["users", "Clients"], ["uploads", "Uploads"], ["audit", "Audit log"]].map(([k, t]) => '<a href="#/admin/' + k + '"' + (k === tab ? ' aria-current="page"' : "") + '>' + t + '</a>').join("") + '</nav>';
-  const head = s => '<h1>Admin</h1><p class="muted small">' + s.clients + ' client' + (s.clients === 1 ? '' : 's') + ' · ' + s.drafts + ' draft' + (s.drafts === 1 ? '' : 's') + ' (' + s.submitted + ' sent for review) · ' + s.uploads + ' upload' + (s.uploads === 1 ? '' : 's') + (s.unowned_drafts ? ' · ' + s.unowned_drafts + ' older drafts with no account' : "") + '</p>' + tabs;
+  const tabs = '<nav class="tabs" aria-label="Admin sections">' + [["drafts", "Drafts"], ["users", "Clients"], ["uploads", "Uploads"], ["statements", "Statements"], ["audit", "Audit log"]].map(([k, t]) => '<a href="#/admin/' + k + '"' + (k === tab ? ' aria-current="page"' : "") + '>' + t + '</a>').join("") + '</nav>';
+  const head = s => '<h1>Admin</h1><p class="muted small">' + s.clients + ' client' + (s.clients === 1 ? '' : 's') + ' · ' + s.drafts + ' draft' + (s.drafts === 1 ? '' : 's') + ' (' + s.submitted + ' sent for review) · ' + s.uploads + ' upload' + (s.uploads === 1 ? '' : 's') + ' · ' + (s.capacity_statements || 0) + ' statement' + ((s.capacity_statements || 0) === 1 ? '' : 's') + (s.unowned_drafts ? ' · ' + s.unowned_drafts + ' older drafts with no account' : "") + '</p>' + tabs;
   const s = await api("/api/admin/summary");
   const dl = u => '<a href="/api/admin/uploads/' + u.id + '/download">' + esc(u.filename) + '</a>';
   const bind = () => $app.querySelectorAll("[data-api]").forEach(b => b.onclick = async () => {
@@ -133,8 +133,20 @@ async function adminPage(parts) {
     $app.innerHTML = head(s) + '<h2>' + esc(d.title) + ' · ' + esc(d.client_name || "no name yet") + '</h2><p class="muted small">Owner ' + esc(d.owner_email || "none (made before accounts)") + ' · ' + esc(STATUS[d.status] || d.status) + ' · saved ' + when(d.updated_at) + ' · ref <span class="ref">' + esc(d.id) + '</span></p>'
       + issuesHtml(d.issues) + (d.missing.length ? '<div class="alert warning"><b>Unanswered</b><ul>' + d.missing.map(m => '<li>' + esc(m) + '</li>').join("") + '</ul></div>' : "")
       + '<h3>Uploads</h3>' + (d.uploads.length ? '<ul class="files">' + d.uploads.map(u => '<li><span>📄 ' + dl(u) + ' <span class="muted">· ' + esc(u.kind) + '</span></span></li>').join("") + '</ul>' : '<p class="muted">None</p>')
+      + statementAdminList(d.capacity_statements || [])
       + '<h3>Answers</h3><pre class="answers">' + esc(JSON.stringify(d.answers, null, 2)) + '</pre>'
       + '<p><button class="btn ghost" data-api="/api/admin/drafts/' + d.id + '" data-method="DELETE" data-confirm="Delete this draft and its uploads for good?">Delete draft</button></p>';
+    bind(); return;
+  }
+  if (tab === "statements") {
+    if (parts[1]) {
+      const st = await api("/api/admin/capacity-statements/" + parts[1]);
+      $app.innerHTML = head(s) + statementAdminDetail(st);
+      bind(); return;
+    }
+    const rows = await api("/api/admin/capacity-statements");
+    const html = table(["When", "Client", "Owner", "Document", "Current", "Fingerprint", ""], rows.map(st => statementAdminRow(st)).join(""));
+    $app.innerHTML = head(s) + html;
     bind(); return;
   }
   const rows = await api("/api/admin/" + tab + (tab === "audit" ? "?limit=300" : "") + (tab === "drafts" && query().get("user") ? "?user_id=" + encodeURIComponent(query().get("user")) : ""));
@@ -391,7 +403,8 @@ async function review(id) {
   if (draft.missing.length || errors.length) {
     $app.innerHTML = head + '<h1>Almost there</h1>' + videoHtml(s.review_video, "Check and send")
       + (draft.missing.length ? '<div class="alert error"><b>Some answers are still needed</b><ul>' + draft.missing.map(m => '<li><a href="#/d/' + id + '/' + stepOf(m) + '">' + esc(m) + '</a></li>').join("") + '</ul></div>' : "")
-      + issuesHtml(draft.issues) + '<p><a class="btn" href="#/d/' + id + '/' + (draft.missing.length ? stepOf(draft.missing[0]) : 0) + '">Go to the first question</a></p></section></div>';
+      + issuesHtml(draft.issues) + '<div id="statement-panel"></div><p><a class="btn" href="#/d/' + id + '/' + (draft.missing.length ? stepOf(draft.missing[0]) : 0) + '">Go to the first question</a></p></section></div>';
+    mountStatementPanel(id);
     return;
   }
   const doc = await api("/api/drafts/" + id + "/document");
@@ -399,11 +412,209 @@ async function review(id) {
     + '<article class="doc"><h2>' + esc(doc.title) + '</h2><p class="notice">' + esc(doc.notice) + '</p>'
     + doc.sections.map(sec => '<h3>' + esc(sec.heading) + '</h3>' + sec.paragraphs.map((p, i) => '<div class="clause"><p>' + esc(p) + '</p>' + (sec.notes && sec.notes[i] ? '<p class="note">💡 ' + esc(sec.notes[i].replace(/^\d+\.\s*/, "")) + '</p>' : "") + '</div>').join("")).join("") + '</article>'
     + '<h2>What happens next</h2><ol>' + doc.next_steps.map(n => '<li>' + esc(n) + '</li>').join("") + '</ol>' + sourcesHtml(doc.sources)
+    + '<div id="statement-panel"></div>'
     + '<div class="actions"><a class="btn ghost" href="#/d/' + id + '/0">Change answers</a><span><a class="btn ghost" href="/api/drafts/' + id + '/pdf">Download PDF</a> '
     + (draft.status === "draft" ? '<button class="btn accent" id="submit">Send to a solicitor for review</button>' : '<span class="alert ok">Sent for solicitor review</span>') + '</span></div><div id="msg" aria-live="polite"></div></section></div>';
   const btn = document.getElementById("submit");
   if (btn) btn.onclick = async () => { if (!confirm("Send this draft to a solicitor for review? You will not be able to change it afterwards.")) return; btn.disabled = true; await api("/api/drafts/" + id + "/submit", { method: "POST" }); route(); };
+  mountStatementPanel(id);
 }
 
 window.addEventListener("hashchange", route);
 whoami().catch(() => {}).finally(route);
+
+
+function shortHash(h) {
+  return h ? h.slice(0, 12) + "…" : "";
+}
+
+function statementAdminList(rows) {
+  if (!rows.length) return '<h3>Supporting video statements</h3><p class="muted">None</p>';
+  return '<h3>Supporting video statements</h3><ul class="files">' + rows.map(st => '<li><span>🎥 <a href="#/admin/statements/' + st.id + '">' + esc(st.filename) + '</a> <span class="muted">· ' + when(st.recorded_at) + (st.is_current ? ' · current' : ' · earlier take') + (st.matches_current_document === false ? ' · recorded against an earlier version of the answers' : "") + '</span></span></li>').join("") + '</ul>';
+}
+
+function statementAdminRow(st) {
+  return '<tr><td class="nowrap">' + when(st.recorded_at) + '</td><td>' + esc(st.client_name || "—") + '</td><td>' + esc(st.owner_email || "—") + '</td><td><a href="#/admin/d/' + st.draft_id + '">' + esc(st.service) + '</a></td><td>' + (st.is_current ? "Yes" : "No") + '</td><td class="small ref">' + esc(shortHash(st.content_sha256)) + '</td><td class="nowrap"><a class="btn small" href="#/admin/statements/' + st.id + '">View</a></td></tr>';
+}
+
+function statementAdminDetail(st) {
+  return '<h2>Supporting video statement</h2>'
+    + '<p class="muted small">Owner ' + esc(st.owner_email || "—") + ' · ' + esc(st.client_name || "") + ' · recorded ' + when(st.recorded_at) + (st.is_current ? ' · current take' : ' · earlier take') + '</p>'
+    + '<div class="statement-video"><video controls preload="metadata" src="/api/admin/capacity-statements/' + st.id + '/video"></video></div>'
+    + '<dl class="audit-dl">'
+    + '<div><dt>Recorded at (UTC)</dt><dd>' + esc(st.recorded_at || "") + '</dd></div>'
+    + '<div><dt>User id</dt><dd class="ref">' + esc(st.user_id || "") + '</dd></div>'
+    + '<div><dt>Document id</dt><dd class="ref">' + esc(st.draft_id || "") + '</dd></div>'
+    + '<div><dt>Document version hash</dt><dd class="ref">' + esc(st.document_version_hash || "") + (st.matches_current_document === false ? ' <span class="muted">(answers have changed since this was recorded)</span>' : "") + '</dd></div>'
+    + '<div><dt>SHA-256 fingerprint</dt><dd class="ref">' + esc(st.content_sha256 || "") + '</dd></div>'
+    + '<div><dt>Source</dt><dd>' + esc(st.source || "") + ' · ' + Math.ceil((st.size || 0) / 1024) + ' KB' + (st.duration_seconds ? ' · ' + st.duration_seconds + 's' : "") + '</dd></div>'
+    + '<div><dt>Prompt set</dt><dd>' + esc(st.prompt_set_id || "") + '</dd></div>'
+    + '<div><dt>IP address</dt><dd>' + esc(st.ip || "—") + '</dd></div>'
+    + '<div><dt>Browser</dt><dd class="small">' + esc(st.user_agent || "—") + '</dd></div>'
+    + '<div><dt>Medical assessment interest</dt><dd>' + (st.medical_assessment_interest ? "Yes, the client asked to talk about a medical capacity assessment" : "No") + '</dd></div>'
+    + '</dl>'
+    + '<p><a class="btn ghost" href="#/admin/d/' + st.draft_id + '">Open the draft</a></p>';
+}
+
+async function mountStatementPanel(draftId) {
+  const el = document.getElementById("statement-panel");
+  if (!el) return;
+  let guide;
+  try {
+    guide = await api("/api/drafts/" + draftId + "/capacity-statement");
+  } catch (e) {
+    if (e.status === 404) return;
+    el.innerHTML = '<div class="alert warning">' + esc(e.message) + '</div>';
+    return;
+  }
+  let recorder = null;
+  let stream = null;
+  let chunks = [];
+  let blob = null;
+  let startedAt = 0;
+  let timer = null;
+  let duration = 0;
+  let medicalInterest = false;
+  let cancelled = false;
+
+  const stopStream = () => { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } };
+  const clearTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+  const render = (mode, err) => {
+    const prompts = '<ol class="prompt-list">' + guide.prompts.map(p => '<li><b>' + esc(p.title) + '</b><span>' + esc(p.text) + '</span></li>').join("") + '</ol>';
+    const disclaimer = '<div class="alert warning"><b>This recording supports, but does not prove, capacity.</b><p>' + esc(guide.disclaimer) + '</p><p class="small">' + esc(guide.golden_rule) + '</p><p class="small muted">' + esc(guide.legal_basis) + '</p></div>';
+    const current = guide.current;
+    let body = '<h2>' + esc(guide.title) + '</h2>' + disclaimer;
+    if (current) {
+      body += '<div class="card statement-current"><p>You recorded a supporting statement on ' + when(current.recorded_at) + '.'
+        + (current.matches_current_document === false ? ' This was recorded against an earlier version of your answers. If you have changed anything important, please record it again.' : "")
+        + '</p><div class="statement-video"><video controls preload="metadata" src="/api/drafts/' + draftId + '/capacity-statements/' + current.id + '/video"></video></div>'
+        + '<p class="muted small">Fingerprint ' + esc(shortHash(current.content_sha256)) + ' · document version ' + esc(shortHash(current.document_version_hash)) + '</p></div>';
+    }
+    if (mode === "idle") {
+      body += '<p>This is optional. You can record a short video of yourself, in your own words, answering the questions below. If your camera does not work, you can upload a video instead.</p>'
+        + prompts
+        + '<label class="check"><input type="checkbox" id="st-consent"> <span>' + esc(guide.consent) + '</span></label>'
+        + '<label class="check"><input type="checkbox" id="st-medical"> <span>Please ask the solicitor who reviews my draft to talk with me about arranging a medical capacity assessment.</span></label>'
+        + (err ? '<div class="alert error" role="alert">' + esc(err) + '</div>' : "")
+        + '<p class="actions statement-actions"><button type="button" class="btn" id="st-start">Record a statement</button> <label class="btn ghost">Upload a video instead<input type="file" id="st-file" accept="video/*" hidden></label></p>'
+        + '<p class="muted small">Maximum about ' + Math.round(guide.max_seconds / 60) + ' minutes or ' + Math.round(guide.max_bytes / (1024 * 1024)) + ' MB. You can retake it before you confirm.</p>';
+    } else if (mode === "record") {
+      body += '<p>Work through the questions in your own words. Press stop when you have finished.</p>' + prompts
+        + '<div class="statement-video recording"><video id="st-preview" autoplay muted playsinline></video><span class="rec-dot" aria-hidden="true"></span><span class="rec-time" id="st-time">0:00</span></div>'
+        + (err ? '<div class="alert error" role="alert">' + esc(err) + '</div>' : "")
+        + '<p class="actions statement-actions"><button type="button" class="btn accent" id="st-stop">Stop recording</button> <button type="button" class="btn ghost" id="st-cancel">Cancel</button></p>';
+    } else if (mode === "preview") {
+      body += '<p>Please watch your recording. If you are happy with it, confirm it. If not, you can retake it. It is not saved until you confirm.</p>'
+        + prompts
+        + '<div class="statement-video"><video id="st-preview" controls playsinline></video></div>'
+        + (err ? '<div class="alert error" role="alert">' + esc(err) + '</div>' : "")
+        + '<p class="actions statement-actions"><button type="button" class="btn accent" id="st-confirm">Confirm and save this recording</button> <button type="button" class="btn ghost" id="st-retake">Retake</button></p>';
+    } else if (mode === "saving") {
+      body += '<p class="muted">Saving your recording…</p>';
+    }
+    el.innerHTML = '<section class="card statement-panel">' + body + '</section>';
+    bind(mode);
+  };
+
+  const clock = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+
+  const pickFile = file => {
+    if (!file) return;
+    if (file.size > guide.max_bytes) { render("idle", "That video is too large. Please try a shorter one."); return; }
+    blob = file;
+    duration = 0;
+    render("preview");
+  };
+
+  const startRecording = async () => {
+    const consent = document.getElementById("st-consent");
+    if (!consent || !consent.checked) { render("idle", "Please read and tick the consent box before you record."); return; }
+    medicalInterest = !!(document.getElementById("st-medical") && document.getElementById("st-medical").checked);
+    stopStream();
+    chunks = [];
+    blob = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    } catch (e) {
+      render("idle", "The camera or microphone could not be started. You can upload a video instead, or check the browser permission.");
+      return;
+    }
+    const types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+    const mime = types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
+    try {
+      recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    } catch (e) {
+      stopStream();
+      render("idle", "This browser cannot record a video here. Please upload a short video instead.");
+      return;
+    }
+    recorder.ondataavailable = ev => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+    recorder.onstop = () => {
+      clearTimer();
+      stopStream();
+      if (cancelled) { cancelled = false; blob = null; render("idle"); return; }
+      duration = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+      blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+      render("preview");
+    };
+    render("record");
+    const preview = document.getElementById("st-preview");
+    if (preview) { preview.srcObject = stream; preview.play().catch(() => {}); }
+    startedAt = Date.now();
+    recorder.start(250);
+    timer = setInterval(() => {
+      const s = Math.round((Date.now() - startedAt) / 1000);
+      const t = document.getElementById("st-time");
+      if (t) t.textContent = clock(s);
+      if (s >= guide.max_seconds && recorder && recorder.state === "recording") recorder.stop();
+    }, 250);
+  };
+
+  const bind = mode => {
+    const start = document.getElementById("st-start");
+    if (start) start.onclick = startRecording;
+    const file = document.getElementById("st-file");
+    if (file) file.onchange = ev => {
+      const consent = document.getElementById("st-consent");
+      if (!consent || !consent.checked) { ev.target.value = ""; render("idle", "Please read and tick the consent box before you upload."); return; }
+      medicalInterest = !!(document.getElementById("st-medical") && document.getElementById("st-medical").checked);
+      pickFile(ev.target.files && ev.target.files[0]);
+    };
+    const stop = document.getElementById("st-stop");
+    if (stop) stop.onclick = () => { cancelled = false; if (recorder && recorder.state === "recording") recorder.stop(); };
+    const cancel = document.getElementById("st-cancel");
+    if (cancel) cancel.onclick = () => { cancelled = true; if (recorder && recorder.state === "recording") recorder.stop(); else { stopStream(); clearTimer(); blob = null; render("idle"); } };
+    const retake = document.getElementById("st-retake");
+    if (retake) retake.onclick = () => { blob = null; render("idle"); };
+    const confirm = document.getElementById("st-confirm");
+    if (confirm) confirm.onclick = submit;
+    const preview = document.getElementById("st-preview");
+    if (mode === "preview" && preview && blob) preview.src = URL.createObjectURL(blob);
+  };
+
+  const submit = async () => {
+    if (!blob) { render("idle", "Please record or choose a video first."); return; }
+    const medical = document.getElementById("st-medical");
+    const form = new FormData();
+    const type = blob.type || "video/webm";
+    const ext = type.includes("mp4") ? ".mp4" : type.includes("ogg") ? ".ogv" : ".webm";
+    form.append("file", blob, "statement" + ext);
+    form.append("consent", "true");
+    form.append("confirmed", "true");
+    form.append("prompt_set_id", guide.prompt_set_id);
+    form.append("source", blob instanceof File ? "upload" : "camera");
+    if (duration) form.append("duration_seconds", String(duration));
+    form.append("medical_assessment_interest", (medical && medical.checked) || medicalInterest ? "true" : "false");
+    render("saving");
+    try {
+      guide = await api("/api/drafts/" + draftId + "/capacity-statements", { method: "POST", body: form });
+      blob = null;
+      render("idle");
+    } catch (e) {
+      render("preview", e.message);
+    }
+  };
+
+  render("idle");
+}

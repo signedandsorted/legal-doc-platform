@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, insert, select, text, update
 
 from .admin import router as admin_router
+from .capacity import router as capacity_router
 from .auth import require_user, router as auth_router, seed_admin, set_csrf_cookie
 from .db import drafts, engine, init_db, new_id, now, uploads
 from .security import audit, client_ip, csrf_ok
@@ -60,6 +61,7 @@ async def csrf_and_headers(request: Request, call_next):
 
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(capacity_router)
 
 
 class DraftIn(BaseModel):
