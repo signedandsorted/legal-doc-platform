@@ -2,6 +2,7 @@
 from .common import DRAFT_NOTICE, age_on, issue, norm, person
 from .guide_lpa import CP_CHECKS, LPA_FEE
 from .guides import SERVICES
+from .lpa_presets import selected_wordings
 
 FORM_SLOTS = 4  # attorneys / replacements the printed form has room for
 
@@ -51,6 +52,24 @@ def lpa_issues(service_id: str, a: dict, uploads_text: str = "") -> list[dict]:
         out.append(issue("info", f"You have {len(rep)} replacement attorneys. The extra ones go on continuation sheet 1."))
     if (a.get("donor") or {}).get("existing_lpa", "No") not in ("", "No"):
         out.append(issue("warning", "You told us you already have an LPA or EPA. A solicitor will check how the new LPA fits with it, and whether the old one should be revoked."))
+    biz = a.get("business") or {}
+    if biz.get("has_business") == "Yes":
+        purpose = biz.get("purpose") or ""
+        if purpose in ("Personal finances only", "Business affairs only"):
+            out.append(issue("info", "You have limited this LPA to " + purpose.lower() + ". Official guidance is to make two LP1F forms if you want different attorneys or a clean split between personal and business affairs. A solicitor should check both."))
+        if purpose == "Both personal and business (same attorneys)":
+            out.append(issue("warning", "If you later want one attorney to deal only with the business and another only with your personal affairs, do not add that as an instruction in this LPA. LP12 says the LPA will not work if attorneys appointed jointly and severally are then told to split those roles. Make two LPAs instead."))
+        if biz.get("talked_to_co_owners") == "Not yet":
+            out.append(issue("warning", "You have not yet talked to co-owners, partners or fellow shareholders."))
+        if biz.get("has_agreement") in ("No", "Not sure"):
+            out.append(issue("warning", "A solicitor should check any partnership or shareholders' agreement before this business LPA is signed."))
+    chosen = selected_wordings(service_id, a)
+    if any(p.get("solicitor_review") for p in chosen):
+        out.append(issue("warning", "One or more of the section 7 options you ticked needs solicitor review, including any discretionary investment or home/care restriction wording."))
+    if any(p["id"] == "discretionary_investments" for p in chosen):
+        out.append(issue("info", "A property and financial affairs LPA already covers making or selling investments. The extra stocks-and-shares wording is the former OPG clause about discretionary management and nominee names, which current LP12 no longer prints. A solicitor should review it."))
+    if any(p["id"] in ("must_not_sell_home", "must_not_residential_care") for p in chosen):
+        out.append(issue("warning", "A binding instruction about not selling your home or not moving into residential care can make the LPA hard to use. Official guidance says complicated or badly worded instructions can make an LPA unworkable."))
     return out
 
 
@@ -93,7 +112,34 @@ def build_lpa(service_id: str, a: dict, uploads: list | None = None) -> dict:
     else:
         sec.append({"heading": "Section 5: life-sustaining treatment", "paragraphs": ["Sign: " + (a.get("life_sustaining") or {}).get("life_sustaining", ""), "You sign this box in front of a witness, at the same time as section 9."]})
     sec.append({"heading": "Section 6: people to notify", "paragraphs": [person(p) for p in notify] or ["None"]})
-    sec.append({"heading": "Section 7: preferences and instructions", "paragraphs": ["Preferences: " + (prefs.get("preferences") or "None"), "Instructions: " + (prefs.get("instructions") or "None"), "If either is too long for the box, write 'see continuation sheet 2' and continue there."]})
+    chosen = selected_wordings(service_id, a)
+    pref_lines = [p["wording"] for p in chosen if p["section"] == "preferences"]
+    inst_lines = [p["wording"] for p in chosen if p["section"] == "instructions"]
+    if (prefs.get("preferences") or "").strip():
+        pref_lines.append(prefs["preferences"].strip())
+    if (prefs.get("instructions") or "").strip():
+        inst_lines.append(prefs["instructions"].strip())
+    sec7 = []
+    if pref_lines:
+        sec7.append("Preferences:")
+        sec7.extend(pref_lines)
+    else:
+        sec7.append("Preferences: None")
+    if inst_lines:
+        sec7.append("Instructions:")
+        sec7.extend(inst_lines)
+    else:
+        sec7.append("Instructions: None")
+    if any(p.get("source_note") for p in chosen):
+        sec7.append("Sources for ticked wording: " + " ".join(sorted({p["source_note"] for p in chosen})))
+    sec7.append("If either is too long for the box, write 'see continuation sheet 2' and continue there.")
+    sec.append({"heading": "Section 7: preferences and instructions", "paragraphs": sec7})
+    if pref_lines or inst_lines:
+        extra = []
+        extra += [f"Preference: {w}" for w in pref_lines]
+        extra += [f"Instruction: {w}" for w in inst_lines]
+        if len(" ".join(pref_lines + inst_lines)) > 400:
+            cont2.extend(extra)
     sec.append({"heading": "Section 8: your legal rights and responsibilities", "paragraphs": ["Read this section of the form before you sign. There is nothing to fill in."]})
     sec.append({"heading": "Section 9: your signature", "paragraphs": ["You sign and date in front of a witness who is 18 or over and is not one of your attorneys or replacements."]})
     sec.append({"heading": "Section 10: certificate provider", "paragraphs": [person(cp), "Qualifies by: " + cp.get("basis", ""), "Eligibility checks confirmed: " + ("all" if all(cp.get(k) is True for k, _ in CP_CHECKS) else "NOT all, see issues")]})

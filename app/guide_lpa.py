@@ -2,6 +2,7 @@
 and LP1H (health and care decisions). Each step names the form section it fills.
 DRAFT WORDING: needs lawyer review before it goes live."""
 from .fields import ATTORNEY, GOV, PERSON, YES_NO, optional
+from .lpa_presets import business_instruction_fields, preset_fields
 
 LPA_FEE = 92  # GOV.UK "Register a lasting power of attorney", checked 17 Nov 2026
 LPA_FEE_BOTH = 184
@@ -104,9 +105,32 @@ def lpa_service(kind: str) -> dict:
                 "Life-sustaining treatment is care or medicine needed to keep you alive, for example a ventilator or CPR.",
                 "Option A gives your attorneys authority to give or refuse consent on your behalf. Option B means they cannot; your doctors decide, taking your attorneys' views into account.",
                 "You sign this section in front of a witness at the same time as you sign section 9.",
+                "This choice stays in section 5. Do not put life-sustaining treatment instructions in section 7 (preferences and instructions). You can add other care preferences, such as food or everyday treatment, in section 7.",
             ],
-            "sources": [GOV["lpa_forms"]],
+            "sources": [GOV["lpa_forms"], GOV["lp12"]],
             "fields": [{"name": "life_sustaining", "label": "Life-sustaining treatment", "type": "select", "required": True, "options": ["Option A: my attorneys can give or refuse consent", "Option B: my attorneys cannot give or refuse consent"]}],
+        })
+    if prop:
+        steps.append({
+            "id": "business", "title": "Business or personal finances", "form_section": "LP1F section 7 (if you limit the LPA)",
+            "guidance": [
+                "You can appoint different attorneys for your personal finances and your business affairs. To do this, fill in two LP1F forms. Official guidance (LP12) says you should then explain in the instructions for each LPA what you want to happen, so the two do not overlap.",
+                "A separate business LPA is worth considering if you want a different attorney for the business, or if you want to keep business accounts and decisions apart from your household finances. Talk to any co-owners, partners or fellow shareholders first, and check the partnership agreement, shareholders' agreement or articles. Choose attorneys who understand the business.",
+                "Do not use an instruction in a single LPA to give one attorney the business and another your personal affairs if you have appointed them jointly and severally. LP12 says that sort of instruction means the LPA will not work. Make two LPAs instead.",
+                "This is not legal advice. A solicitor should check both LPAs and any business agreement before you sign.",
+            ],
+            "sources": [GOV["lp12"], GOV["lpa_forms"]],
+            "fields": [
+                {"name": "has_business", "label": "Do you own a business, a farm, or shares in a company that this LPA should deal with?", "type": "select", "options": YES_NO},
+                {"name": "purpose", "label": "What should this LPA cover?", "type": "select", "required": True, "show_if": {"field": "has_business", "in": ["Yes"]},
+                 "options": ["Personal finances only", "Business affairs only", "Both personal and business (same attorneys)"],
+                 "hint": "If you want different attorneys for the business and for your personal finances, make two LP1F forms instead of choosing 'both'."},
+                {"name": "talked_to_co_owners", "label": "Have you talked to any co-owners, partners or fellow shareholders?", "type": "select", "show_if": {"field": "has_business", "in": ["Yes"]},
+                 "options": ["Yes", "Not yet", "There are no co-owners", "Not sure"]},
+                {"name": "has_agreement", "label": "Is there a partnership agreement, shareholders' agreement or similar that deals with incapacity?", "type": "select", "show_if": {"field": "has_business", "in": ["Yes"]},
+                 "options": ["Yes", "No", "Not sure"],
+                 "hint": "A solicitor should check that this LPA does not conflict with that agreement."},
+            ] + business_instruction_fields(),
         })
     steps += [
         {
@@ -121,13 +145,16 @@ def lpa_service(kind: str) -> dict:
         {
             "id": "preferences", "title": "Preferences and instructions (section 7)", "form_section": f"{form} section 7", "video": "lpa_preferences",
             "guidance": [
-                "Preferences are wishes your attorneys should take into account, for example 'I would like to stay in my own home for as long as possible'. Instructions are rules they must follow.",
-                "Keep instructions short and practical. An instruction that cannot work legally can stop the LPA being registered. Anything that does not fit goes on continuation sheet 2.",
+                "Preferences are what you would like your attorneys to think about. They should bear them in mind but do not have to follow them. Official guidance says to use words such as 'prefer' and 'would like', not 'must' or 'shall'.",
+                "Instructions tell your attorneys what they must do. Use words such as 'must', 'shall' and 'have to'. Official guidance says instructions can cause more problems than preferences, and that complicated or badly worded instructions or preferences can make an LPA unworkable.",
+                "Tick any official example wording that you want copied into section 7. You can also write your own in the boxes. The examples are from the Office of the Public Guardian's LP12 guide (updated 3 November 2026), except the discretionary investment wording, which is the former OPG clause no longer printed in LP12 — see the warning on that option.",
+                "Most people leave this page blank and just talk to their attorneys. If you are not sure, get legal advice. Life-sustaining treatment on a health and welfare LPA is decided in section 5, not in this box. LP12 also notes that attorneys must already consult family and friends when working out your best interests, so you do not have to add a separate instruction about that.",
+                "Anything that does not fit the boxes goes on continuation sheet 2.",
             ],
-            "sources": [GOV["lpa_forms"]],
-            "fields": [
-                {"name": "preferences", "label": "Preferences (optional)", "type": "textarea"},
-                {"name": "instructions", "label": "Instructions (optional)", "type": "textarea"},
+            "sources": [GOV["lpa_forms"], GOV["lp12"], GOV["lpa_errors"]],
+            "fields": preset_fields(kind) + [
+                {"name": "preferences", "label": "Any other preferences (optional)", "type": "textarea", "hint": "Use words such as 'prefer' and 'would like'."},
+                {"name": "instructions", "label": "Any other instructions (optional)", "type": "textarea", "hint": "Use words such as 'must', 'shall' and 'have to'. Avoid instructions that the law will not allow — see the warnings on the tick-box options and in LP12."},
             ],
         },
         {

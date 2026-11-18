@@ -35,6 +35,14 @@ def will_issues(a: dict) -> list[dict]:
             out.append(issue("warning", "The person you are leaving out is also an executor. Please check this is what you want."))
     if tr.get("life_interest", "No") != "No" or tr.get("discretionary") == "Yes" or tr.get("vulnerable_beneficiary"):
         out.append(issue("info", "Your will includes a trust. Your solicitor will check the trust wording and its tax effect with you."))
+    biz = a.get("business") or {}
+    owns = biz.get("owns_business") == "Yes" or tr.get("business_property") == "Yes"
+    if owns:
+        out.append(issue("info", "Your will mentions business, farm or company assets. A solicitor must draft the gift and check Inheritance Tax Business Relief, including the rules for deaths on or after 6 April 2026. This is not legal advice."))
+        if biz.get("talked_to_co_owners") == "Not yet":
+            out.append(issue("warning", "You have not yet talked to co-owners, partners or fellow shareholders about what should happen to the business."))
+        if biz.get("has_agreement") in ("No", "Not sure"):
+            out.append(issue("warning", "A solicitor should check whether a partnership or shareholders' agreement affects who can inherit or run the business."))
     return out
 
 
@@ -112,8 +120,24 @@ def build_will(_, a: dict, uploads: list | None = None) -> dict:
     if tr.get("vulnerable_beneficiary"):
         _clause(c, f"Any share of my estate for {tr['vulnerable_beneficiary']} shall not be paid to them outright but held by my trustees on discretionary trust for their benefit during their lifetime, so as to protect their entitlement to means-tested benefits and care, with the remainder passing as part of my residuary estate.",
                 "A vulnerable person's trust protects someone disabled or on means-tested benefits.")
-    if tr.get("business_property") == "Yes" and tr.get("business_details"):
-        _clause(c, f"[For solicitor drafting] Business or agricultural property: {tr['business_details']}.", "Your solicitor will draft this gift so that Business or Agricultural Relief is protected.")
+    biz = a.get("business") or {}
+    owns = biz.get("owns_business") == "Yes" or tr.get("business_property") == "Yes"
+    details = (biz.get("business_details") or tr.get("business_details") or "").strip()
+    if owns and details:
+        kind = biz.get("business_type") or "business or agricultural property"
+        extra = []
+        if biz.get("separate_planning") == "Yes":
+            extra.append("The client has asked a solicitor to consider a separate gift, will or trust for these assets, including Inheritance Tax Business Relief.")
+        if biz.get("has_agreement"):
+            extra.append(f"Partnership or shareholders' agreement: {biz['has_agreement']}.")
+        note = (
+            "This is a placeholder only. A solicitor must draft the gift and check Inheritance Tax Business Relief "
+            "(GOV.UK: a business or interest in a business, and shares in an unlisted company, may qualify for 100% relief "
+            "if the conditions are met, usually including two years of ownership. For deaths on or after 6 April 2026, "
+            "100% relief is capped at £2.5 million of qualifying business or agricultural property, with 50% relief on the rest). "
+            "This is not legal advice."
+        )
+        _clause(c, f"[For solicitor drafting] {kind}: {details}. " + " ".join(extra), note)
     if res.get("ultimate_beneficiary"):
         _clause(c, f"If none of the gifts of my residuary estate take effect, I give my residuary estate to {res['ultimate_beneficiary']}.", "A last back-up so your estate does not pass under the intestacy rules.")
     if ext.get("lifetime_gifts") == "Yes":

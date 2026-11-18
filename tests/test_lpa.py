@@ -101,3 +101,56 @@ def test_property_lpa_needs_bankruptcy_confirmation_and_fee_reduction_mentions_l
         d = make(c, "lpa_property", a)
         doc = c.get(f"/api/drafts/{d['id']}/document").json()
         assert "LPA120" in " ".join(p for s in doc["sections"] for p in s["paragraphs"])
+
+
+
+def test_section_7_presets_use_official_wording_and_warn():
+    with user_client() as c:
+        a = lpa(preferences={
+            "preset_professional_fees": True,
+            "professional_fee_organisation": "The Law Society",
+            "preset_discretionary_investments": True,
+            "preset_must_not_sell_home": True,
+            "preferences": "Stay at home if I can",
+        })
+        d = make(c, "lpa_property", a)
+        warn = " ".join(i["message"] for i in d["issues"] if i["level"] == "warning")
+        assert "solicitor review" in warn and "not selling your home" in warn
+        doc = c.get(f"/api/drafts/{d['id']}/document").json()
+        sec7 = " ".join(p for s in doc["sections"] if s["heading"].startswith("Section 7") for p in s["paragraphs"])
+        assert "I wish my professional attorneys to be paid the standard solicitor rate as set by The Law Society." in sec7
+        assert "discretionary management scheme" in sec7
+        assert "must not sell my home" in sec7
+        assert "Stay at home if I can" in sec7
+        assert any("lp12" in s["url"] for s in doc["sources"]) or any("lasting-power-of-attorney-forms" in s["url"] for s in doc["sources"])
+
+
+def test_business_lpa_scope_instruction_from_lp12():
+    with user_client() as c:
+        a = lpa(business={
+            "has_business": "Yes",
+            "purpose": "Business affairs only",
+            "talked_to_co_owners": "Not yet",
+            "has_agreement": "Not sure",
+            "preset_business_business_only": True,
+        })
+        d = make(c, "lpa_property", a)
+        msgs = " ".join(i["message"] for i in d["issues"])
+        assert "two LP1F" in msgs and "co-owners" in msgs
+        doc = c.get(f"/api/drafts/{d['id']}/document").json()
+        sec7 = " ".join(p for s in doc["sections"] if s["heading"].startswith("Section 7") for p in s["paragraphs"])
+        assert "only have the authority to use my business accounts" in sec7
+        assert "not permitted to use my personal account" in sec7
+
+
+def test_health_lpa_home_and_treatment_presets():
+    with user_client() as c:
+        a = lpa("lpa_health", preferences={
+            "preset_must_not_residential_care": True,
+            "preset_vegetarian_food": True,
+        })
+        d = make(c, "lpa_health", a)
+        doc = c.get(f"/api/drafts/{d['id']}/document").json()
+        sec7 = " ".join(p for s in doc["sections"] if s["heading"].startswith("Section 7") for p in s["paragraphs"])
+        assert "must not decide I am to move into residential care" in sec7
+        assert "only vegetarian food" in sec7
