@@ -25,7 +25,8 @@ pytest -q
 | `ADMIN_EMAIL` | yes | the first admin account is created (or promoted) for this email on start |
 | `ADMIN_INITIAL_PASSWORD` | yes, first deploy | its starting password, 12+ characters; change it after the first sign-in, then you can remove the variable |
 | `APP_BASE_URL` | yes | `https://legal-doc-platform-pzjv.onrender.com` (used in password reset links) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | for password reset emails | without them a reset request is logged as "not sent" and no email goes out |
+| `RESEND_API_KEY`, `MAIL_FROM` | for password reset emails | preferred; sends over Resend's HTTPS API (works on Render's free plan, which blocks SMTP ports). Default from-address is `josh@signedandsorted.com` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | fallback for password reset emails | used if `RESEND_API_KEY` is unset or Resend fails; without either method a reset request is logged as "not sent" and no email goes out |
 | `COOKIE_SECURE` | no | defaults to on (cookies only over HTTPS); set `0` only for local http |
 | `MAIL_BACKEND` | no | `log` prints reset links to the log; for local development only |
 
