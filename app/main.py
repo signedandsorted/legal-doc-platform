@@ -43,9 +43,27 @@ async def csrf_and_headers(request: Request, call_next):
     if request.method in UNSAFE and request.url.path.startswith("/api/") and not csrf_ok(request):
         return JSONResponse({"detail": "Your session has expired. Please refresh the page and try again."}, status_code=403)
     response = await call_next(request)
+    # CSP must allow same-origin videos, blob: previews of a just-recorded
+    # capacity statement, and getUserMedia playback in <video>. No third-party
+    # scripts or frames. frame-ancestors backs up X-Frame-Options.
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' blob: data:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self'; "
+        "font-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'",
+    )
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
     if request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
     elif request.url.path == "/" or request.url.path.startswith("/static/app.js") or request.url.path.startswith("/static/styles.css") or request.url.path == "/static/index.html" or "text/html" in response.headers.get("content-type", ""):
