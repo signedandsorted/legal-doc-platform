@@ -160,3 +160,27 @@ def test_start_button_is_visible_and_assets_are_cache_busted():
         # logged-out Start must not silently no-op: it shows a sign-in page
         assert 'location.hash = dest' in text or "goToSignIn(" in text
 
+
+
+def test_security_headers_on_pages_and_api():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as c:
+        for path in ("/", "/login", "/api/services", "/healthz"):
+            r = c.get(path)
+            assert r.status_code == 200, path
+            csp = r.headers.get("content-security-policy", "")
+            assert "default-src 'self'" in csp, path
+            assert "frame-ancestors 'none'" in csp, path
+            assert "media-src 'self' blob:" in csp, path
+            assert r.headers.get("x-frame-options") == "DENY", path
+            assert r.headers.get("x-content-type-options") == "nosniff", path
+            assert r.headers.get("referrer-policy") == "same-origin", path
+
+
+def test_app_js_rejects_prototype_polluting_form_keys():
+    from pathlib import Path
+    text = Path("static/app.js").read_text(encoding="utf-8")
+    assert "function safeFormKey" in text
+    assert '"__proto__"' in text and '"constructor"' in text and '"prototype"' in text

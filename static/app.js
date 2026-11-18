@@ -235,10 +235,14 @@ function fieldHtml(f, value, path, container) {
   return '<div class="field">' + label + '<input id="' + id + '" name="' + id + '" type="' + type + '"' + extra + ' value="' + esc(value) + '"' + req + desc + '></div>';
 }
 
+function safeFormKey(k) {
+  return typeof k === "number" || (k !== "__proto__" && k !== "constructor" && k !== "prototype");
+}
 function readForm(form) {
-  const out = {};
+  const out = Object.create(null);
   for (const el of form.querySelectorAll("[name]")) {
     const keys = el.name.split("__").map(k => /^\d+$/.test(k) ? Number(k) : k);
+    if (keys.some(k => !safeFormKey(k))) continue;
     let node = out;
     keys.forEach((k, i) => {
       if (i === keys.length - 1) { node[k] = el.type === "checkbox" ? el.checked : el.value; return; }
@@ -248,6 +252,7 @@ function readForm(form) {
   }
   for (const fs of form.querySelectorAll("[data-list]")) {  // keep empty list items
     const keys = fs.dataset.list.split("__").map(k => /^\d+$/.test(k) ? Number(k) : k);
+    if (keys.some(k => !safeFormKey(k))) continue;
     let node = out;
     keys.forEach((k, i) => { if (i === keys.length - 1) { node[k] = (node[k] || []).map(x => x ?? {}); const n = fs.querySelectorAll(":scope > .item").length; while (node[k].length < n) node[k].push({}); } else node = node[k] ??= typeof keys[i + 1] === "number" ? [] : {}; });
   }
