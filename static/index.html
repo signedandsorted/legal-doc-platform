@@ -6,7 +6,14 @@
 <meta name="theme-color" content="#0b1f3a">
 <title>Signed and Sorted · Wills, LPA and Probate</title>
 <meta name="description" content="Wills, LPA and Probate you can trust. Clear, secure legal support for England and Wales.">
-<link rel="stylesheet" href="/static/styles.css?v=5">
+<link rel="stylesheet" href="/static/styles.css?v=8">
+<style>
+  .rule{width:52px;height:3px;background:#0b1f3a;margin:0 0 18px;border:0}
+  .service-card .btn{width:100%;justify-content:center}
+  .agreements{margin-top:28px}
+  #app{min-height:40vh}
+  .inner-page{max-width:760px;margin:48px auto;padding:0 24px}
+</style>
 </head>
 <body>
 <header class="site-header">
@@ -20,7 +27,7 @@
       <a href="#/how">How It Works</a>
       <a href="#/about">About Us</a>
       <a href="#/pricing">Pricing</a>
-      <a href="#/faq">Help & Support</a>
+      <a href="#/faq">Help and Support</a>
     </nav>
     <div class="header-actions" id="acct">
       <a href="#/login" class="btn ghost small">Client Login</a>
@@ -29,7 +36,119 @@
   </div>
 </header>
 <main id="main">
-  <div id="app"></div>
+  <div id="app">
+    <section class="hero-section">
+      <div>
+        <p class="eyebrow">Legal documents, made simple</p>
+        <h1>Wills, LPA and Probate you can trust.</h1>
+        <hr class="rule">
+        <p class="lead">Signed and Sorted helps you plan ahead and sort what matters with clear, secure legal support for you and your family in England and Wales.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#/s/will">Start Today →</a>
+          <a class="btn ghost" href="#/how">How It Works</a>
+        </div>
+      </div>
+      <div class="hero-image">
+        <img src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1200&q=80" alt="Signed legal document on a clipboard with a pen">
+      </div>
+    </section>
+
+    <section class="services-section">
+      <h2>Our legal services</h2>
+      <div class="service-grid">
+        <article class="service-card">
+          <div class="icon">📄</div>
+          <h3>Will Writing</h3>
+          <p>Make a will that protects your wishes and the people you care about.</p>
+          <ul>
+            <li>Simple online process</li>
+            <li>Mirror, single and tailored wills</li>
+            <li>Securely signed and stored</li>
+          </ul>
+          <a class="btn" href="#/s/will">Start Your Will →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🛡️</div>
+          <h3>Lasting Power of Attorney (LPA)</h3>
+          <p>Set up an LPA for health and welfare, and for property and financial decisions.</p>
+          <ul>
+            <li>Property and Financial Affairs LPA</li>
+            <li>Health and Welfare LPA</li>
+            <li>Guidance at every step</li>
+          </ul>
+          <a class="btn" href="#/s/lpa_property">Start Your LPA →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🏛️</div>
+          <h3>Probate Assistance</h3>
+          <p>Apply for probate and sort estate administration with confidence.</p>
+          <ul>
+            <li>Probate application support</li>
+            <li>Document checking and guidance</li>
+            <li>Clear, fixed-fee options</li>
+          </ul>
+          <a class="btn" href="#/s/probate">Start Probate →</a>
+        </article>
+      </div>
+
+      <h2 class="agreements">Agreements</h2>
+      <div class="service-grid">
+        <article class="service-card">
+          <div class="icon">💍</div>
+          <h3>Prenuptial agreement</h3>
+          <p>Set out how assets should be treated if the marriage ends.</p>
+          <ul>
+            <li>Signed before marriage</li>
+            <li>Full financial disclosure</li>
+            <li>Solicitor review included</li>
+          </ul>
+          <a class="btn" href="#/s/prenup">Start Prenup →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">📜</div>
+          <h3>Postnuptial agreement</h3>
+          <p>An agreement signed after marriage covering assets and intentions.</p>
+          <ul>
+            <li>Signed after marriage</li>
+            <li>Clear asset treatment</li>
+            <li>Solicitor checked</li>
+          </ul>
+          <a class="btn" href="#/s/postnup">Start Postnup →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🏠</div>
+          <h3>Cohabitation agreement</h3>
+          <p>For unmarried couples covering the home, money and separation.</p>
+          <ul>
+            <li>Who owns what</li>
+            <li>What happens if you separate</li>
+            <li>Solicitor review</li>
+          </ul>
+          <a class="btn" href="#/s/cohabitation">Start Cohabitation →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">💼</div>
+          <h3>Employment settlement</h3>
+          <p>End employment on agreed terms, with independent advice.</p>
+          <ul>
+            <li>Payments and notice</li>
+            <li>Independent legal advice</li>
+            <li>Solicitor checked</li>
+          </ul>
+          <a class="btn" href="#/s/employment_settlement">Start Settlement →</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="trust-bar">
+      <div class="trust-inner">
+        <div class="trust-item"><strong>Trusted across England and Wales</strong>Secure, compliant and regulated. Your peace of mind is our priority.</div>
+        <div class="trust-item"><strong>Secure and confidential</strong></div>
+        <div class="trust-item"><strong>Regulated legal services</strong></div>
+        <div class="trust-item"><strong>Expert support when you need it</strong></div>
+      </div>
+    </section>
+  </div>
 </main>
 <footer class="site-footer">
   <div class="footer-inner">
@@ -57,16 +176,16 @@
     </div>
     <div>
       <strong>LEGAL</strong>
-      <a href="#/">Terms & Conditions</a>
-      <a href="#/">Privacy Policy</a>
-      <a href="#/">Complaints</a>
+      <a href="#/faq">Terms and Conditions</a>
+      <a href="#/faq">Privacy Policy</a>
+      <a href="#/faq">Complaints</a>
     </div>
     <div>
       <strong>Stay informed</strong>
       <p class="small">Practical legal updates and guidance.</p>
       <form class="email-form" onsubmit="return false;">
-        <input type="email" placeholder="Your email address">
-        <button type="submit">→</button>
+        <input type="email" placeholder="Your email address" aria-label="Email address">
+        <button type="submit" aria-label="Subscribe">→</button>
       </form>
     </div>
   </div>
@@ -74,6 +193,6 @@
     <p>Authorised and regulated by the Solicitors Regulation Authority · SRA 8004567</p>
   </div>
 </footer>
-<script src="/static/app.js?v=6"></script>
+<script src="/static/app.js?v=8"></script>
 </body>
 </html>
