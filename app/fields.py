@@ -7,8 +7,10 @@ required check) unless the sibling's answer is one of the values. Checkbox answe
 """
 
 
+from datetime import datetime, timezone
+
 def src(title: str, url: str) -> dict:
-    return {"title": title, "url": url}
+    return {"title": title, "url": url, "checked": datetime.now(timezone.utc).date().isoformat()}
 
 
 GOV = {
