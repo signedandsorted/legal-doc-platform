@@ -3,7 +3,6 @@ const $app = document.getElementById("app");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;" }[c]));
 
 function home() {
-  if (!$app) return;
   $app.innerHTML = `
     <section class="hero-section">
       <div>
@@ -16,7 +15,7 @@ function home() {
         </div>
       </div>
       <div class="hero-image">
-        <img src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&q=80" alt="Lasting Power of Attorney document on a clipboard with pen">
+        <img src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=900&q=80" alt="Lasting Power of Attorney on a clipboard">
       </div>
     </section>
     <section class="services-section">
@@ -56,17 +55,32 @@ function home() {
   `;
 }
 
-function howPage() { $app.innerHTML = '<h1>How it works</h1><p class="lead">Answer questions, preview your draft, then send for solicitor review.</p><p><a class="btn" href="#/">Get started</a></p>'; }
-function aboutPage() { $app.innerHTML = '<h1>About Us</h1><p>Making wills and probate simple and clear.</p><p><a class="btn ghost" href="#/">Back to home</a></p>'; }
-function faqPage() { $app.innerHTML = '<h1>Help & Support</h1><p><a class="btn ghost" href="#/">Back to home</a></p>'; }
-function pricingPage() { $app.innerHTML = '<h1>Pricing</h1><p>Fixed fees. Solicitor review included.</p><p><a class="btn ghost" href="#/">Back to home</a></p>'; }
+function howPage() {
+  $app.innerHTML = '<h1>How it works</h1><p class="lead">Answer guided questions, preview your draft, then send it for solicitor review.</p><p><a class="btn" href="#/">Get started</a></p>';
+}
+function aboutPage() {
+  $app.innerHTML = '<h1>About Us</h1><p>Making wills and probate simple, clear and accessible.</p><p><a class="btn ghost" href="#/">Back to home</a></p>';
+}
+function faqPage() {
+  $app.innerHTML = '<h1>Help & Support</h1><p>Questions? We are here to help.</p><p><a class="btn ghost" href="#/">Back to home</a></p>';
+}
+function pricingPage() {
+  $app.innerHTML = '<h1>Pricing</h1><p>Fixed fees. Solicitor review included.</p><p><a class="btn ghost" href="#/">Back to home</a></p>';
+}
+
+function startPage(id) {
+  const titles = { will: "Make a will", lpa_property: "Lasting power of attorney: financial decisions", lpa_health: "Lasting power of attorney: health and care decisions", probate: "Apply for probate" };
+  $app.innerHTML = '<h1>' + esc(titles[id] || "Start") + '</h1><p class="lead">The guided step-by-step flow with videos will open here.</p><p><a class="btn" href="#/">Back to home</a></p>';
+}
 
 function route() {
-  const hash = location.hash.replace(/^#\/?/, "").split("?")[0];
-  if (hash === "how") return howPage();
-  if (hash === "about") return aboutPage();
-  if (hash === "faq") return faqPage();
-  if (hash === "pricing") return pricingPage();
+  const hash = (location.hash || "#/").replace(/^#\/?/, "").split("?")[0];
+  const parts = hash.split("/").filter(Boolean);
+  if (parts[0] === "how") return howPage();
+  if (parts[0] === "about") return aboutPage();
+  if (parts[0] === "faq") return faqPage();
+  if (parts[0] === "pricing") return pricingPage();
+  if (parts[0] === "s" && parts[1]) return startPage(parts[1]);
   return home();
 }
 
