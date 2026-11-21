@@ -50,6 +50,9 @@ async function route() {
     if (parts[0] === "about") return aboutPage();
     if (parts[0] === "pricing") return pricingPage();
     if (parts[0] === "faq") return faqPage();
+    if (parts[0] === "terms") return legalPage("terms");
+    if (parts[0] === "privacy") return legalPage("privacy");
+    if (parts[0] === "complaints") return legalPage("complaints");
     if (parts[0] === "s") return await start(parts[1]);
     if (parts[0] === "d" && parts[2] === "review") return await review(parts[1]);
     if (parts[0] === "d") return await step(parts[1], Number(parts[2] || 0));
@@ -109,6 +112,8 @@ function pricingPage() {
   const rows = [
     ["Will", "£149", "Single will, video on every step, solicitor review before you sign.", "#/s/will"],
     ["Lasting power of attorney", "£149 each", "Property and financial affairs, or health and welfare. Both together £249.", "#/s/lpa_property"],
+    ["Health and welfare LPA", "£149", "Decisions about care and medical treatment if you cannot decide.", "#/s/lpa_health"],
+    ["Ordinary power of attorney", "£99", "For while you still have capacity. It ends if you lose capacity.", "#/s/poa_ordinary"],
     ["Probate", "from £399", "Application support and document checking. Complex estates are quoted.", "#/s/probate"],
     ["Prenuptial agreement", "£349", "Before marriage. Full disclosure and solicitor review.", "#/s/prenup"],
     ["Postnuptial agreement", "£349", "After marriage. Solicitor review included.", "#/s/postnup"],
@@ -124,6 +129,15 @@ function aboutPage() {
     + '<p class="lead">Wills, lasting powers of attorney, probate, and family and employment agreements for England and Wales.</p>'
     + '<p>You answer guided questions. A short video explains each step, and you can choose a woman or a man as the presenter. A solicitor checks the draft before you sign. This is not legal advice until that review is done.</p>'
     + '<p><a class="btn" href="#/">See the services</a></p></div>';
+}
+function legalPage(kind) {
+  const pages = {
+    terms: ["Terms", "Using Signed and Sorted does not create a solicitor-client relationship by itself. The questions and videos are guidance. A solicitor reviews the draft before you sign or file anything. Guide prices on the pricing page are not a quote and nothing is taken on this website until a payment step is switched on."],
+    privacy: ["Privacy", "Your answers, uploads and account email are stored so you can finish a draft and so a solicitor can review it. They are not sold. Sign in to see your own documents. An administrator can see drafts for review. Do not put passwords in a will or an upload."],
+    complaints: ["Complaints", "If something has gone wrong, email the address you used to contact Signed and Sorted and include your draft reference from My documents. We will reply with what will happen next. This page is not a regulator complaint form."]
+  };
+  const page = pages[kind];
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">Legal</p><h1>' + esc(page[0]) + '</h1><p class="lead">' + esc(page[1]) + '</p><p><a class="btn ghost" href="#/">Back to the services</a></p></div>';
 }
 function faqPage() {
   const qs = [
@@ -264,21 +278,21 @@ async function previewService(id) {
     $app.innerHTML = '<div class="inner-page"><h1>Sorry, that document was not found</h1><p>' + esc(e.message) + '</p><p><a class="btn ghost" href="#/">Back</a></p></div>';
     return;
   }
-  const st = (s.steps || []).find(x => x.video) || s.steps[0] || {};
-  const vid = st.video || (st.video === undefined && s.review_video);
-  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">Preview</p><h1>' + esc(s.title) + '</h1><p class="lead">' + esc(s.summary || "") + '</p>'
-    + (vid ? videoHtml(vid, st.title || s.title) : demoVideo("will_intro", s.title))
-    + '<p>Choose Woman or Man. That choice is kept for the rest of the steps.</p>'
-    + (ME ? '<p><a class="btn" href="#/s/' + esc(id) + '" id="go-start">Continue</a></p>'
+  const steps = s.steps || [];
+  const st = steps.find(x => x.video) || steps[0] || {};
+  const vid = st.video || s.review_video;
+  const list = steps.map((step, i) => '<li><b>' + (i + 1) + '. ' + esc(step.title) + '</b>' + (step.video ? ' · video' : '') + '</li>').join("");
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">' + steps.length + ' steps</p><h1>' + esc(s.title) + '</h1><p class="lead">' + esc(s.summary || "") + '</p>'
+    + (vid ? videoHtml(vid, st.title || s.title) : '<p class="muted">This document is questions and solicitor review. A presenter video is not on this step yet.</p>')
+    + (vid ? '<p>Choose Woman or Man. That choice is kept for the rest of the steps. If the man clip is not on the site yet, the woman plays and your choice is saved.</p>' : '')
+    + '<ol class="step-list">' + list + '</ol>'
+    + (ME ? '<p><button class="btn" type="button" id="go-start">Continue to step 1</button></p>'
       : '<p><a class="btn" href="#/register?next=' + encodeURIComponent("s/" + id) + '">Create an account to continue</a> <a class="btn ghost" href="#/login?next=' + encodeURIComponent("s/" + id) + '">Sign in</a></p>')
     + '</div>';
+  const go = document.getElementById("go-start");
+  if (go) go.onclick = () => beginDraft(id);
 }
-async function start(id) {
-  if (!id) {
-    $app.innerHTML = '<h1>Sorry, that document was not found</h1><p><a class="btn ghost" href="#/">Back to the start</a></p>';
-    return;
-  }
-  if (!ME) { await previewService(id); return; }
+async function beginDraft(id) {
   $app.innerHTML = '<h1>Starting…</h1><p class="muted">Please wait.</p>';
   try {
     const d = await api("/api/drafts", { method: "POST", body: { service: id, answers: {} } });
@@ -300,6 +314,14 @@ async function start(id) {
     }
     $app.innerHTML = '<h1>Sorry, something went wrong</h1><div class="alert error">' + esc(e.message) + '</div><p><a class="btn ghost" href="#/">Back to the start</a></p>';
   }
+}
+async function start(id) {
+  if (!id) {
+    $app.innerHTML = '<h1>Sorry, that document was not found</h1><p><a class="btn ghost" href="#/">Back to the start</a></p>';
+    return;
+  }
+  if (!ME) { await previewService(id); return; }
+  return beginDraft(id);
 }
 
 function bindStart() {
@@ -369,6 +391,9 @@ function readForm(form) {
 }
 
 function withBothPresenters(v) {
+  if (typeof v === "string") {
+    v = { id: v, src: "/static/videos/" + v + ".mp4", poster: "/static/videos/" + v + ".jpg", captions: "/static/videos/" + v + ".vtt", default_presenter: "female", presenters: [] };
+  }
   if (!v || !v.src) return v;
   const presenters = (v.presenters || []).slice();
   const female = presenters.find(p => p.id === "female") || {

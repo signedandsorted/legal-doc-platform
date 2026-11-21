@@ -3,9 +3,11 @@ from .doc_lpa import build_lpa, lpa_issues
 from .doc_poa import build_poa, poa_issues
 from .doc_probate import build_probate, probate_issues
 from .doc_will import build_will, will_issues
+from .doc_agreement import AGREEMENTS, agreement_issues, build_agreement
 from .guides import SERVICES
 
-BUILDERS = {"will": build_will, "lpa_property": build_lpa, "lpa_health": build_lpa, "poa_ordinary": build_poa, "probate": build_probate}
+BUILDERS = {"will": build_will, "lpa_property": build_lpa, "lpa_health": build_lpa, "poa_ordinary": build_poa, "probate": build_probate,
+            **{sid: build_agreement for sid in AGREEMENTS}}
 
 
 def missing_fields(service_id: str, answers: dict) -> list[str]:
@@ -24,6 +26,8 @@ def find_issues(service_id: str, answers: dict, uploads_text: str = "") -> list[
         return poa_issues(answers)
     if service_id == "probate":
         return probate_issues(answers)
+    if service_id in AGREEMENTS:
+        return agreement_issues(service_id, answers)
     return will_issues(answers)
 
 

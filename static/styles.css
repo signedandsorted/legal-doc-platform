@@ -105,7 +105,8 @@ textarea{min-height:90px}
 .narrow{max-width:480px;margin:32px auto;padding:0 24px}
 .btn.accent{background:var(--navy);color:#fff}
 .linkbtn{background:none;border:0;color:var(--navy);cursor:pointer;font:inherit;text-decoration:underline}
-.ai-label{color:var(--muted);margin-top:0}
+.step-list{margin:16px 0 24px;padding-left:20px}
+.step-list li{margin:6px 0}
 @media (max-width:900px){
   .main-nav{display:flex;flex-wrap:wrap;gap:12px 16px;width:100%;margin-left:0}
   .how,.layout{grid-template-columns:1fr}
