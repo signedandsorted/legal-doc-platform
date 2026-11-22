@@ -86,3 +86,35 @@ def test_one_ledger_feeds_the_accounts_the_forms_and_the_draft():
         assert exported.status_code == 200
         assert exported.json()["answers"]["deceased"]["full_name"] == "John Executor"
 
+
+def test_uploaded_papers_fill_the_estate_and_nothing_is_filed():
+    with admin_client() as c:
+        matter = c.post("/api/firm/matters", json={"kind": "probate", "client_name": "Ann Executor", "deceased_name": "John Executor", "date_of_death": "2026-01-15"}).json()
+        upload = c.post(
+            f"/api/firm/matters/{matter['id']}/uploads",
+            data={"kind": "Bank or valuation letter"},
+            files={"file": ("bank.txt", "Barclays current account: £10,000.00\n", "text/plain")},
+        )
+        assert upload.status_code == 200, upload.text
+        suggestion = upload.json()["suggestions"][0]
+        applied = c.post(f"/api/firm/matters/{matter['id']}/apply", json={"suggestion_ids": [suggestion["id"]]})
+        assert applied.status_code == 200, applied.text
+        assert applied.json()["figures"]["gross_probate"] == 10000
+        assert "death certificate" in " ".join(applied.json()["filing"]["blockers"]).lower()
+        assert applied.json()["filing"]["hmcts"]["ready"] is False
+        death = c.post(
+            f"/api/firm/matters/{matter['id']}/uploads",
+            data={"kind": "Death certificate"},
+            files={"file": ("death.txt", "Certified copy of an entry of death. Date of death: 15 January 2026\n", "text/plain")},
+        )
+        assert death.status_code == 200
+        pack = c.get(f"/api/firm/matters/{matter['id']}/pack")
+        assert pack.status_code == 200
+        assert pack.content.startswith(b"%PDF")
+        recorded = c.patch(f"/api/firm/matters/{matter['id']}", json={"hmrc_code": "", "grant_filed_on": "2026-04-01", "grant_reference": "PR-1"})
+        assert recorded.json()["filing"]["hmrc"]["grant_filed_on"] == "2026-04-01"
+        assert "does not" in recorded.json()["filing"]["notice"].lower() or "Nothing" in recorded.json()["filing"]["notice"]
+    with user_client() as c:
+        assert c.post(f"/api/firm/matters/{matter['id']}/uploads", files={"file": ("x.txt", b"no", "text/plain")}).status_code == 403
+
+

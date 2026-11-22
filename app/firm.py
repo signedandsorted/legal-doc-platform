@@ -1,17 +1,27 @@
 """Firm desk. Staff and admins only. Clients of the public site cannot open it."""
-from fastapi import APIRouter, Depends, HTTPException, Request
+import re
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from sqlalchemy import insert, select, update
+from sqlalchemy import delete, insert, select, update
 
 from .auth import require_admin, require_staff
-from .db import drafts, engine, matters, new_id, now, users
+from .db import drafts, engine, matter_uploads, matters, new_id, now, users
 from .documents import find_issues, missing_fields
+from .extract import detect_kind, extract_text, suggest
 from .firm_books import clean_books, compile_books, letter_text
+from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
 from .firm_work import ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
+from .pdf import render_pdf
 from .security import audit, client_ip, hash_password, normalise_email, check_password_rules
 
 router = APIRouter(prefix="/api/firm")
+MAX_PAPERS = 15
+MAX_PAPER_BYTES = 10 * 1024 * 1024
+PAPER_EXT = {".pdf", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".heic", ".webp"}
 
 
 class MatterIn(BaseModel):
@@ -36,6 +46,14 @@ class MatterPatch(BaseModel):
     note: str | None = None
     books: dict | None = None
     assigned_to: str | None = None
+    hmrc_code: str | None = None
+    hmrc_posted_on: str | None = None
+    grant_filed_on: str | None = None
+    grant_reference: str | None = None
+
+
+class ApplyIn(BaseModel):
+    suggestion_ids: list[str] = Field(default_factory=list)
 
 
 class LetterIn(BaseModel):
@@ -99,7 +117,19 @@ def _public(row: dict, full: bool = False) -> dict:
             out["books"] = compiled["books"]
             out["accounts"] = compiled["accounts"]
             out["forms"] = compiled["forms"]
+            papers = _papers(row["id"])
+            out["papers"] = papers
+            out["filing"] = position(row, compiled, papers)
     return out
+
+
+def _papers(matter_id: str) -> list[dict]:
+    with engine().connect() as conn:
+        rows = conn.execute(select(
+            matter_uploads.c.id, matter_uploads.c.filename, matter_uploads.c.kind, matter_uploads.c.size,
+            matter_uploads.c.read_as, matter_uploads.c.suggestions, matter_uploads.c.created_at,
+        ).where(matter_uploads.c.matter_id == matter_id).order_by(matter_uploads.c.created_at)).mappings().all()
+    return [{**dict(r), "created_at": _iso(r["created_at"])} for r in rows]
 
 
 def _draft_check(draft_id: str | None) -> dict | None:
@@ -180,6 +210,13 @@ def patch_matter(matter_id: str, body: MatterPatch, request: Request, staff: dic
         facts["books"] = clean_books(body.books)
         facts.setdefault("activity", []).append({"at": now().isoformat(), "by": staff["email"], "what": "Figures updated"})
         facts["activity"] = facts["activity"][-30:]
+    recorded = filing_record(facts)
+    for key in ("hmrc_code", "hmrc_posted_on", "grant_filed_on", "grant_reference"):
+        val = getattr(body, key)
+        if val is not None:
+            recorded[key] = val.strip()[:40]
+    if any(getattr(body, key) is not None for key in ("hmrc_code", "hmrc_posted_on", "grant_filed_on", "grant_reference")):
+        facts["filing"] = recorded
     values["facts"] = facts
     with engine().begin() as conn:
         conn.execute(update(matters).where(matters.c.id == matter_id).values(**values))
@@ -232,6 +269,98 @@ def export_matter(matter_id: str, _staff: dict = Depends(require_staff)):
         "answers": None if not compiled else compiled["answers"],
         "notice": "Export for the firm's own file. It is not a filing with the court or with HMRC.",
     }
+
+
+@router.post("/matters/{matter_id}/uploads")
+async def upload_paper(matter_id: str, request: Request, file: UploadFile = File(...), kind: str = Form(""), staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    if len(_papers(matter_id)) >= MAX_PAPERS:
+        raise HTTPException(400, f"You can keep up to {MAX_PAPERS} papers on a matter")
+    filename = re.sub(r"[^\w.\- ]", "_", Path(file.filename or "document").name)[:120] or "document"
+    if Path(filename).suffix.lower() not in PAPER_EXT:
+        raise HTTPException(400, "Upload a PDF, Word file, text file or photo")
+    data = await file.read(MAX_PAPER_BYTES + 1)
+    if not data or len(data) > MAX_PAPER_BYTES:
+        raise HTTPException(400, "The file is empty or over 10 MB")
+    text_, read_as = extract_text(filename, file.content_type or "", data)
+    detected = detect_kind(text_)
+    kind_map = {"Old will": "Will", "Death certificate": "Death certificate", "Codicil": "Codicil"}
+    chosen = kind if kind in PAPER_KINDS else kind_map.get(detected or "", "Other")
+    upload_id = new_id()
+    found = suggest("probate" if row["kind"] == "probate" else row["kind"], text_, upload_id, filename)
+    with engine().begin() as conn:
+        conn.execute(insert(matter_uploads).values(
+            id=upload_id, matter_id=matter_id, filename=filename, content_type=file.content_type or "application/octet-stream",
+            kind=chosen, size=len(data), data=data, text=text_, read_as=read_as, suggestions=found, created_at=now(),
+        ))
+    audit("matter_upload", staff, "matter", matter_id, {"filename": filename, "kind": chosen}, client_ip(request))
+    return [p for p in _papers(matter_id) if p["id"] == upload_id][0]
+
+
+@router.get("/matters/{matter_id}/uploads/{upload_id}")
+def download_paper(matter_id: str, upload_id: str, _staff: dict = Depends(require_staff)):
+    _load(matter_id)
+    with engine().connect() as conn:
+        row = conn.execute(select(matter_uploads).where(matter_uploads.c.id == upload_id, matter_uploads.c.matter_id == matter_id)).mappings().first()
+    if not row:
+        raise HTTPException(404, "Paper not found")
+    return Response(row["data"], media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{row["filename"]}"', "X-Content-Type-Options": "nosniff"})
+
+
+@router.delete("/matters/{matter_id}/uploads/{upload_id}")
+def delete_paper(matter_id: str, upload_id: str, request: Request, staff: dict = Depends(require_staff)):
+    _load(matter_id)
+    with engine().begin() as conn:
+        n = conn.execute(delete(matter_uploads).where(matter_uploads.c.id == upload_id, matter_uploads.c.matter_id == matter_id)).rowcount
+    if not n:
+        raise HTTPException(404, "Paper not found")
+    audit("matter_upload_deleted", staff, "matter", matter_id, {"upload_id": upload_id}, client_ip(request))
+    return {"ok": True}
+
+
+@router.post("/matters/{matter_id}/apply")
+def apply_papers(matter_id: str, body: ApplyIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    if not body.suggestion_ids:
+        raise HTTPException(400, "Choose what to add to the estate")
+    wanted = set(body.suggestion_ids)
+    chosen = []
+    for paper in _papers(matter_id):
+        for item in paper.get("suggestions") or []:
+            if not wanted or item.get("id") in wanted:
+                if item.get("mode") != "note" or str(item.get("label") or "").startswith("Executor named"):
+                    chosen.append(item)
+    if wanted:
+        chosen = [item for item in chosen if item.get("id") in wanted]
+    facts = dict(row["facts"] or {})
+    books, fields = apply_suggestions(row, clean_books(facts.get("books")), chosen)
+    facts["books"] = clean_books(books)
+    values = {"facts": facts, "updated_at": now(), **{k: v for k, v in fields.items() if k in ("deceased_name", "date_of_death")}}
+    with engine().begin() as conn:
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(**values))
+        fresh = dict(row)
+        fresh.update(values)
+        if fresh["kind"] == "probate" and fresh["draft_id"]:
+            compiled = compile_books(fresh)
+            draft = conn.execute(select(drafts.c.answers).where(drafts.c.id == fresh["draft_id"])).scalar()
+            answers = dict(draft or {})
+            answers.update(compiled["answers"])
+            conn.execute(update(drafts).where(drafts.c.id == fresh["draft_id"]).values(answers=answers, updated_at=now()))
+    audit("matter_applied", staff, "matter", matter_id, {"count": len(chosen)}, client_ip(request))
+    return _public(_load(matter_id), full=True)
+
+
+@router.get("/matters/{matter_id}/pack")
+def matter_pack(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    if row["kind"] != "probate":
+        raise HTTPException(400, "The working pack is for a probate matter")
+    compiled = compile_books(row)
+    papers = _papers(matter_id)
+    where = position(row, compiled, papers)
+    pdf = render_pdf(pack_document(row, compiled, papers, where))
+    name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name} working pack.pdf"'})
 
 
 @router.post("/matters/{matter_id}/draft")

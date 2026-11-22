@@ -87,8 +87,8 @@ let TAB = "next";
 async function matter(id) {
   nav();
   const [m, staff] = await Promise.all([api("/api/firm/matters/" + id), api("/api/firm/colleagues")]);
-  const tabs = [["next", "Next"], ["money", "One set of figures"], ["accounts", "Accounts"], ["forms", "Forms"], ["letters", "Letters"]];
-  const showTabs = m.kind === "probate" ? tabs : [tabs[0], tabs[4]];
+  const tabs = [["next", "Next"], ["money", "One set of figures"], ["accounts", "Accounts"], ["forms", "Forms"], ["papers", "Papers and filing"], ["letters", "Letters"]];
+  const showTabs = m.kind === "probate" ? tabs : [tabs[0], tabs[5]];
   if (!showTabs.some(t => t[0] === TAB)) TAB = "next";
   const strip = m.figures ? '<div class="figure-strip">'
     + [["Probate gross", m.figures.gross_probate], ["Probate net", m.figures.net_probate], ["Tax estimate", m.figures.tax], ["Still to collect", m.accounts.totals.still_to_collect], ["Left to share", m.accounts.totals.expected_net]].map(([l, n]) => '<div><span>' + l + '</span><b>' + gbp(n) + '</b></div>').join("")
@@ -103,6 +103,7 @@ async function matter(id) {
   if (TAB === "money") panel.innerHTML = moneyPanel(m, staff);
   else if (TAB === "accounts") panel.innerHTML = accountsPanel(m);
   else if (TAB === "forms") panel.innerHTML = formsPanel(m);
+  if (TAB === "papers") panel.innerHTML = papersPanel(m);
   else if (TAB === "letters") panel.innerHTML = lettersPanel(m);
   else panel.innerHTML = nextPanel(m, staff);
   bind(id, m);
@@ -176,6 +177,31 @@ function formsPanel(m) {
     + f.schedule.map(s => '<section class="stage"><h3>' + esc(s.code) + ' — ' + esc(s.label) + '</h3><table class="tbl">' + s.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table></section>').join("")
     + '<p><a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/export">Download the file for the case system</a></p></div>';
 }
+function papersPanel(m) {
+  const f = m.filing || { blockers: [], steps: [], hmrc: {}, hmcts: {}, notice: "" };
+  const h = f.hmrc || {};
+  const papers = (m.papers || []).map(p => {
+    const ideas = (p.suggestions || []).filter(s => s.mode !== "note" || String(s.label).startsWith("Executor")).map(s => '<label class="check"><input type="checkbox" name="pick" value="' + esc(s.id) + '" checked> ' + esc(s.label) + "</label>").join("");
+    return '<article class="stage"><b>' + esc(p.filename) + '</b> <span class="who">' + esc(p.kind) + "</span>"
+      + (p.read_as === "scanned-pdf" || p.read_as === "image" ? '<p class="small">No text could be read from this scan. Type the figures, or upload a file that contains text.</p>' : "")
+      + (ideas ? '<form class="apply">' + ideas + '<p><button class="btn" type="submit">Add the ticked items to the estate</button></p></form>' : '<p class="small">Nothing on this paper can be copied across.</p>')
+      + '<p><a href="/api/firm/matters/' + esc(m.id) + "/uploads/" + esc(p.id) + '">Download</a></p></article>';
+  }).join("");
+  return '<div class="firm-card"><h2>Upload the papers</h2><p>Will, death certificate or bank letter. The desk reads the text and offers the names and amounts. Nothing is added until you tick it.</p>'
+    + '<form id="up"><label>What it is<select name="kind"><option>Will</option><option>Codicil</option><option>Death certificate</option><option>Bank or valuation letter</option><option>Other</option></select></label>'
+    + '<input type="file" name="file" required accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.heic,.webp"> <button class="btn" type="submit">Upload</button></form>' + papers + "</div>"
+    + '<div class="firm-card"><h2>Filing</h2><p>' + esc(f.notice) + "</p>"
+    + (f.blockers || []).map(b => '<p class="alert">' + esc(b) + "</p>").join("")
+    + "<ol>" + (f.steps || []).map(s => "<li>" + esc(s) + "</li>").join("") + "</ol>"
+    + (h.needed ? '<p><a href="' + esc(h.url) + '">Official IHT400</a> · <a href="' + esc(h.pay_url) + '">Pay Inheritance Tax</a></p>' : "<p>These answers do not ask for a full IHT400.</p>")
+    + '<p><a href="' + esc((f.hmcts || {}).url || "") + '">MyHMCTS: how a firm files the grant</a></p>'
+    + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/pack">Download the working pack</a></p>'
+    + '<form id="filed"><label>HMRC code, when they send it<input name="hmrc_code" value="' + esc(h.hmrc_code || "") + '"></label>'
+    + '<label>Date the IHT400 was posted<input type="date" name="hmrc_posted_on" value="' + esc(h.hmrc_posted_on || "") + '"></label>'
+    + '<label>Date the grant was filed<input type="date" name="grant_filed_on" value="' + esc(h.grant_filed_on || "") + '"></label>'
+    + '<label>MyHMCTS reference<input name="grant_reference" value="' + esc(h.grant_reference || "") + '"></label>'
+    + '<p><button class="btn" type="submit">Record what the firm has filed</button></p><p class="small">This updates your file only. It does not contact HMRC or HMCTS.</p></form></div>';
+}
 function lettersPanel(m) {
   const saved = ((m.books || {}).letters || []).slice().reverse().map(l => '<article class="stage"><h3>' + esc(l.title) + '</h3><p class="muted small">' + esc(l.by) + '</p><div class="letter">' + esc(l.body) + '</div></article>').join("");
   return '<div class="firm-card"><h2>Letters from these figures</h2><p>Each letter uses the list you have already typed. Keep a copy on the file.</p>'
@@ -237,6 +263,27 @@ function bind(id, m) {
     await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
     reload();
   };
+  const filed = document.getElementById("filed");
+  if (filed) filed.onsubmit = async (e) => {
+    e.preventDefault();
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: Object.fromEntries(new FormData(e.target).entries()) });
+    reload();
+  };
+  const up = document.getElementById("up");
+  if (up) up.onsubmit = async (e) => {
+    e.preventDefault();
+    const headers = { "X-CSRF-Token": decodeURIComponent(await ensureCsrf()) };
+    const res = await fetch("/api/firm/matters/" + id + "/uploads", { method: "POST", credentials: "same-origin", headers, body: new FormData(e.target) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) { alert((data && data.detail) || "Upload failed"); return; }
+    reload();
+  };
+  $desk.querySelectorAll("form.apply").forEach(form => form.onsubmit = async (e) => {
+    e.preventDefault();
+    const suggestion_ids = [...form.querySelectorAll("input:checked")].map(i => i.value);
+    await api("/api/firm/matters/" + id + "/apply", { method: "POST", body: { suggestion_ids } });
+    reload();
+  });
   $desk.querySelectorAll("[data-letter]").forEach(b => b.onclick = async () => {
     const r = await api("/api/firm/matters/" + id + "/letters", { method: "POST", body: { kind: b.dataset.letter } });
     document.getElementById("preview").innerHTML = '<h3>' + esc(r.letter.title) + '</h3><div class="letter">' + esc(r.letter.body) + '</div>';

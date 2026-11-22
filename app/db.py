@@ -143,6 +143,23 @@ matters = Table(
 )
 
 
+matter_uploads = Table(
+    "matter_uploads",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("matter_id", String(36), ForeignKey("matters.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("filename", Text, nullable=False),
+    Column("content_type", Text, nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("size", Integer, nullable=False),
+    Column("data", LargeBinary, nullable=False),
+    Column("text", Text, nullable=False, default=""),
+    Column("read_as", String(16), nullable=False),
+    Column("suggestions", JSON, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+
 def database_url() -> str:
     url = os.getenv("DATABASE_URL", "sqlite:///./local.db")
     if url.startswith("postgres://"):
