@@ -3,7 +3,7 @@ DRAFT WORDING: a solicitor must check it before anyone signs. Not legal advice."
 from .common import DRAFT_NOTICE, issue
 from .guides import SERVICES
 
-AGREEMENTS = ("prenup", "postnup", "cohabitation", "employment_settlement")
+AGREEMENTS = ("prenup", "postnup", "cohabitation", "employment_settlement", "nuptial")
 
 
 def _value(field: dict, value) -> str:
