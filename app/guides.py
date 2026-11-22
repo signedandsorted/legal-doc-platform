@@ -7,6 +7,7 @@ from .guide_prenup import PRENUP
 from .guide_postnup import POSTNUP
 from .guide_employment import EMPLOYMENT_SETTLEMENT
 from .guide_cohabitation import COHABITATION
+from .guide_nuptial import NUPTIAL
 
 # Home page grouping. Order here is the order of the cards.
 for _svc, _cat in (
