@@ -43,8 +43,8 @@ def list_users(admin: dict = Depends(require_admin)):
 
 @router.patch("/users/{user_id}")
 def set_role(user_id: str, body: RoleIn, request: Request, admin: dict = Depends(require_admin)):
-    if body.role not in ("client", "admin"):
-        raise HTTPException(400, "Role must be client or admin")
+    if body.role not in ("client", "staff", "admin"):
+        raise HTTPException(400, "Role must be client, staff or admin")
     if user_id == admin["id"] and body.role != "admin":
         raise HTTPException(400, "You can't remove your own admin access")
     with engine().begin() as conn:

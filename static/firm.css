@@ -1,0 +1,20 @@
+.firm-body { background: #f4f6f8; color: #14213d; }
+.firm-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 28px; background: #14213d; color: #fff; }
+.firm-brand { color: #fff; font-weight: 700; text-decoration: none; }
+.firm-brand span { display: inline-block; margin-left: 8px; font-weight: 500; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: #f4c95d; }
+.firm-top a, .firm-top button.linkbtn { color: #fff; }
+#desk { max-width: 1080px; margin: 0 auto; padding: 28px 20px 64px; }
+.firm-card { background: #fff; border: 1px solid #e2e6ea; border-radius: 14px; padding: 22px; margin-bottom: 16px; }
+.firm-next { background: #14213d; color: #fff; border-radius: 14px; padding: 22px; margin-bottom: 16px; }
+.firm-next p { color: #d7dee8; }
+.firm-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; }
+.matter-row { display: grid; grid-template-columns: 1.4fr .7fr 1fr auto; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid #e8ecef; }
+.matter-row a { font-weight: 700; color: #14213d; text-decoration: none; }
+.stage { border-top: 1px solid #e8ecef; padding-top: 14px; margin-top: 14px; }
+.item { display: grid; grid-template-columns: 1fr 150px; gap: 12px; align-items: start; padding: 10px 0; }
+.item select, .firm-card input, .firm-card select, .firm-card textarea { width: 100%; }
+.who { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #5c6b7a; }
+.letter { white-space: pre-wrap; background: #f7f8fa; border-radius: 10px; padding: 14px; }
+@media (max-width: 800px) {
+  .firm-grid, .matter-row, .item { grid-template-columns: 1fr; }
+}

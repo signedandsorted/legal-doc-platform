@@ -69,6 +69,31 @@ def require_user(request: Request) -> dict:
     return u
 
 
+def require_staff(request: Request) -> dict:
+    u = require_user(request)
+    if u["role"] not in ("staff", "admin"):
+        raise HTTPException(403, "This desk is for firm staff")
+    return u
+
+
+def seed_staff() -> None:
+    """Optional firm login from STAFF_EMAIL + STAFF_INITIAL_PASSWORD. Never demotes an admin."""
+    email, pw = os.getenv("STAFF_EMAIL", "").strip().lower(), os.getenv("STAFF_INITIAL_PASSWORD", "")
+    if not email:
+        return
+    with engine().begin() as conn:
+        u = conn.execute(select(users).where(users.c.email == email)).mappings().first()
+        if u:
+            if u["role"] == "client":
+                conn.execute(update(users).where(users.c.id == u["id"]).values(role="staff"))
+            return
+        if len(pw) < 12:
+            log.warning("STAFF_EMAIL is set but STAFF_INITIAL_PASSWORD is missing or under 12 characters; no staff account created.")
+            return
+        conn.execute(insert(users).values(id=new_id(), email=email, password_hash=hash_password(pw), role="staff", created_at=now()))
+    audit("staff_seeded", None, "user", None, {"email": email})
+
+
 def require_admin(request: Request) -> dict:
     u = require_user(request)
     if u["role"] != "admin":
@@ -198,4 +223,4 @@ def seed_admin() -> None:
     audit("admin_seeded", None, "user", None, {"email": email})
 
 
-__all__ = ["router", "current_user", "require_user", "require_admin", "seed_admin", "Depends"]
+__all__ = ["router", "current_user", "require_user", "require_admin", "require_staff", "seed_admin", "seed_staff", "Depends"]

@@ -31,7 +31,7 @@ async function whoami() { ME = (await api("/api/auth/me")).user; nav(); }
 function nav() {
   const el = document.getElementById("acct");
   if (!el) return;
-  el.innerHTML = ME ? '<a href="#/mine">My documents</a>' + (ME.role === "admin" ? '<a href="#/admin">Admin</a>' : "") + '<button type="button" class="linkbtn" id="signout">Sign out</button>'
+  el.innerHTML = ME ? '<a href="#/mine">My documents</a>' + (ME.role === "admin" || ME.role === "staff" ? '<a href="/firm">Firm desk</a>' : "") + (ME.role === "admin" ? '<a href="#/admin">Admin</a>' : "") + '<button type="button" class="linkbtn" id="signout">Sign out</button>'
     : '<a href="#/login">Sign in</a><a href="#/register" class="btn small accent">Create account</a>';
   const so = document.getElementById("signout");
   if (so) so.onclick = async () => { await api("/api/auth/logout", { method: "POST" }); ME = null; nav(); location.hash = "#/"; };
@@ -282,7 +282,9 @@ async function previewService(id) {
   const st = steps.find(x => x.video) || steps[0] || {};
   const vid = st.video || s.review_video;
   const list = steps.map((step, i) => '<li><b>' + (i + 1) + '. ' + esc(step.title) + '</b>' + (step.video ? ' · video' : '') + '</li>').join("");
+  const prepare = (s.prepare || []).map(stage => '<h3>' + esc(stage.title) + '</h3><ul>' + stage.items.map(it => '<li><b>' + esc(it.title) + '.</b> ' + esc(it.ask) + '</li>').join("") + '</ul>').join("");
   $app.innerHTML = '<div class="inner-page"><p class="eyebrow">' + steps.length + ' steps</p><h1>' + esc(s.title) + '</h1><p class="lead">' + esc(s.summary || "") + '</p>'
+    + (prepare ? '<section class="card"><h2>What to have ready</h2><p>You do not need all of this on the first day. A photo or scan is enough to start, unless a step asks for an original.</p>' + prepare + '</section>' : '')
     + (vid ? videoHtml(vid, st.title || s.title) : '<p class="muted">This document is questions and solicitor review. A presenter video is not on this step yet.</p>')
     + (vid ? '<p>Choose Woman or Man. That choice is kept for the rest of the steps. If the man clip is not on the site yet, the woman plays and your choice is saved.</p>' : '')
     + '<ol class="step-list">' + list + '</ol>'

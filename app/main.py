@@ -14,7 +14,8 @@ from sqlalchemy import delete, insert, select, text, update
 
 from .admin import router as admin_router
 from .capacity import router as capacity_router
-from .auth import require_user, router as auth_router, seed_admin, set_csrf_cookie
+from .auth import require_user, router as auth_router, seed_admin, seed_staff, set_csrf_cookie
+from .firm import public_probate_prepare, router as firm_router
 from .db import drafts, engine, init_db, new_id, now, uploads
 from .security import audit, client_ip, csrf_ok
 from .documents import build_document, find_issues, missing_fields
@@ -32,6 +33,7 @@ ALLOWED_EXT = {".pdf", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".heic", ".webp
 async def lifespan(_):
     init_db()
     seed_admin()
+    seed_staff()
     yield
 
 
@@ -75,6 +77,7 @@ async def csrf_and_headers(request: Request, call_next):
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(capacity_router)
+app.include_router(firm_router)
 
 
 class DraftIn(BaseModel):
@@ -104,6 +107,15 @@ def app_shell() -> HTMLResponse:
 @app.get("/")
 def index():
     return app_shell()
+
+
+@app.get("/firm")
+def firm_page():
+    html = (STATIC / "firm.html").read_text(encoding="utf-8")
+    for name in ("firm.js", "firm.css", "styles.css"):
+        ver = hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
+        html = re.sub(rf"/static/{re.escape(name)}(?:\?v=[^\"']*)?", f"/static/{name}?v={ver}", html)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
 
 
 @app.get("/api/services")
@@ -167,6 +179,8 @@ def _public_service(spec: dict) -> dict:
         step["video"] = _video_obj(step.get("video"))
     if out.get("review_video"):
         out["review_video"] = _video_obj(out["review_video"])
+    if spec.get("id") == "probate":
+        out["prepare"] = public_probate_prepare()
     return out
 
 
