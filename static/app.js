@@ -1,5 +1,6 @@
 "use strict";
 const $app = document.getElementById("app");
+const HOME_HTML = $app ? $app.innerHTML : "";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const ICONS = { will: "📜", lpa_property: "🏦", lpa_health: "🩺", poa_ordinary: "📝", probate: "⚖️" };
 const cache = {};
@@ -45,10 +46,17 @@ async function route() {
     if (parts[0] === "reset") return resetPage(parts[1]);
     if (parts[0] === "mine") return await mine();
     if (parts[0] === "admin") return await adminPage(parts.slice(1));
+    if (parts[0] === "how") return howPage();
+    if (parts[0] === "about") return aboutPage();
+    if (parts[0] === "pricing") return pricingPage();
+    if (parts[0] === "faq") return faqPage();
+    if (parts[0] === "terms") return legalPage("terms");
+    if (parts[0] === "privacy") return legalPage("privacy");
+    if (parts[0] === "complaints") return legalPage("complaints");
     if (parts[0] === "s") return await start(parts[1]);
     if (parts[0] === "d" && parts[2] === "review") return await review(parts[1]);
     if (parts[0] === "d") return await step(parts[1], Number(parts[2] || 0));
-    return await home();
+    return home();
   } catch (e) {
     if (e.quiet) return;
     $app.innerHTML = '<h1>Sorry, something went wrong</h1><div class="alert error">' + esc(e.message) + '</div><p><a class="btn ghost" href="#/">Back to the start</a></p>';
@@ -77,7 +85,79 @@ function businessSection() {
     + '<p class="muted small">Sources: <a href="https://www.gov.uk/government/publications/lasting-power-of-attorney-forms/lp12-make-and-register-your-lasting-power-of-attorney-a-guide-web-version" rel="noopener noreferrer" target="_blank">LP12</a> and <a href="https://www.gov.uk/business-relief-inheritance-tax" rel="noopener noreferrer" target="_blank">GOV.UK Business Relief</a>.</p></section>';
 }
 
-async function home() {
+function demoVideo(stem, title) {
+  return videoHtml({
+    id: stem,
+    src: "/static/videos/" + stem + ".mp4",
+    poster: "/static/videos/" + stem + ".jpg",
+    captions: "/static/videos/" + stem + ".vtt",
+    default_presenter: "female",
+    presenters: [
+      { id: "female", label: "Woman", src: "/static/videos/" + stem + ".mp4", poster: "/static/videos/" + stem + ".jpg", captions: "/static/videos/" + stem + ".vtt" },
+      { id: "male", label: "Man", src: "/static/videos/" + stem + "_male.mp4", poster: "/static/videos/" + stem + "_male.jpg", captions: "/static/videos/" + stem + ".vtt" }
+    ]
+  }, title);
+}
+function howPage() {
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">How it works</p><h1>Four steps, with a video on each one</h1>'
+    + '<p class="lead">Pick a woman or a man to present the video. Your choice is remembered on every later step.</p>'
+    + demoVideo("will_intro", "Making your will")
+    + '<div class="how"><div><b>1. Choose</b>Will, LPA, probate, prenup, postnup, cohabitation or an employment settlement.</div>'
+    + '<div><b>2. Watch and answer</b>Each step has a short video, plain-English help, then a few questions. Answers save as you go.</div>'
+    + '<div><b>3. Check</b>Read the draft, with a note on every clause, and fix anything flagged.</div>'
+    + '<div><b>4. Solicitor review</b>Send it for review before anything is signed or filed.</div></div>'
+    + '<p><a class="btn" href="#/s/will">Start a will</a> <a class="btn ghost" href="#/pricing">See pricing</a></p></div>';
+}
+function pricingPage() {
+  const rows = [
+    ["Will", "£149", "Single will, video on every step, solicitor review before you sign.", "#/s/will"],
+    ["Lasting power of attorney", "£149 each", "Property and financial affairs, or health and welfare. Both together £249.", "#/s/lpa_property"],
+    ["Health and welfare LPA", "£149", "Decisions about care and medical treatment if you cannot decide.", "#/s/lpa_health"],
+    ["Ordinary power of attorney", "£99", "For while you still have capacity. It ends if you lose capacity.", "#/s/poa_ordinary"],
+    ["Probate", "from £399", "Application support and document checking. Complex estates are quoted.", "#/s/probate"],
+    ["Prenuptial agreement", "£349", "Before marriage. Full disclosure and solicitor review.", "#/s/prenup"],
+    ["Postnuptial agreement", "£349", "After marriage. Solicitor review included.", "#/s/postnup"],
+    ["Cohabitation agreement", "£249", "For unmarried couples, covering the home and money.", "#/s/cohabitation"],
+    ["Employment settlement", "£299", "Agreed exit terms. The employee still needs independent advice.", "#/s/employment_settlement"]
+  ];
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">Pricing</p><h1>Guide prices</h1>'
+    + '<p class="lead">These are guide prices, not a quote. They can be changed. Solicitor review of the draft is included. You are not charged on this page.</p>'
+    + '<div class="price-grid">' + rows.map(r => '<article class="service-card"><h3>' + esc(r[0]) + '</h3><p class="price">' + esc(r[1]) + '</p><p>' + esc(r[2]) + '</p><a class="btn" href="' + r[3] + '">Start</a></article>').join("") + '</div></div>';
+}
+function aboutPage() {
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">About us</p><h1>Signed and Sorted</h1>'
+    + '<p class="lead">Wills, lasting powers of attorney, probate, and family and employment agreements for England and Wales.</p>'
+    + '<p>You answer guided questions. A short video explains each step, and you can choose a woman or a man as the presenter. A solicitor checks the draft before you sign. This is not legal advice until that review is done.</p>'
+    + '<p><a class="btn" href="#/">See the services</a></p></div>';
+}
+function legalPage(kind) {
+  const pages = {
+    terms: ["Terms", "Using Signed and Sorted does not create a solicitor-client relationship by itself. The questions and videos are guidance. A solicitor reviews the draft before you sign or file anything. Guide prices on the pricing page are not a quote and nothing is taken on this website until a payment step is switched on."],
+    privacy: ["Privacy", "Your answers, uploads and account email are stored so you can finish a draft and so a solicitor can review it. They are not sold. Sign in to see your own documents. An administrator can see drafts for review. Do not put passwords in a will or an upload."],
+    complaints: ["Complaints", "If something has gone wrong, email the address you used to contact Signed and Sorted and include your draft reference from My documents. We will reply with what will happen next. This page is not a regulator complaint form."]
+  };
+  const page = pages[kind];
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">Legal</p><h1>' + esc(page[0]) + '</h1><p class="lead">' + esc(page[1]) + '</p><p><a class="btn ghost" href="#/">Back to the services</a></p></div>';
+}
+function faqPage() {
+  const qs = [
+    ["Do I have to watch the video?", "No. It is there to explain the step. You can pause it or skip it and still answer the questions."],
+    ["Can I choose a man or a woman?", "Yes. On any video, choose Woman or Man. The choice is saved in this browser and used on the next steps."],
+    ["When do I pay?", "Not while you are drafting. Guide prices are on the pricing page. Nothing is taken on this site until a payment step is switched on."],
+    ["Is this legal advice?", "The questions and videos are guidance. A solicitor reviews the draft before you sign or file anything."]
+  ];
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">Help</p><h1>Help and support</h1>'
+    + qs.map(q => '<h2>' + esc(q[0]) + '</h2><p>' + esc(q[1]) + '</p>').join("")
+    + '<p><a class="btn ghost" href="#/how">How it works</a></p></div>';
+}
+function home() {
+  if (HOME_HTML && HOME_HTML.indexOf("hero-section") !== -1) {
+    $app.innerHTML = HOME_HTML;
+    return;
+  }
+  return homeFromApi();
+}
+async function homeFromApi() {
   const list = await api("/api/services");
   $app.innerHTML = '<section class="hero"><div><p class="eyebrow">England and Wales</p><h1>Your will, power of attorney or probate, sorted step by step</h1>'
     + '<p class="lead">Short videos and plain-English help on every step. Upload your old documents and we suggest answers. A solicitor checks everything before you sign.</p></div>'
@@ -191,13 +271,29 @@ function goToSignIn(next) {
   else authPage("register");
 }
 
-async function start(id) {
-  if (!id) {
-    $app.innerHTML = '<h1>Sorry, that document was not found</h1><p><a class="btn ghost" href="#/">Back to the start</a></p>';
+async function previewService(id) {
+  let s;
+  try { s = await service(id); }
+  catch (e) {
+    $app.innerHTML = '<div class="inner-page"><h1>Sorry, that document was not found</h1><p>' + esc(e.message) + '</p><p><a class="btn ghost" href="#/">Back</a></p></div>';
     return;
   }
+  const steps = s.steps || [];
+  const st = steps.find(x => x.video) || steps[0] || {};
+  const vid = st.video || s.review_video;
+  const list = steps.map((step, i) => '<li><b>' + (i + 1) + '. ' + esc(step.title) + '</b>' + (step.video ? ' · video' : '') + '</li>').join("");
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">' + steps.length + ' steps</p><h1>' + esc(s.title) + '</h1><p class="lead">' + esc(s.summary || "") + '</p>'
+    + (vid ? videoHtml(vid, st.title || s.title) : '<p class="muted">This document is questions and solicitor review. A presenter video is not on this step yet.</p>')
+    + (vid ? '<p>Choose Woman or Man. That choice is kept for the rest of the steps. If the man clip is not on the site yet, the woman plays and your choice is saved.</p>' : '')
+    + '<ol class="step-list">' + list + '</ol>'
+    + (ME ? '<p><button class="btn" type="button" id="go-start">Continue to step 1</button></p>'
+      : '<p><a class="btn" href="#/register?next=' + encodeURIComponent("s/" + id) + '">Create an account to continue</a> <a class="btn ghost" href="#/login?next=' + encodeURIComponent("s/" + id) + '">Sign in</a></p>')
+    + '</div>';
+  const go = document.getElementById("go-start");
+  if (go) go.onclick = () => beginDraft(id);
+}
+async function beginDraft(id) {
   $app.innerHTML = '<h1>Starting…</h1><p class="muted">Please wait.</p>';
-  if (!ME) { goToSignIn("s/" + id); return; }
   try {
     const d = await api("/api/drafts", { method: "POST", body: { service: id, answers: {} } });
     remember(d);
@@ -218,6 +314,14 @@ async function start(id) {
     }
     $app.innerHTML = '<h1>Sorry, something went wrong</h1><div class="alert error">' + esc(e.message) + '</div><p><a class="btn ghost" href="#/">Back to the start</a></p>';
   }
+}
+async function start(id) {
+  if (!id) {
+    $app.innerHTML = '<h1>Sorry, that document was not found</h1><p><a class="btn ghost" href="#/">Back to the start</a></p>';
+    return;
+  }
+  if (!ME) { await previewService(id); return; }
+  return beginDraft(id);
 }
 
 function bindStart() {
@@ -286,7 +390,25 @@ function readForm(form) {
   return out;
 }
 
+function withBothPresenters(v) {
+  if (typeof v === "string") {
+    v = { id: v, src: "/static/videos/" + v + ".mp4", poster: "/static/videos/" + v + ".jpg", captions: "/static/videos/" + v + ".vtt", default_presenter: "female", presenters: [] };
+  }
+  if (!v || !v.src) return v;
+  const presenters = (v.presenters || []).slice();
+  const female = presenters.find(p => p.id === "female") || {
+    id: "female", label: "Woman", src: v.src, poster: v.poster, captions: v.captions
+  };
+  if (!presenters.some(p => p.id === "female")) presenters.unshift(female);
+  if (!presenters.some(p => p.id === "male")) {
+    const src = (female.src || v.src || "").replace(/(_female)?\.mp4(\?.*)?$/, "_male.mp4");
+    presenters.push({ id: "male", label: "Man", src: src, poster: (female.poster || "").replace(/(_female)?\.jpg(\?.*)?$/, "_male.jpg"), captions: female.captions || v.captions || "" });
+  }
+  presenters.forEach(p => { if (p.id === "female") p.label = "Woman"; if (p.id === "male") p.label = "Man"; });
+  return Object.assign({}, v, { presenters: presenters, default_presenter: v.default_presenter || "female" });
+}
 function chosenPresenter(v) {
+  v = withBothPresenters(v);
   const list = (v && v.presenters) || [];
   if (!list.length) return null;
   const want = localStorage.getItem("ldp-presenter") || v.default_presenter || "female";
@@ -294,6 +416,7 @@ function chosenPresenter(v) {
 }
 function videoHtml(v, title) {
   if (!v) return "";
+  v = withBothPresenters(v);
   const ch = chosenPresenter(v) || v;
   const choice = (v.presenters && v.presenters.length > 1)
     ? '<fieldset class="presenter-choice"><legend>Choose a presenter</legend>'
@@ -314,6 +437,20 @@ document.addEventListener("change", e => {
   localStorage.setItem("ldp-presenter", t.value);
   if (typeof route === "function") route();
 });
+document.addEventListener("error", e => {
+  const el = e.target;
+  if (!el || el.tagName !== "VIDEO") return;
+  const source = el.querySelector("source");
+  const src = (source && source.getAttribute("src")) || "";
+  if (src.indexOf("_male.mp4") === -1) return;
+  const box = el.closest(".video");
+  if (!box || box.dataset.fellback) return;
+  box.dataset.fellback = "1";
+  const female = src.replace("_male.mp4", ".mp4");
+  if (source) source.setAttribute("src", female);
+  el.load();
+  box.insertAdjacentHTML("afterend", '<p class="muted small">The man presenter is not on the site for this clip yet, so the woman is playing. Your choice is saved for the clips that have both.</p>');
+}, true);
 const sourcesHtml = list => list && list.length ? '<details class="sources"><summary>Official GOV.UK guidance for this step</summary><ul>' + list.map(s => '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title) + '</a></li>').join("") + '</ul></details>' : "";
 const issuesHtml = issues => ["error", "warning", "info"].map(level => { const xs = (issues || []).filter(i => i.level === level); return xs.length ? '<div class="alert ' + level + '" role="' + (level === "error" ? "alert" : "status") + '"><b>' + ({ error: "Please change", warning: "Please check", info: "Good to know" })[level] + '</b><ul>' + xs.map(i => '<li>' + esc(i.message) + '</li>').join("") + '</ul></div>' : ""; }).join("");
 

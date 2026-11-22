@@ -3,25 +3,209 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#14213d">
-<title>Signed and Sorted · Wills, powers of attorney and probate</title>
-<meta name="description" content="Make a will, a lasting power of attorney or a probate plan for England and Wales, step by step with videos. A solicitor checks everything before you sign.">
-<link rel="stylesheet" href="/static/styles.css">
+<meta name="theme-color" content="#0b1f3a">
+<title>Signed and Sorted · Wills, LPA and Probate</title>
+<meta name="description" content="Wills, lasting powers of attorney, probate and agreements. Clear, secure legal support for England and Wales.">
+<link rel="stylesheet" href="/static/styles.css?v=9">
+<style>
+  .rule{width:52px;height:3px;background:#0b1f3a;margin:0 0 18px;border:0}
+  .service-card .btn{width:100%;justify-content:center}
+  .agreements{margin-top:28px}
+  #app{min-height:40vh}
+</style>
 </head>
 <body>
-<a class="skip" href="#app">Skip to main content</a>
-<header class="top">
-  <div class="top-in">
-    <a href="#/" class="brand" aria-label="Signed and Sorted home"><span class="logo" aria-hidden="true">S</span><span>Signed and Sorted</span></a>
-    <span class="tag">Wills · Powers of attorney · Probate</span>
-    <nav class="acct" id="acct" aria-label="Your account"></nav>
+<header class="site-header">
+  <div class="header-inner">
+    <a href="#/" class="logo-link">
+      <span class="logo-mark">S</span>
+      <span class="logo-text">Signed and Sorted<br><small>Wills · Powers of attorney · Probate · Agreements</small></span>
+    </a>
+    <nav class="main-nav">
+      <a href="#/">Services</a>
+      <a href="#/how">How It Works</a>
+      <a href="#/about">About Us</a>
+      <a href="#/pricing">Pricing</a>
+      <a href="#/faq">Help and Support</a>
+    </nav>
+    <div class="header-actions" id="acct">
+      <a href="#/login" class="btn ghost small">Client Login</a>
+      <a href="#/s/will" class="btn">Get Started</a>
+    </div>
   </div>
 </header>
-<main id="app" tabindex="-1"><div class="loader" role="status">Loading…</div></main>
-<footer class="foot">
-  <p>Drafts are prepared from your answers and checked by a solicitor before you sign anything. We never sign, file or send anything for you. England and Wales only.</p>
-  <p class="draft-flag">Preview build: legal wording is a draft awaiting solicitor review.</p>
+<main id="main">
+  <div id="app">
+    <section class="hero-section">
+      <div>
+        <p class="eyebrow">Legal documents, made simple</p>
+        <h1>Wills, LPA and Probate you can trust.</h1>
+        <hr class="rule">
+        <p class="lead">Signed and Sorted helps you plan ahead and sort what matters with clear, secure legal support for you and your family in England and Wales.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#/s/will">Start Today →</a>
+          <a class="btn ghost" href="#/how">How It Works</a>
+        </div>
+      </div>
+      <div class="hero-image">
+        <img src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1200&q=80" alt="Signed legal document on a clipboard with a pen">
+      </div>
+    </section>
+
+    <section class="services-section">
+      <h2>Our legal services</h2>
+      <div class="service-grid">
+        <article class="service-card">
+          <div class="icon">📄</div>
+          <h3>Will Writing</h3>
+          <p>Make a will that protects your wishes and the people you care about.</p>
+          <ul>
+            <li>Simple online process</li>
+            <li>Mirror, single and tailored wills</li>
+            <li>Securely signed and stored</li>
+          </ul>
+          <a class="btn" href="#/s/will">Start Your Will →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🛡️</div>
+          <h3>Lasting Power of Attorney (LPA)</h3>
+          <p>Set up an LPA for health and welfare, and for property and financial decisions.</p>
+          <ul>
+            <li>Property and Financial Affairs LPA</li>
+            <li>Health and Welfare LPA</li>
+            <li>Guidance at every step</li>
+          </ul>
+          <a class="btn" href="#/s/lpa_property">Property and finance →</a>
+          <a class="btn ghost" href="#/s/lpa_health" style="margin-top:8px">Health and care →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🏛️</div>
+          <h3>Probate Assistance</h3>
+          <p>Apply for probate and sort estate administration with confidence.</p>
+          <ul>
+            <li>Probate application support</li>
+            <li>Document checking and guidance</li>
+            <li>Clear, fixed-fee options</li>
+          </ul>
+          <a class="btn" href="#/s/probate">Start Probate →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">📝</div>
+          <h3>Ordinary power of attorney</h3>
+          <p>Let someone handle a task while you still have capacity. It ends if you lose capacity.</p>
+          <ul>
+            <li>General or one specific task</li>
+            <li>Not registered with the OPG</li>
+            <li>Solicitor review before you sign</li>
+          </ul>
+          <a class="btn" href="#/s/poa_ordinary">Start ordinary POA →</a>
+        </article>
+      </div>
+
+      <h2 class="agreements">Agreements</h2>
+      <div class="service-grid">
+        <article class="service-card">
+          <div class="icon">💍</div>
+          <h3>Prenuptial agreement</h3>
+          <p>Set out how assets should be treated if the marriage ends.</p>
+          <ul>
+            <li>Signed before marriage</li>
+            <li>Full financial disclosure</li>
+            <li>Solicitor review included</li>
+          </ul>
+          <a class="btn" href="#/s/prenup">Start Prenup →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">📜</div>
+          <h3>Postnuptial agreement</h3>
+          <p>An agreement signed after marriage covering assets and intentions.</p>
+          <ul>
+            <li>Signed after marriage</li>
+            <li>Clear asset treatment</li>
+            <li>Solicitor checked</li>
+          </ul>
+          <a class="btn" href="#/s/postnup">Start Postnup →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🏠</div>
+          <h3>Cohabitation agreement</h3>
+          <p>For unmarried couples covering the home, money and separation.</p>
+          <ul>
+            <li>Who owns what</li>
+            <li>What happens if you separate</li>
+            <li>Solicitor review</li>
+          </ul>
+          <a class="btn" href="#/s/cohabitation">Start Cohabitation →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">💼</div>
+          <h3>Employment settlement</h3>
+          <p>End employment on agreed terms, with independent advice.</p>
+          <ul>
+            <li>Payments and notice</li>
+            <li>Independent legal advice</li>
+            <li>Solicitor checked</li>
+          </ul>
+          <a class="btn" href="#/s/employment_settlement">Start Settlement →</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="trust-bar">
+      <div class="trust-inner">
+        <div class="trust-item"><strong>England and Wales</strong>A solicitor reviews the draft before you sign.</div>
+        <div class="trust-item"><strong>Secure and confidential</strong></div>
+        <div class="trust-item"><strong>Step-by-step questions</strong></div>
+        <div class="trust-item"><strong>Videos where a clip is ready</strong></div>
+      </div>
+    </section>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div>
+      <strong>Signed and Sorted</strong><br>
+      <small>Wills · Powers of attorney · Probate · Agreements</small>
+      <p class="muted small">Drafts for England and Wales. A solicitor checks the document before you sign.</p>
+    </div>
+    <div>
+      <strong>SERVICES</strong>
+      <a href="#/s/will">Wills</a>
+      <a href="#/s/lpa_property">Financial LPA</a>
+      <a href="#/s/lpa_health">Health LPA</a>
+      <a href="#/s/poa_ordinary">Ordinary POA</a>
+      <a href="#/s/probate">Probate</a>
+      <a href="#/s/prenup">Prenup</a>
+      <a href="#/s/postnup">Postnup</a>
+      <a href="#/s/cohabitation">Cohabitation</a>
+      <a href="#/s/employment_settlement">Settlement</a>
+    </div>
+    <div>
+      <strong>COMPANY</strong>
+      <a href="#/about">About Us</a>
+      <a href="#/how">How It Works</a>
+      <a href="#/pricing">Pricing</a>
+      <a href="#/faq">Contact</a>
+    </div>
+    <div>
+      <strong>LEGAL</strong>
+      <a href="#/terms">Terms</a>
+      <a href="#/privacy">Privacy</a>
+      <a href="#/complaints">Complaints</a>
+    </div>
+    <div>
+      <strong>Stay informed</strong>
+      <p class="small">Practical legal updates and guidance.</p>
+      <form class="email-form" onsubmit="return false;">
+        <input type="email" placeholder="Your email address" aria-label="Email address">
+        <button type="submit" aria-label="Subscribe">→</button>
+      </form>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>England and Wales. Solicitor review before you sign.</p>
+  </div>
 </footer>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=9"></script>
 </body>
 </html>

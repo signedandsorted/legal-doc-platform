@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
+import copy
 import hashlib
+import re
 from pathlib import Path
 
 import re
@@ -43,15 +45,12 @@ async def csrf_and_headers(request: Request, call_next):
     if request.method in UNSAFE and request.url.path.startswith("/api/") and not csrf_ok(request):
         return JSONResponse({"detail": "Your session has expired. Please refresh the page and try again."}, status_code=403)
     response = await call_next(request)
-    # CSP must allow same-origin videos, blob: previews of a just-recorded
-    # capacity statement, and getUserMedia playback in <video>. No third-party
-    # scripts or frames. frame-ancestors backs up X-Frame-Options.
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; "
         "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' blob: data:; "
+        "img-src 'self' blob: data: https://images.unsplash.com; "
         "media-src 'self' blob:; "
         "connect-src 'self'; "
         "font-src 'self'; "
@@ -64,12 +63,8 @@ async def csrf_and_headers(request: Request, call_next):
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "same-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
-    if request.url.path.startswith("/api/"):
-        response.headers.setdefault("Cache-Control", "no-store")
-    elif request.url.path == "/" or request.url.path.startswith("/static/app.js") or request.url.path.startswith("/static/styles.css") or request.url.path == "/static/index.html" or "text/html" in response.headers.get("content-type", ""):
-        response.headers["Cache-Control"] = "no-store"
-    # Set the CSRF cookie on the page and on API GETs, not only /api/auth/me, so a
-    # first click to start a draft is not rejected as an expired session.
+    if request.url.path.startswith(("/api/", "/static/app.js", "/static/styles.css")) or request.url.path == "/" or "text/html" in response.headers.get("content-type", ""):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     if request.method in {"GET", "HEAD"} and response.status_code == 200 and (
         request.url.path == "/" or request.url.path.startswith("/api/") or "text/html" in response.headers.get("content-type", "")
     ):
@@ -98,15 +93,12 @@ def healthz():
     return {"ok": True, "database": engine().dialect.name}
 
 
-def asset_tag(name: str) -> str:
-    return hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
-
-
 def app_shell() -> HTMLResponse:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
-    html = html.replace("/static/styles.css", f"/static/styles.css?v={asset_tag('styles.css')}", 1)
-    html = html.replace("/static/app.js", f"/static/app.js?v={asset_tag('app.js')}", 1)
-    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+    for name in ("app.js", "styles.css"):
+        ver = hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
+        html = re.sub(rf"/static/{re.escape(name)}(?:\?v=[^\"']*)?", f"/static/{name}?v={ver}", html)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
 
 
 @app.get("/")
@@ -119,65 +111,85 @@ def services():
     return [{"id": s["id"], "title": s["title"], "summary": s["summary"], "steps": len(s["steps"]), "category": s.get("category", "")} for s in SERVICES.values()]
 
 
+VIDEOS = STATIC / "videos"
+MIN_VIDEO_BYTES = 20_000
+
+
+def _asset(stem: str, ext: str) -> str | None:
+    path = VIDEOS / f"{stem}.{ext}"
+    if not path.is_file():
+        return None
+    if ext == "mp4" and path.stat().st_size < MIN_VIDEO_BYTES:
+        return None
+    return f"/static/videos/{stem}.{ext}"
+
+
+def _presenter(video_id: str, presenter: str) -> dict | None:
+    stem = f"{video_id}_{presenter}"
+    src = _asset(stem, "mp4")
+    poster = _asset(stem, "jpg")
+    captions = _asset(stem, "vtt")
+    if presenter == "female" and not src:
+        src = _asset(video_id, "mp4")
+        poster = poster or _asset(video_id, "jpg")
+        captions = captions or _asset(video_id, "vtt")
+    if not src:
+        return None
+    return {
+        "id": presenter,
+        "label": "Woman" if presenter == "female" else "Man",
+        "src": src,
+        "poster": poster or "",
+        "captions": captions or "",
+    }
+
+
+def _video_obj(video_id):
+    if not isinstance(video_id, str) or not video_id:
+        return None
+    presenters = [p for p in (_presenter(video_id, "female"), _presenter(video_id, "male")) if p]
+    if not presenters:
+        return None
+    chosen = next((p for p in presenters if p["id"] == "female"), presenters[0])
+    return {
+        "id": video_id,
+        "src": chosen["src"],
+        "poster": chosen["poster"],
+        "captions": chosen["captions"],
+        "default_presenter": chosen["id"],
+        "presenters": presenters,
+    }
+
+
+def _public_service(spec: dict) -> dict:
+    out = copy.deepcopy(spec)
+    for step in out.get("steps") or []:
+        step["video"] = _video_obj(step.get("video"))
+    if out.get("review_video"):
+        out["review_video"] = _video_obj(out["review_video"])
+    return out
+
+
 @app.get("/api/services/{service_id}")
 def service(service_id: str):
     if service_id not in SERVICES:
         raise HTTPException(404, "Unknown service")
-    return _with_videos(SERVICES[service_id])
-
-
-def _video_assets(stem: str) -> dict | None:
-    if not (STATIC / "videos" / f"{stem}.mp4").exists():
-        return None
-    out = {"src": f"/static/videos/{stem}.mp4"}
-    for ext, key in (("vtt", "captions"), ("jpg", "poster")):
-        if (STATIC / "videos" / f"{stem}.{ext}").exists():
-            out[key] = f"/static/videos/{stem}.{ext}"
-    return out
-
-
-def _video(vid: str | None) -> dict | None:
-    if not vid:
-        return None
-    female = _video_assets(f"{vid}_female") or _video_assets(vid)
-    male = _video_assets(f"{vid}_male")
-    if not female and not male:
-        return None
-    default = female or male
-    out = {"id": vid, **default, "default_presenter": "female" if female else "male"}
-    presenters = []
-    if female:
-        presenters.append({
-            "id": "female",
-            "label": "Female presenter",
-            "voice": "Licensed female voice: Kokoro-82M bf_emma (Apache-2.0)",
-            **female,
-        })
-    if male:
-        presenters.append({
-            "id": "male",
-            "label": "Male presenter",
-            "voice": "Male presenter with Josh's cloned voice (OpenVoice, MIT)",
-            **male,
-        })
-    out["presenters"] = presenters
-    return out
-
-
-def _with_videos(s: dict) -> dict:
-    return {**s, "review_video": _video(s.get("review_video")), "steps": [{**st, "video": _video(st.get("video"))} for st in s["steps"]]}
+    return _public_service(SERVICES[service_id])
 
 
 def _client(answers: dict) -> tuple[str, str | None]:
     for key in ("about_you", "donor"):
         if answers.get(key):
             return answers[key].get("full_name") or "", answers[key].get("email")
+    parties = answers.get("parties") or {}
+    party = parties.get("party_a_name") or parties.get("employee_name") or ""
+    if party:
+        return party, parties.get("email")
     applicant = (answers.get("will") or {}).get("applicant") or {}
     return applicant.get("full_name") or "", applicant.get("email")
 
 
 def _row(draft_id: str, user: dict):
-    """Only the signed-in owner can reach a draft. Anyone else gets 404, so ids reveal nothing."""
     with engine().connect() as conn:
         row = conn.execute(select(drafts).where(drafts.c.id == draft_id)).mappings().first()
     if not row or row["user_id"] != user["id"]:
@@ -336,9 +348,7 @@ def delete_upload(draft_id: str, upload_id: str, request: Request, user: dict = 
 
 @app.get("/{path:path}")
 def spa(path: str):
-    """Serve the app shell for page URLs such as /wills, /lpa, /login and /admin."""
     first = path.split("/", 1)[0]
     if first in {"api", "static", "docs", "redoc", "openapi.json", "healthz"}:
         raise HTTPException(404, "Not Found")
     return app_shell()
-
