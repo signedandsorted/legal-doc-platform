@@ -12,11 +12,12 @@ POA_ORDINARY = {
     "short_title": "Ordinary power of attorney",
     "category": "Powers of attorney",
     "summary": "A general power of attorney under section 10 of the Powers of Attorney Act 1971, or a specific power limited to one task such as a property sale. It can be used as soon as it is signed and witnessed as a deed. It is not an LPA and it stops if you lose mental capacity.",
-    "review_video": None,
+    "review_video": "poa_review",
     "steps": [
         {
             "id": "intro",
             "title": "Before you start",
+            "video": "poa_intro",
             "guidance": [
                 "This prepares an ordinary power of attorney for England and Wales. It is sometimes called a general power of attorney. There is also a specific (limited) option for one exact task, such as completing a particular property sale.",
                 "A general power in the statutory form in Schedule 1 to the Powers of Attorney Act 1971, or a form to the like effect expressed to be made under that Act, gives your attorney authority to do on your behalf anything you can lawfully do by an attorney. It does not usually cover functions you have as a trustee or personal representative, or as a tenant for life or statutory owner under the Settled Land Act 1925, except as modified by the Trustee Delegation Act 1999.",
@@ -31,6 +32,7 @@ POA_ORDINARY = {
         {
             "id": "type",
             "title": "General or specific",
+            "video": "poa_type",
             "guidance": [
                 "A general power uses the short statutory form in Schedule 1 to the Powers of Attorney Act 1971. It is wide: your attorney can do most things you could lawfully appoint an attorney to do.",
                 "A specific (limited) power is not a statutory form. HM Land Registry Practice Guide 9 says you may use any form of wording that gives limited powers, for example in connection with a particular transaction, but the donor must execute it as a deed. A solicitor should draft or check a specific power, especially if it will be used to deal with land or registered title.",
@@ -58,6 +60,7 @@ POA_ORDINARY = {
         {
             "id": "donor",
             "title": "About you",
+            "video": "poa_donor",
             "guidance": [
                 "You are the donor of the power. Use your full legal name and the address you want to appear on the deed.",
                 "You must have mental capacity when you sign. The power must be executed as a deed: you sign it in the presence of a witness who attests your signature. The witness should be an independent adult and should give their name, address and occupation.",
@@ -73,6 +76,7 @@ POA_ORDINARY = {
         {
             "id": "attorneys",
             "title": "Your attorneys",
+            "video": "poa_attorneys",
             "guidance": [
                 "You can appoint one attorney, or more than one. If you appoint more than one, say whether they must act jointly (all must agree) or may act jointly and severally (they can act together or on their own). The statutory general form provides for either.",
                 "Choose people you trust. If the power will be used for a property sale or a business matter, they should be able to deal with that task in practice.",
@@ -92,6 +96,7 @@ POA_ORDINARY = {
         {
             "id": "authority",
             "title": "What the power covers",
+            "video": "poa_authority",
             "guidance": [
                 "If you chose a general power, the statutory form does not list individual tasks. Section 10 of the Powers of Attorney Act 1971 sets the width of the authority, including the trustee and personal-representative limits described earlier.",
                 "If you chose a specific power, describe the exact task in plain language, for example 'to complete the sale of my property at [address] under the contract dated [date]'. Do not try to turn a specific power into a general one. A solicitor should check the wording, and should always check it if the task involves land, a company, or a formal registration.",

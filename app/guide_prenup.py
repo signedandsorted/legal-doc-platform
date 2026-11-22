@@ -7,9 +7,10 @@ PRENUP = {
     "short_title": "Prenup",
     "summary": "A clear prenuptial agreement that sets out how assets should be treated if the marriage ends. Both parties receive independent legal advice before signing.",
     "category": "Agreements",
+    "review_video": "prenup_review",
     "steps": [
         {
-            "id": "intro", "title": "Before you start",
+            "id": "intro", "title": "Before you start", "video": "prenup_intro",
             "guidance": [
                 "A prenuptial agreement is signed before marriage. In England and Wales it is not automatically binding, but a court will usually follow it if it is fair, both parties had independent legal advice, and there was full disclosure.",
                 "This service gathers the information. A solicitor then drafts the final agreement and arranges independent advice for each of you.",
@@ -18,7 +19,7 @@ PRENUP = {
             "fields": [],
         },
         {
-            "id": "parties", "title": "About both of you",
+            "id": "parties", "title": "About both of you", "video": "prenup_parties",
             "guidance": ["Use full legal names. The agreement is between the two people who intend to marry."],
             "fields": [
                 {"name": "party_a_name", "label": "Your full name", "type": "text", "required": True},
@@ -28,7 +29,7 @@ PRENUP = {
             ],
         },
         {
-            "id": "assets", "title": "Assets and disclosure",
+            "id": "assets", "title": "Assets and disclosure", "video": "prenup_assets",
             "guidance": [
                 "Full disclosure is essential. List the main assets each of you is bringing into the marriage (property, savings, pensions, business interests).",
                 "Be as clear as you can. Your solicitor will refine the list.",
@@ -41,7 +42,7 @@ PRENUP = {
             ],
         },
         {
-            "id": "arrangements", "title": "How assets should be treated",
+            "id": "arrangements", "title": "How assets should be treated", "video": "prenup_arrangements",
             "guidance": ["Describe what should happen to the home, savings, and other assets if the marriage ends."],
             "fields": [
                 {"name": "home", "label": "What should happen to the family home?", "type": "textarea"},
@@ -50,7 +51,7 @@ PRENUP = {
             ],
         },
         {
-            "id": "review", "title": "Review and next steps",
+            "id": "review", "title": "Review and next steps", "video": "prenup_review",
             "guidance": [
                 "A solicitor will review everything, prepare the formal agreement, and arrange for each of you to receive independent legal advice before signing.",
                 "You will also need to exchange full financial disclosure.",

@@ -112,7 +112,7 @@ def lpa_service(kind: str) -> dict:
         })
     if prop:
         steps.append({
-            "id": "business", "title": "Business or personal finances", "form_section": "LP1F section 7 (if you limit the LPA)",
+            "id": "business", "title": "Business or personal finances", "form_section": "LP1F section 7 (if you limit the LPA)", "video": "lpa_property_business",
             "guidance": [
                 "You can appoint different attorneys for your personal finances and your business affairs. To do this, fill in two LP1F forms. Official guidance (LP12) says you should then explain in the instructions for each LPA what you want to happen, so the two do not overlap.",
                 "A separate business LPA is worth considering if you want a different attorney for the business, or if you want to keep business accounts and decisions apart from your household finances. Talk to any co-owners, partners or fellow shareholders first, and check the partnership agreement, shareholders' agreement or articles. Choose attorneys who understand the business.",

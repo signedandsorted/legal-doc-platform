@@ -130,7 +130,7 @@ WILL = {
             ],
         },
         {
-            "id": "business", "title": "Your business",
+            "id": "business", "title": "Your business", "video": "will_business",
             "guidance": [
                 "If you own a business, a farm, agricultural land, or shares in a company, say so here so a solicitor can look at how those assets should pass and whether they should be kept separate from the rest of your estate.",
                 "Some business assets may qualify for Inheritance Tax Business Relief (sometimes still called business property relief). GOV.UK currently says 100% relief can apply to a business or interest in a business, and to shares in an unlisted company, if the conditions are met, including usually a two-year period of ownership. For deaths on or after 6 April 2026, 100% relief is capped at £2.5 million of qualifying business or agricultural property; value above that can receive 50% relief. Other assets, such as some AIM shares or land used in a business, may only qualify for 50%. Relief is not available for businesses that mainly deal in securities, land or investments, among other exclusions.",
