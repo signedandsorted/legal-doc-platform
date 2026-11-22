@@ -94,7 +94,7 @@ function demoVideo(stem, title) {
     default_presenter: "female",
     presenters: [
       { id: "female", label: "Woman", src: "/static/videos/" + stem + ".mp4", poster: "/static/videos/" + stem + ".jpg", captions: "/static/videos/" + stem + ".vtt" },
-      { id: "male", label: "Man", src: "/static/videos/" + stem + "_male.mp4", poster: "/static/videos/" + stem + "_male.jpg", captions: "/static/videos/" + stem + ".vtt" }
+      { id: "male", label: "Man", src: "/static/videos/" + stem + "_male.mp4", poster: "/static/videos/" + stem + "_male.jpg", captions: "/static/videos/" + stem + "_male.vtt" }
     ]
   }, title);
 }
@@ -402,7 +402,7 @@ function withBothPresenters(v) {
   if (!presenters.some(p => p.id === "female")) presenters.unshift(female);
   if (!presenters.some(p => p.id === "male")) {
     const src = (female.src || v.src || "").replace(/(_female)?\.mp4(\?.*)?$/, "_male.mp4");
-    presenters.push({ id: "male", label: "Man", src: src, poster: (female.poster || "").replace(/(_female)?\.jpg(\?.*)?$/, "_male.jpg"), captions: female.captions || v.captions || "" });
+    presenters.push({ id: "male", label: "Man", src: src, poster: (female.poster || "").replace(/(_female)?\.jpg(\?.*)?$/, "_male.jpg"), captions: (female.captions || v.captions || "").replace(/(_female)?\.vtt(\?.*)?$/, "_male.vtt") });
   }
   presenters.forEach(p => { if (p.id === "female") p.label = "Woman"; if (p.id === "male") p.label = "Man"; });
   return Object.assign({}, v, { presenters: presenters, default_presenter: v.default_presenter || "female" });

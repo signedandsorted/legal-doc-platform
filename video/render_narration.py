@@ -20,10 +20,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "static" / "videos"
 SCRIPTS = ROOT / "video" / "scripts.json"
-STILL = OUT / "will_intro.jpg"
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FONT_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 VOICE = "en-GB-SoniaNeural"
+STILL = OUT / "will_intro.jpg"
+SUFFIX = ""
 MIN_BYTES = 20_000
 
 EXTRA = {
@@ -180,7 +181,7 @@ def render_one(vid: str, spec: dict, work: Path):
     mark = Image.new("RGBA", (280, 36), (0, 0, 0, 0))
     ImageDraw.Draw(mark).text((0, 4), "Signed and Sorted", font=ImageFont.truetype(FONT_REG, 20), fill=(255, 255, 255, 230))
     mark.save(brand)
-    mp4 = OUT / f"{vid}.mp4"
+    mp4 = OUT / f"{vid}{SUFFIX}.mp4"
     vf = (
         "[0:v]scale=1400:788,"
         "zoompan=z='min(1+0.00028*on,1.06)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=960x540:fps=25[bg];"
@@ -191,17 +192,24 @@ def render_one(vid: str, spec: dict, work: Path):
          "-i", str(title_img), "-i", str(brand), "-filter_complex", vf, "-map", "[out]", "-map", "1:a:0",
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
          "-shortest", "-movflags", "+faststart", str(mp4)])
-    run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "1.2", "-i", str(mp4), "-frames:v", "1", "-q:v", "4", str(OUT / f"{vid}.jpg")])
-    (OUT / f"{vid}.vtt").write_text("WEBVTT\n\n" + "\n".join(
+    run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "1.2", "-i", str(mp4), "-frames:v", "1", "-q:v", "4", str(OUT / f"{vid}{SUFFIX}.jpg")])
+    (OUT / f"{vid}{SUFFIX}.vtt").write_text("WEBVTT\n\n" + "\n".join(
         f"{i}\n{vtt_time(a)} --> {vtt_time(b)}\n{text}\n" for i, (a, b, text) in enumerate(cues, 1)))
     print(f"[done] {vid} {mp4.stat().st_size // 1024} KB", flush=True)
 
 
 def main():
+    global SUFFIX, VOICE, STILL
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--only", default="")
+    ap.add_argument("--suffix", default="")
+    ap.add_argument("--voice", default="en-GB-SoniaNeural")
+    ap.add_argument("--still", default="")
     args = ap.parse_args()
+    SUFFIX = args.suffix
+    VOICE = args.voice
+    STILL = Path(args.still) if args.still else OUT / "will_intro.jpg"
     scripts = json.loads(SCRIPTS.read_text())
     for key, spec in EXTRA.items():
         scripts.setdefault(key, spec)
@@ -214,7 +222,7 @@ def main():
             continue
         if only and vid not in only:
             continue
-        mp4 = OUT / f"{vid}.mp4"
+        mp4 = OUT / f"{vid}{SUFFIX}.mp4"
         if mp4.exists() and mp4.stat().st_size >= MIN_BYTES and not args.force:
             continue
         render_one(vid, spec, work)
