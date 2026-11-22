@@ -145,6 +145,30 @@ def _deadline(dod: str) -> str:
     return date(y, m, calendar.monthrange(y, m)[1]).strftime("%d %B %Y")
 
 
+def _plain_account(e: dict, v: dict, tax: dict, p: dict) -> list[str]:
+    """A lay-person account. It does not decide who inherits."""
+    debts = sum(num(x.get("value")) for x in (e.get("debts") or []) if x.get("joint") != "Yes") + num(e.get("funeral_costs"))
+    lines = [
+        f"The grant covers {money(v['gross_probate'])}.",
+        f"Debts and the funeral in this account come to {money(debts)}.",
+        f"What is left for the grant is {money(v['net_probate'])}.",
+        f"The tax estimate is {money(tax['tax'])}. " + ("No full tax form is needed on these answers." if p["excepted"] else "These answers need form IHT400, posted to HMRC, before you apply for the grant."),
+    ]
+    passed = [x for x in (e.get("assets") or []) if str(x.get("ownership", "")).startswith("Joint tenants") or x.get("abroad") == "Yes"]
+    if passed:
+        lines.append("These are not in the account. Jointly owned things go to the other owner. Things abroad are dealt with separately: " + "; ".join(f"{x.get('description')} {money(x.get('value'))}" for x in passed) + ".")
+    else:
+        lines.append("Nothing you entered passes automatically to another owner.")
+    return lines
+
+
+def _people(a: dict) -> list[str]:
+    names = [x.get("full_name") for x in ((a.get("account") or {}).get("people") or []) if x.get("full_name")]
+    if not names:
+        return ["You have not named anyone to keep informed. The will, or the law if there is no will, decides who inherits. A solicitor checks that."]
+    return ["People to keep informed: " + ", ".join(names) + ". This is not a decision about who inherits. The will, or the law if there is no will, decides the shares."]
+
+
 def build_probate(_, a: dict, uploads: list | None = None) -> dict:
     d, w = a.get("deceased") or {}, a.get("will") or {}
     p = plan(a)
@@ -164,6 +188,7 @@ def build_probate(_, a: dict, uploads: list | None = None) -> dict:
             f"Estimated tax: {money(tax['tax'])}" + (f" at {int(tax['rate'] * 100)}%" if tax["tax"] else "") + ".",
             ("Pay by " + _deadline(d.get("date_of_death", "")) + " to avoid interest." if tax["tax"] and _deadline(d.get("date_of_death", "")) else "This is an estimate, not tax advice. A solicitor will check it.")]},
         {"heading": "Fee", "paragraphs": [f"Application fee: {money(p['fee'])}" + (" (estate over £5,000)" if p["fee"] else " (estate £5,000 or less)") + f". Extra copies of the grant: £{EXTRA_COPY_FEE} each when you apply."]},
+        {"heading": "Your estate account", "paragraphs": _plain_account(e, v, tax, p) + _people(a)},
         {"heading": "The person who died", "paragraphs": [person(d), "Date of death: " + d.get("date_of_death", ""), "Lived permanently in England or Wales: " + d.get("domicile", ""), "Marital status: " + d.get("marital_status", "")]},
         {"heading": "Will and applicant", "paragraphs": ["Will: " + w.get("has_will", ""), "Applicant: " + person(w.get("applicant") or {}) + (f" ({w.get('applicant_role')})" if w.get("applicant_role") else ""), "Number applying: " + w.get("applicants", "")]},
         {"heading": "Assets", "paragraphs": [f"{x.get('description')}: {money(x.get('value'))}" + (f" ({x['ownership']})" if x.get("ownership") else "") + (" (abroad)" if x.get("abroad") == "Yes" else "") for x in e.get("assets") or []] or ["None listed yet"]},

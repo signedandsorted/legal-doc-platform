@@ -32,7 +32,7 @@ PROBATE = {
     "id": "probate",
     "title": "Probate helper",
     "short_title": "Probate",
-    "summary": "Work out whether you can apply for probate online or must use a paper form, which Inheritance Tax and PA forms you need, and the 5 estate values the application asks for.",
+    "summary": "A plain-English walk-through: what they owned, whether tax forms are needed, the figures for the application, a simple estate account, and what you do after the grant. England and Wales.",
     "review_video": "probate_review",
     "steps": [
         {
@@ -138,13 +138,29 @@ PROBATE = {
             "sources": [GOV["probate_before"]],
             "fields": [],
         },
+        {
+            "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",
+            "guidance": [
+                "You do not type the money again. This step turns the values you already entered into a simple estate account.",
+                "The account is what the grant covers: things in their name, minus debts and the funeral. A joint bank account or a house owned as joint tenants goes straight to the other owner. It is not in this account, and you do not collect it.",
+                "The order is always the same. Get the papers. Ask each bank for the value on the day they died. If the plan says so, post the tax form and wait for a code. Apply for the grant. When it arrives, collect the money and pay the bills. Share what is left only after that, and not in full until at least 6 months after the grant.",
+                "We cannot send the tax form or the probate application. You do that on GOV.UK, or by post if the plan says the online service will not take it. A solicitor checks the account before anyone is paid.",
+            ],
+            "sources": [GOV["iht_value"], GOV["probate"]],
+            "fields": [
+                {"name": "people", "label": "People to tell about their share (optional)", "type": "list", "min": 0, "max": 8, "fields": [
+                    {"name": "full_name", "label": "Name", "type": "text", "required": True},
+                    {"name": "relationship", "label": "Who they were to the person who died", "type": "text"},
+                ]},
+            ],
+        },
     ],
     "next_steps": [
-        "A solicitor reviews your plan and contacts you with any questions. We never file anything for you.",
-        "If full details are needed (form IHT400), send them to HMRC within 12 months of the death, start paying any tax, and wait for HMRC's letter with a code before applying for probate.",
-        "Apply online on GOV.UK if your plan says you can, or by post on the PA form listed. Send the original will with the application.",
-        "You will usually get probate within 12 weeks of applying. Then collect the assets, pay debts and taxes, and keep records.",
-        "Consider a deceased estates notice in The Gazette to protect against unknown creditors, and wait at least 6 months from the grant before distributing in full in case of claims under the Inheritance (Provision for Family and Dependants) Act 1975.",
-        "Prepare estate accounts and distribute the estate under the will or the intestacy rules.",
+        "Read the estate account in your plan. It uses the values you entered. A solicitor checks it before anyone is paid.",
+        "If the plan says full details are needed, print form IHT400, sign it, and post it to HMRC. Wait for their code. We cannot send the form.",
+        "Apply for the grant on GOV.UK if the plan says you can, or by post on the form it names. Send the original will. We cannot send the application.",
+        "When the grant arrives, collect each account and pay the debts and the funeral. Keep a note of money in and money out.",
+        "Put a notice in The Gazette if you want protection from unknown creditors. Wait at least 6 months from the grant before paying everyone in full.",
+        "Share what is left as the will says, or as the law says if there is no will. The names you listed are people to keep informed. They are not a decision about who inherits.",
     ],
 }

@@ -77,6 +77,8 @@ def test_probate_document_api():
         doc = c.get(f"/api/drafts/{d['id']}/document").json()
         text = " ".join(x for s in doc["sections"] for x in s["paragraphs"])
         assert "Online on GOV.UK" in text and "£195,000.00" in text and "£526.00" in text
+        assert "What is left for the grant" in text and "Joint account" in text
+        assert "not a decision about who inherits" in " ".join(doc["next_steps"])
         assert any("applying-for-probate" in s["url"] for s in doc["sources"])
         blocked = c.post("/api/drafts", json={"service": "probate", "answers": answers(will={"applicant_role": "Unmarried partner", "has_will": "No"})}).json()
         assert c.get(f"/api/drafts/{blocked['id']}/document").status_code == 400
