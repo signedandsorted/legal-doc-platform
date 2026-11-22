@@ -47,3 +47,4 @@ DOCUMENT_UPLOAD = {
         }
     ],
 }
+
