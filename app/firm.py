@@ -6,6 +6,7 @@ from sqlalchemy import insert, select, update
 from .auth import require_admin, require_staff
 from .db import drafts, engine, matters, new_id, now, users
 from .documents import find_issues, missing_fields
+from .firm_books import clean_books, compile_books, letter_text
 from .firm_work import ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
 from .security import audit, client_ip, hash_password, normalise_email, check_password_rules
@@ -33,6 +34,12 @@ class MatterPatch(BaseModel):
     item_id: str | None = None
     item_status: str | None = None
     note: str | None = None
+    books: dict | None = None
+    assigned_to: str | None = None
+
+
+class LetterIn(BaseModel):
+    kind: str
 
 
 class AssistIn(BaseModel):
@@ -60,6 +67,8 @@ def _public(row: dict, full: bool = False) -> dict:
     kind = row["kind"]
     facts = row["facts"] or {}
     stage, item = next_item(kind, facts)
+    compiled = compile_books(row) if kind == "probate" else None
+    figures = compiled["figures"] if compiled else None
     out = {
         "id": row["id"],
         "kind": kind,
@@ -72,9 +81,11 @@ def _public(row: dict, full: bool = False) -> dict:
         "date_of_death": row["date_of_death"],
         "grant_date": row["grant_date"],
         "draft_id": row["draft_id"],
+        "assigned_to": facts.get("assigned_to") or "",
         "progress": progress(kind, facts),
         "next": None if not item else {"stage": stage["title"], "title": item["title"], "ask": item["ask"]},
         "deadlines": deadlines(row),
+        "figures": figures,
         "updated_at": _iso(row["updated_at"]),
     }
     if full:
@@ -84,6 +95,10 @@ def _public(row: dict, full: bool = False) -> dict:
             stages.append({**stage, "items": [{**it, "status": states.get(it["id"], "needed")} for it in stage["items"]]})
         out["stages"] = stages
         out["notes"] = facts.get("notes") or []
+        if compiled:
+            out["books"] = compiled["books"]
+            out["accounts"] = compiled["accounts"]
+            out["forms"] = compiled["forms"]
     return out
 
 
@@ -159,10 +174,24 @@ def patch_matter(matter_id: str, body: MatterPatch, request: Request, staff: dic
         text = body.note.strip()
         if text:
             facts.setdefault("notes", []).append({"at": now().isoformat(), "by": staff["email"], "text": text[:4000]})
+    if body.assigned_to is not None:
+        facts["assigned_to"] = body.assigned_to.strip()[:254]
+    if body.books is not None:
+        facts["books"] = clean_books(body.books)
+        facts.setdefault("activity", []).append({"at": now().isoformat(), "by": staff["email"], "what": "Figures updated"})
+        facts["activity"] = facts["activity"][-30:]
     values["facts"] = facts
     with engine().begin() as conn:
         conn.execute(update(matters).where(matters.c.id == matter_id).values(**values))
-    audit("matter_updated", staff, "matter", matter_id, {"item": body.item_id, "status": body.status}, client_ip(request))
+        if body.books is not None and row["kind"] == "probate" and row["draft_id"]:
+            fresh = dict(row)
+            fresh.update(values)
+            compiled = compile_books(fresh)
+            draft = conn.execute(select(drafts.c.answers).where(drafts.c.id == row["draft_id"])).scalar()
+            answers = dict(draft or {})
+            answers.update(compiled["answers"])
+            conn.execute(update(drafts).where(drafts.c.id == row["draft_id"]).values(answers=answers, updated_at=now()))
+    audit("matter_updated", staff, "matter", matter_id, {"item": body.item_id, "status": body.status, "books": body.books is not None}, client_ip(request))
     return _public(_load(matter_id), full=True)
 
 
@@ -173,6 +202,36 @@ def matter_assist(matter_id: str, body: AssistIn, _staff: dict = Depends(require
     row = _load(matter_id)
     draft = _draft_check(row["draft_id"]) if body.action == "check" else None
     return assist(row, body.action, draft)
+
+
+@router.post("/matters/{matter_id}/letters")
+def keep_letter(matter_id: str, body: LetterIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    if body.kind not in ("bank", "beneficiary", "grant"):
+        raise HTTPException(400, "Unknown letter")
+    compiled = compile_books(row)
+    letter = letter_text(body.kind, row, compiled)
+    if not letter:
+        raise HTTPException(400, "That letter needs a probate matter")
+    facts = dict(row["facts"] or {})
+    books = clean_books(facts.get("books"))
+    books["letters"].append({"id": new_id()[:8], "title": letter["title"], "body": letter["body"], "at": now().isoformat(), "by": staff["email"]})
+    facts["books"] = books
+    with engine().begin() as conn:
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
+    audit("matter_letter", staff, "matter", matter_id, {"kind": body.kind}, client_ip(request))
+    return {"letter": letter, "matter": _public(_load(matter_id), full=True)}
+
+
+@router.get("/matters/{matter_id}/export")
+def export_matter(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    compiled = compile_books(row) if row["kind"] == "probate" else None
+    return {
+        "matter": _public(row, full=True),
+        "answers": None if not compiled else compiled["answers"],
+        "notice": "Export for the firm's own file. It is not a filing with the court or with HMRC.",
+    }
 
 
 @router.post("/matters/{matter_id}/draft")

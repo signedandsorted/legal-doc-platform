@@ -17,4 +17,17 @@
 .letter { white-space: pre-wrap; background: #f7f8fa; border-radius: 10px; padding: 14px; }
 @media (max-width: 800px) {
   .firm-grid, .matter-row, .item { grid-template-columns: 1fr; }
+  .figure-strip { grid-template-columns: 1fr 1fr; }
 }
+.firm-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+.figure-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 12px 0; }
+.figure-strip div { background: #fff; border: 1px solid #e2e6ea; border-radius: 10px; padding: 10px 12px; }
+.figure-strip span { display: block; color: #5c6b7a; font-size: 12px; }
+.figure-strip b { font-size: 16px; }
+.line-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.line-form input, .line-form select { width: auto; min-width: 140px; }
+.check { display: flex; gap: 6px; align-items: center; font-size: 14px; width: auto; }
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th, .tbl td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e8ecef; vertical-align: top; }
+.alert { background: #fff6e8; border-radius: 8px; padding: 8px 10px; }
+

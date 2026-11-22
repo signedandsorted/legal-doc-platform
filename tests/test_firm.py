@@ -44,3 +44,45 @@ def test_staff_run_a_probate_matter_and_the_public_list_matches():
         assert "Identity of the client" not in titles
         html = c.get("/").text
         assert "/firm" in html
+
+
+def test_one_ledger_feeds_the_accounts_the_forms_and_the_draft():
+    with admin_client() as c:
+        matter = c.post("/api/firm/matters", json={
+            "kind": "probate", "client_name": "Ann Executor", "client_email": "ann@example.com",
+            "deceased_name": "John Executor", "date_of_death": "2026-01-15",
+        }).json()
+        draft = c.post(f"/api/firm/matters/{matter['id']}/draft").json()
+        saved = c.patch(f"/api/firm/matters/{matter['id']}", json={"books": {
+            "lines": [
+                {"name": "House", "value": 400000, "ownership": "sole"},
+                {"name": "Bank", "holder": "Example Bank", "value": 10000},
+                {"name": "Joint house", "value": 200000, "ownership": "joint_tenants"},
+                {"name": "Card", "side": "debt", "value": 5000},
+                {"name": "Funeral", "side": "debt", "funeral": True, "value": 4000},
+            ],
+            "people": [{"name": "Ann Executor", "share": 100}],
+            "case": {"has_will": "Yes, I have the original", "applicant_role": "Executor named in the will or a codicil", "domicile": "Yes"},
+        }})
+        assert saved.status_code == 200, saved.text
+        body = saved.json()
+        assert body["figures"]["gross_iht"] == 610000
+        assert body["figures"]["gross_probate"] == 410000
+        assert body["figures"]["net_probate"] == 401000
+        assert body["figures"]["net_iht"] == 601000
+        assert body["figures"]["tax"] == 110400
+        assert body["accounts"]["totals"]["still_to_collect"] == 410000
+        assert body["accounts"]["totals"]["expected_net"] == 290600
+        assert body["accounts"]["people"][0]["entitlement"] == 290600
+        codes = [s["code"] for s in body["forms"]["schedule"]]
+        assert "PA1P" in codes and "IHT400" in codes
+        assert body["accounts"]["outside"][0]["name"] == "Joint house"
+        letter = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "bank"})
+        assert "Example Bank" in letter.json()["letter"]["body"]
+        answers = c.get(f"/api/drafts/{draft['draft_id']}").json()["answers"]
+        assert answers["estate"]["funeral_costs"] == 4000
+        assert answers["estate"]["assets"][0]["value"] == 400000
+        exported = c.get(f"/api/firm/matters/{matter['id']}/export")
+        assert exported.status_code == 200
+        assert exported.json()["answers"]["deceased"]["full_name"] == "John Executor"
+

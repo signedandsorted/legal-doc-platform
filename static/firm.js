@@ -60,7 +60,7 @@ async function list() {
   nav();
   const rows = await api("/api/firm/matters");
   $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Matters</h1><p><a class="btn" href="/firm?m=new">New matter</a></p><div class="firm-card">'
-    + (rows.length ? rows.map(m => '<div class="matter-row"><div><a href="/firm?m=' + esc(m.id) + '">' + esc(m.title) + '</a><div class="muted small">' + esc(m.client_name || "No client name") + (m.deceased_name ? " · estate of " + esc(m.deceased_name) : "") + '</div></div><div>' + esc(m.kind_label) + '</div><div class="small">' + (m.next ? esc(m.next.title) : "Checklist complete") + '</div><div class="small">' + m.progress.done + '/' + m.progress.total + '</div></div>').join("") : '<p class="muted">No matters yet.</p>')
+    + (rows.length ? rows.map(m => '<div class="matter-row"><div><a href="/firm?m=' + esc(m.id) + '">' + esc(m.title) + '</a><div class="muted small">' + esc(m.client_name || "No client name") + (m.deceased_name ? " · estate of " + esc(m.deceased_name) : "") + (m.figures ? " · net " + gbp(m.figures.net_probate) : "") + '</div></div><div>' + esc(m.kind_label) + '</div><div class="small">' + (m.next ? esc(m.next.title) : "Checklist complete") + '</div><div class="small">' + m.progress.done + "/" + m.progress.total + "</div></div>").join("") : '<p class="muted">No matters yet.</p>')
     + '</div>';
 }
 
@@ -81,48 +81,167 @@ async function newer() {
   };
 }
 
+const gbp = n => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(Number(n) || 0);
+let TAB = "next";
+
 async function matter(id) {
   nav();
-  const m = await api("/api/firm/matters/" + id);
-  const deadlines = (m.deadlines || []).map(d => '<li><b>' + esc(d.label) + '</b>' + (d.date ? ' · ' + esc(d.date) : '') + '<div class="small">' + esc(d.note) + '</div></li>').join("");
-  $desk.innerHTML = '<p><a href="/firm">All matters</a></p>'
-    + '<div class="firm-next"><p class="eyebrow">Do this next</p><h1>' + esc(m.next ? m.next.title : "Checklist complete") + '</h1>'
-    + (m.next ? '<p>' + esc(m.next.ask) + '</p><p class="small">' + esc(m.next.stage) + '</p>' : '<p>Every item is received, done, or not needed.</p>')
-    + '</div>'
-    + '<div class="firm-grid"><div><div class="firm-card"><h2>' + esc(m.title) + '</h2><p class="muted">' + esc(m.kind_label) + ' · ' + m.progress.done + ' of ' + m.progress.total + '</p>'
-    + '<form id="meta"><label>Status<select name="status">' + MATTER.map(([v, l]) => '<option value="' + v + '"' + (m.status === v ? " selected" : "") + '>' + l + '</option>').join("") + '</select></label>'
+  const [m, staff] = await Promise.all([api("/api/firm/matters/" + id), api("/api/firm/colleagues")]);
+  const tabs = [["next", "Next"], ["money", "One set of figures"], ["accounts", "Accounts"], ["forms", "Forms"], ["letters", "Letters"]];
+  const showTabs = m.kind === "probate" ? tabs : [tabs[0], tabs[4]];
+  if (!showTabs.some(t => t[0] === TAB)) TAB = "next";
+  const strip = m.figures ? '<div class="figure-strip">'
+    + [["Probate gross", m.figures.gross_probate], ["Probate net", m.figures.net_probate], ["Tax estimate", m.figures.tax], ["Still to collect", m.accounts.totals.still_to_collect], ["Left to share", m.accounts.totals.expected_net]].map(([l, n]) => '<div><span>' + l + '</span><b>' + gbp(n) + '</b></div>').join("")
+    + '<div><span>' + (m.figures.excepted ? "No full tax return" : "Full tax details") + '</span><b>' + esc(m.figures.route) + '</b></div></div>' : "";
+  $desk.innerHTML = '<p><a href="/firm">All matters</a></p><h1>' + esc(m.title) + '</h1>'
+    + '<p class="muted">' + esc(m.kind_label) + (m.deceased_name ? " · " + esc(m.deceased_name) : "") + " · " + esc(m.client_name || "No client yet") + '</p>'
+    + strip
+    + '<div class="firm-tabs">' + showTabs.map(([k, label]) => '<button type="button" class="btn ' + (TAB === k ? "" : "ghost") + '" data-tab="' + k + '">' + label + '</button>').join(" ") + '</div>'
+    + '<div id="panel"></div>';
+  $desk.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { TAB = b.dataset.tab; matter(id); });
+  const panel = document.getElementById("panel");
+  if (TAB === "money") panel.innerHTML = moneyPanel(m, staff);
+  else if (TAB === "accounts") panel.innerHTML = accountsPanel(m);
+  else if (TAB === "forms") panel.innerHTML = formsPanel(m);
+  else if (TAB === "letters") panel.innerHTML = lettersPanel(m);
+  else panel.innerHTML = nextPanel(m, staff);
+  bind(id, m);
+}
+
+function nextPanel(m, staff) {
+  const deadlines = (m.deadlines || []).map(d => '<li><b>' + esc(d.label) + '</b>' + (d.date ? " · " + esc(d.date) : "") + '<div class="small">' + esc(d.note) + '</div></li>').join("");
+  return '<div class="firm-next"><p class="eyebrow">Do this next</p><h2>' + esc(m.next ? m.next.title : "Checklist complete") + '</h2>'
+    + (m.next ? '<p>' + esc(m.next.ask) + '</p><p class="small">' + esc(m.next.stage) + '</p>' : '<p>Every item is received, done, or not needed.</p>') + '</div>'
+    + '<div class="firm-grid"><div class="firm-card"><form id="meta"><label>Status<select name="status">' + MATTER.map(([v, l]) => '<option value="' + v + '"' + (m.status === v ? " selected" : "") + '>' + l + '</option>').join("") + '</select></label>'
+    + '<label>Worked by<select name="assigned_to"><option value="">Anyone</option>' + staff.map(s => '<option' + (m.assigned_to === s.email ? " selected" : "") + '>' + esc(s.email) + '</option>').join("") + '</select></label>'
     + '<label>Client<input name="client_name" value="' + esc(m.client_name) + '"></label><label>Email<input name="client_email" value="' + esc(m.client_email) + '"></label>'
-    + (m.kind === "probate" ? '<label>Person who died<input name="deceased_name" value="' + esc(m.deceased_name) + '"></label><label>Date of death<input name="date_of_death" type="date" value="' + esc(m.date_of_death) + '"></label><label>Date of grant<input name="grant_date" type="date" value="' + esc(m.grant_date) + '"></label>' : '')
+    + (m.kind === "probate" ? '<label>Person who died<input name="deceased_name" value="' + esc(m.deceased_name) + '"></label><label>Date of death<input name="date_of_death" type="date" value="' + esc(m.date_of_death) + '"></label><label>Date of grant<input name="grant_date" type="date" value="' + esc(m.grant_date) + '"></label>' : "")
     + '<p><button class="btn" type="submit">Save details</button></p></form>'
-    + (deadlines ? '<h3>Dates</h3><ul>' + deadlines + '</ul>' : '')
-    + '<h3>What you need</h3>'
-    + m.stages.map(stage => '<section class="stage"><h3>' + esc(stage.title) + '</h3>' + stage.items.map(it => '<div class="item"><div><b>' + esc(it.title) + '</b> <span class="who">' + esc(it.who) + '</span><div class="small">' + esc(it.ask) + '</div><div class="muted small">' + esc(it.why) + '</div></div><select data-item="' + esc(it.id) + '">' + STATUSES.map(([v, l]) => '<option value="' + v + '"' + (it.status === v ? " selected" : "") + '>' + l + '</option>').join("") + '</select></div>').join("") + '</section>').join("")
-    + '</div></div><aside><div class="firm-card"><h2>Assistant</h2><p class="small">Uses this checklist and the draft checks. Not a solicitor. Nothing is filed from here.</p>'
-    + '<p><button class="btn" type="button" id="req">Write the client email</button></p><p><button class="btn ghost" type="button" id="chk">Check the draft</button></p><div id="assist"></div></div>'
-    + '<div class="firm-card"><h2>Draft</h2><p class="small">Same questions as the public site, filled in by you for the client.</p><p><button class="btn" type="button" id="draft">' + (m.draft_id ? "Open the draft" : "Start the draft") + '</button></p></div>'
-    + '<div class="firm-card"><h2>File note</h2><form id="note"><textarea name="note" rows="4" required placeholder="What was said or received"></textarea><p><button class="btn ghost" type="submit">Add note</button></p></form>'
-    + (m.notes || []).slice().reverse().map(n => '<p class="small"><b>' + esc(n.by) + '</b> · ' + esc(n.at).replace("T", " ").slice(0, 16) + '<br>' + esc(n.text) + '</p>').join("")
-    + '</div></aside></div>';
-  document.getElementById("meta").onsubmit = async (e) => {
+    + (deadlines ? '<h3>Dates</h3><ul>' + deadlines + '</ul>' : "")
+    + '<h3>What you need</h3>' + (m.stages || []).map(stage => '<section class="stage"><h3>' + esc(stage.title) + '</h3>' + stage.items.map(it => '<div class="item"><div><b>' + esc(it.title) + '</b> <span class="who">' + esc(it.who) + '</span><div class="small">' + esc(it.ask) + '</div></div><select data-item="' + esc(it.id) + '">' + STATUSES.map(([v, l]) => '<option value="' + v + '"' + (it.status === v ? " selected" : "") + '>' + l + '</option>').join("") + '</select></div>').join("") + '</section>').join("")
+    + '</div><aside><div class="firm-card"><h2>Assistant</h2><p class="small">Writes from this file. It is not a solicitor and it does not file anything.</p><p><button class="btn" type="button" id="req">Write the client email</button></p><p><button class="btn ghost" type="button" id="chk">Check the draft</button></p><div id="assist"></div></div>'
+    + '<div class="firm-card"><h2>Draft</h2><p class="small">The questions stay in step with the figures on this matter.</p><p><button class="btn" type="button" id="draft">' + (m.draft_id ? "Open the draft" : "Start the draft") + '</button></p></div>'
+    + '<div class="firm-card"><h2>File note</h2><form id="note"><textarea name="note" rows="4" required></textarea><p><button class="btn ghost" type="submit">Add note</button></p></form>'
+    + (m.notes || []).slice().reverse().map(n => '<p class="small"><b>' + esc(n.by) + '</b><br>' + esc(n.text) + '</p>').join("") + '</div></aside></div>';
+}
+
+function opt(list, current) {
+  return list.map(v => '<option' + (v === current ? " selected" : "") + '>' + esc(v) + '</option>').join("");
+}
+function moneyPanel(m) {
+  const b = m.books || { lines: [], people: [], case: {} };
+  const c = b.case || {};
+  const rows = b.lines.map(ln => '<tr><td>' + esc(ln.name) + (ln.holder ? '<div class="muted small">' + esc(ln.holder) + '</div>' : "") + '</td><td>' + (ln.funeral ? "Funeral" : ln.side === "debt" ? "Debt" : "Asset") + '</td><td>' + gbp(ln.value) + '</td><td>' + (ln.realised == null ? "Not yet" : gbp(ln.realised)) + '</td><td><button type="button" class="btn ghost small" data-drop="' + esc(ln.id) + '">Remove</button></td></tr>').join("");
+  const people = b.people.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + gbp(p.specific) + '</td><td>' + p.share + '%</td><td>' + gbp(p.paid) + '</td><td><button type="button" class="btn ghost small" data-drop-person="' + esc(p.id) + '">Remove</button></td></tr>').join("");
+  return '<div class="firm-card"><h2>Type each item once</h2><p>The grant figures, the accounts, the tax working paper and the letters all use this list. Joint tenants and assets abroad stay out of the probate figures.</p>'
+    + '<table class="tbl"><thead><tr><th>Item</th><th>Type</th><th>At death</th><th>Collected</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="5" class="muted">Nothing entered yet.</td></tr>') + '</tbody></table>'
+    + '<form id="add" class="line-form"><input name="name" required placeholder="House, bank, card…"><input name="holder" placeholder="Bank or organisation"><select name="side"><option value="asset">Asset</option><option value="debt">Debt</option></select><select name="ownership"><option value="sole">Owned alone</option><option value="joint_tenants">Joint tenants</option><option value="tenants_in_common">Tenants in common, their share</option></select><input name="value" type="number" min="0" step="0.01" required placeholder="Value at death"><input name="realised" type="number" min="0" step="0.01" placeholder="Collected, if different"><input name="income" type="number" min="0" step="0.01" placeholder="Income"><input name="costs" type="number" min="0" step="0.01" placeholder="Costs"><label class="check"><input name="joint" type="checkbox"> Joint debt</label><label class="check"><input name="abroad" type="checkbox"> Abroad</label><label class="check"><input name="funeral" type="checkbox"> Funeral</label><label class="check"><input name="paid" type="checkbox"> Paid</label><button class="btn" type="submit">Add</button></form></div>'
+    + '<div class="firm-grid"><form id="case" class="firm-card"><h2>The people and the tax answers</h2>'
+    + '<label>Will<select name="has_will">' + opt(["", "Yes, I have the original", "Yes, but the original is lost", "No", "Not sure"], c.has_will) + '</select></label>'
+    + '<label>Applying as<select name="applicant_role">' + opt(["", "Executor named in the will or a codicil", "Husband, wife or civil partner", "Child aged 18 or over", "Other relative", "Unmarried partner", "Someone else (for example an attorney or a beneficiary)"], c.applicant_role) + '</select></label>'
+    + '<label>Lived in England or Wales<select name="domicile">' + opt(["Yes", "No, elsewhere in the UK", "No, outside the UK"], c.domicile || "Yes") + '</select></label>'
+    + '<label>Marital status<select name="marital_status">' + opt(["", "Married or in a civil partnership", "Widowed or a surviving civil partner", "Divorced or civil partnership dissolved", "Separated", "Never married"], c.marital_status) + '</select></label>'
+    + '<label>Last address<textarea name="address">' + esc(c.address || "") + '</textarea></label>'
+    + '<label>Left to a spouse or civil partner (£)<input name="to_spouse" type="number" min="0" step="0.01" value="' + (c.to_spouse || 0) + '"></label>'
+    + '<label>Left to charity (£)<input name="to_charity" type="number" min="0" step="0.01" value="' + (c.to_charity || 0) + '"></label>'
+    + '<label>Gifts in the 7 years (£)<input name="gifts_7_years" type="number" min="0" step="0.01" value="' + (c.gifts_7_years || 0) + '"></label>'
+    + '<label class="check"><input name="home_to_descendants" type="checkbox"' + (c.home_to_descendants === "Yes" ? " checked" : "") + '> Home to children or grandchildren</label>'
+    + '<label>Value of that home (£)<input name="home_value_to_descendants" type="number" min="0" step="0.01" value="' + (c.home_value_to_descendants || 0) + '"></label>'
+    + '<label class="check"><input name="earlier_spouse_died" type="checkbox"' + (c.earlier_spouse_died === "Yes" ? " checked" : "") + '> An earlier spouse or civil partner died first</label>'
+    + '<label>Unused threshold from them (%)<input name="unused_nrb_percent" type="number" min="0" max="100" step="0.01" value="' + (c.unused_nrb_percent ?? 100) + '"></label>'
+    + '<label>Tax already paid (£)<input name="tax_paid" type="number" min="0" step="0.01" value="' + (c.tax_paid || 0) + '"></label>'
+    + '<p><button class="btn" type="submit">Update the figures</button></p></form>'
+    + '<div class="firm-card"><h2>Who inherits</h2><table class="tbl"><thead><tr><th>Name</th><th>Specific gift</th><th>Share of the rest</th><th>Paid</th><th></th></tr></thead><tbody>' + (people || '<tr><td colspan="5" class="muted">No one yet. If you leave the shares blank, they split the rest equally.</td></tr>') + '</tbody></table>'
+    + '<form id="person" class="line-form"><input name="name" required placeholder="Name"><input name="relationship" placeholder="Child, friend…"><input name="specific" type="number" min="0" step="0.01" placeholder="Specific gift"><input name="share" type="number" min="0" max="100" step="0.01" placeholder="% of the rest"><input name="paid" type="number" min="0" step="0.01" placeholder="Already paid"><button class="btn" type="submit">Add</button></form></div></div>';
+}
+function accountsPanel(m) {
+  const a = m.accounts;
+  if (!a) return '<div class="firm-card"><p>Accounts are kept on probate matters.</p></div>';
+  const t = a.totals;
+  const cap = a.capital.map(r => '<tr><td>' + esc(r.name) + '</td><td>' + gbp(r.dod) + '</td><td>' + gbp(r.collected) + '</td><td>' + gbp(r.still) + '</td><td>' + gbp(r.income) + '</td><td>' + gbp(r.costs) + '</td></tr>').join("");
+  const out = a.outside.map(r => '<li><b>' + esc(r.name) + '</b> ' + gbp(r.value) + '<div class="small">' + esc(r.why) + '</div></li>').join("");
+  const dist = a.people.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + gbp(p.entitlement) + '</td><td>' + gbp(p.paid) + '</td><td>' + gbp(p.due) + '</td></tr>').join("");
+  return '<div class="firm-card"><h2>What is left to share</h2><p class="lead">' + gbp(t.expected_net) + '</p><p>Collected ' + gbp(t.collected) + ' plus still to collect ' + gbp(t.still_to_collect) + ' and income ' + gbp(t.income) + ', after costs ' + gbp(t.costs) + ', debts ' + gbp(t.debts) + ', funeral ' + gbp(t.funeral) + ' and the tax estimate ' + gbp(t.tax) + '. Cash held now is ' + gbp(t.cash_in_hand) + '.</p>'
+    + (a.warnings || []).map(w => '<p class="alert">' + esc(w) + '</p>').join("")
+    + '<h3>In the estate</h3><table class="tbl"><thead><tr><th>Item</th><th>At death</th><th>Collected</th><th>Still to collect</th><th>Income</th><th>Costs</th></tr></thead><tbody>' + (cap || '<tr><td colspan="6" class="muted">No assets in the probate estate yet.</td></tr>') + '</tbody></table>'
+    + (out ? '<h3>Not in these figures</h3><ul>' + out + '</ul>' : "")
+    + '<h3>Shares</h3><table class="tbl"><thead><tr><th>Person</th><th>Their share</th><th>Paid</th><th>Still due</th></tr></thead><tbody>' + (dist || '<tr><td colspan="4" class="muted">Add the people on the figures tab.</td></tr>') + '</tbody></table></div>';
+}
+function formsPanel(m) {
+  const f = m.forms;
+  if (!f) return '<div class="firm-card"><p>Court and tax working papers are kept on probate matters.</p></div>';
+  return '<div class="firm-card"><h2>' + esc(f.grant) + '</h2><p>' + esc(f.route) + '. ' + (f.excepted ? "Full details are not sent to HMRC on these answers." : "These answers need full details on form IHT400.") + '</p><p class="small">' + esc(f.notice) + '</p>'
+    + (f.blockers || []).map(x => '<p class="alert">' + esc(x) + '</p>').join("")
+    + (f.reasons || []).map(x => '<p class="small">' + esc(x) + '</p>').join("")
+    + f.schedule.map(s => '<section class="stage"><h3>' + esc(s.code) + ' — ' + esc(s.label) + '</h3><table class="tbl">' + s.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table></section>').join("")
+    + '<p><a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/export">Download the file for the case system</a></p></div>';
+}
+function lettersPanel(m) {
+  const saved = ((m.books || {}).letters || []).slice().reverse().map(l => '<article class="stage"><h3>' + esc(l.title) + '</h3><p class="muted small">' + esc(l.by) + '</p><div class="letter">' + esc(l.body) + '</div></article>').join("");
+  return '<div class="firm-card"><h2>Letters from these figures</h2><p>Each letter uses the list you have already typed. Keep a copy on the file.</p>'
+    + '<p><button class="btn" type="button" data-letter="bank">Ask for date-of-death values</button> <button class="btn ghost" type="button" data-letter="beneficiary">Update the beneficiaries</button> <button class="btn ghost" type="button" data-letter="grant">Write after the grant</button></p>'
+    + '<div id="preview"></div>' + saved + '</div>';
+}
+function bind(id, m) {
+  const reload = () => matter(id);
+  const meta = document.getElementById("meta");
+  if (meta) meta.onsubmit = async (e) => { e.preventDefault(); await api("/api/firm/matters/" + id, { method: "PATCH", body: Object.fromEntries(new FormData(e.target).entries()) }); reload(); };
+  $desk.querySelectorAll("[data-item]").forEach(sel => sel.onchange = async () => { await api("/api/firm/matters/" + id, { method: "PATCH", body: { item_id: sel.dataset.item, item_status: sel.value } }); });
+  const req = document.getElementById("req");
+  if (req) req.onclick = async () => showAssist(await api("/api/firm/matters/" + id + "/assist", { method: "POST", body: { action: "request" } }));
+  const chk = document.getElementById("chk");
+  if (chk) chk.onclick = async () => showAssist(await api("/api/firm/matters/" + id + "/assist", { method: "POST", body: { action: "check" } }));
+  const draft = document.getElementById("draft");
+  if (draft) draft.onclick = async () => { const r = await api("/api/firm/matters/" + id + "/draft", { method: "POST", body: {} }); location.href = "/#/d/" + r.draft_id + "/0"; };
+  const note = document.getElementById("note");
+  if (note) note.onsubmit = async (e) => { e.preventDefault(); await api("/api/firm/matters/" + id, { method: "PATCH", body: { note: new FormData(e.target).get("note") } }); reload(); };
+  const add = document.getElementById("add");
+  if (add) add.onsubmit = async (e) => {
     e.preventDefault();
-    const body = Object.fromEntries(new FormData(e.target).entries());
-    await api("/api/firm/matters/" + id, { method: "PATCH", body });
-    matter(id);
+    const fd = new FormData(e.target);
+    const books = m.books || { lines: [], people: [], case: {}, letters: [] };
+    books.lines.push({ name: fd.get("name"), holder: fd.get("holder"), side: fd.get("side"), ownership: fd.get("ownership"), value: fd.get("value"), realised: fd.get("realised"), income: fd.get("income"), costs: fd.get("costs"), joint: fd.get("joint") ? "Yes" : "No", abroad: fd.get("abroad") ? "Yes" : "No", funeral: !!fd.get("funeral"), paid: !!fd.get("paid") });
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
   };
-  $desk.querySelectorAll("[data-item]").forEach(sel => sel.onchange = async () => {
-    await api("/api/firm/matters/" + id, { method: "PATCH", body: { item_id: sel.dataset.item, item_status: sel.value } });
+  $desk.querySelectorAll("[data-drop]").forEach(b => b.onclick = async () => {
+    const books = m.books;
+    books.lines = books.lines.filter(ln => ln.id !== b.dataset.drop);
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
   });
-  document.getElementById("req").onclick = async () => showAssist(await api("/api/firm/matters/" + id + "/assist", { method: "POST", body: { action: "request" } }));
-  document.getElementById("chk").onclick = async () => showAssist(await api("/api/firm/matters/" + id + "/assist", { method: "POST", body: { action: "check" } }));
-  document.getElementById("draft").onclick = async () => {
-    const r = await api("/api/firm/matters/" + id + "/draft", { method: "POST", body: {} });
-    location.href = "/#/d/" + r.draft_id + "/0";
-  };
-  document.getElementById("note").onsubmit = async (e) => {
+  const person = document.getElementById("person");
+  if (person) person.onsubmit = async (e) => {
     e.preventDefault();
-    await api("/api/firm/matters/" + id, { method: "PATCH", body: { note: new FormData(e.target).get("note") } });
-    matter(id);
+    const fd = new FormData(e.target);
+    const books = m.books || { lines: [], people: [], case: {}, letters: [] };
+    books.people.push({ name: fd.get("name"), relationship: fd.get("relationship"), specific: fd.get("specific"), share: fd.get("share"), paid: fd.get("paid") });
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
   };
+  $desk.querySelectorAll("[data-drop-person]").forEach(b => b.onclick = async () => {
+    const books = m.books;
+    books.people = books.people.filter(p => p.id !== b.dataset.dropPerson);
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
+  });
+  const caseForm = document.getElementById("case");
+  if (caseForm) caseForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const books = m.books || { lines: [], people: [], case: {}, letters: [] };
+    const c = Object.fromEntries(fd.entries());
+    c.home_to_descendants = fd.get("home_to_descendants") ? "Yes" : "No";
+    c.earlier_spouse_died = fd.get("earlier_spouse_died") ? "Yes" : "No";
+    books.case = c;
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
+  };
+  $desk.querySelectorAll("[data-letter]").forEach(b => b.onclick = async () => {
+    const r = await api("/api/firm/matters/" + id + "/letters", { method: "POST", body: { kind: b.dataset.letter } });
+    document.getElementById("preview").innerHTML = '<h3>' + esc(r.letter.title) + '</h3><div class="letter">' + esc(r.letter.body) + '</div>';
+    m.books = r.matter.books;
+  });
 }
 function showAssist(data) {
   const box = document.getElementById("assist");
