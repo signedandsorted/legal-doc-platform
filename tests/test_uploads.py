@@ -45,6 +45,21 @@ def test_probate_upload_pdf_reads_text_and_suggests():
         assert c.get(f"/api/drafts/{d['id']}/uploads").json() == []
 
 
+def test_fill_writes_the_papers_into_the_draft_and_stops_there():
+    with user_client() as c:
+        d = c.post("/api/drafts", json={"service": "probate", "answers": {"deceased": {"full_name": "Kept Name"}}}).json()
+        c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("will.pdf", pdf_bytes(WILL_TEXT + " Date of death: 1 October 2026. Barclays current account: £10,000.00"), "application/pdf")})
+        filled = c.post(f"/api/drafts/{d['id']}/fill")
+        assert filled.status_code == 200, filled.text
+        body = filled.json()
+        assert body["answers"]["deceased"]["full_name"] == "Kept Name"
+        assert body["answers"]["deceased"]["date_of_death"] == "2026-10-01"
+        assert body["answers"]["estate"]["assets"]
+        assert body["missing"]
+        assert body["status"] == "draft"
+        assert c.post(f"/api/drafts/{d['id']}/fill").status_code == 400
+
+
 def test_upload_rejects_bad_types_and_big_files():
     with user_client() as c:
         d = c.post("/api/drafts", json={"service": "probate", "answers": {}}).json()

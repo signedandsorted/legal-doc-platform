@@ -187,14 +187,22 @@ function papersPanel(m) {
       + (ideas ? '<form class="apply">' + ideas + '<p><button class="btn" type="submit">Add the ticked items to the estate</button></p></form>' : '<p class="small">Nothing on this paper can be copied across.</p>')
       + '<p><a href="/api/firm/matters/' + esc(m.id) + "/uploads/" + esc(p.id) + '">Download</a></p></article>';
   }).join("");
-  return '<div class="firm-card"><h2>Upload the papers</h2><p>Will, death certificate or bank letter. The desk reads the text and offers the names and amounts. Nothing is added until you tick it.</p>'
+  const court = f.hmcts || {};
+  const ids = (m.papers || []).flatMap(p => (p.suggestions || []).filter(s => s.mode !== "note" || String(s.label).startsWith("Executor")).map(s => s.id));
+  return '<div class="firm-card"><h2>Upload the papers</h2><p>Will, death certificate or bank letter. When they are on the file, fill the estate from what can be read. A photo with no text still has to be typed. Nothing is filed from here.</p>'
     + '<form id="up"><label>What it is<select name="kind"><option>Will</option><option>Codicil</option><option>Death certificate</option><option>Bank or valuation letter</option><option>Other</option></select></label>'
-    + '<input type="file" name="file" required accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.heic,.webp"> <button class="btn" type="submit">Upload</button></form>' + papers + "</div>"
+    + '<input type="file" name="file" required accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.heic,.webp"> <button class="btn" type="submit">Upload</button></form>'
+    + (ids.length ? '<p><button type="button" class="btn" id="fill-all">Fill the estate from these papers</button></p>' : "")
+    + papers + "</div>"
     + '<div class="firm-card"><h2>Filing</h2><p>' + esc(f.notice) + "</p>"
     + (f.blockers || []).map(b => '<p class="alert">' + esc(b) + "</p>").join("")
     + "<ol>" + (f.steps || []).map(s => "<li>" + esc(s) + "</li>").join("") + "</ol>"
     + (h.needed ? '<p><a href="' + esc(h.url) + '">Official IHT400</a> · <a href="' + esc(h.pay_url) + '">Pay Inheritance Tax</a></p>' : "<p>These answers do not ask for a full IHT400.</p>")
-    + '<p><a href="' + esc((f.hmcts || {}).url || "") + '">MyHMCTS: how a firm files the grant</a></p>'
+    + '<p><a class="btn" href="' + esc(court.case_url || "https://manage-case.platform.hmcts.net") + '" target="_blank" rel="noopener">Sign in to MyHMCTS</a> '
+    + '<a class="btn ghost" href="' + esc(court.org_url || "https://manage-org.platform.hmcts.net") + '" target="_blank" rel="noopener">Organisation account</a> '
+    + '<a href="' + esc(court.register_url || "https://www.gov.uk/guidance/register-for-myhmcts-online-case-management-for-professionals") + '" target="_blank" rel="noopener">Register the firm</a></p>'
+    + '<p class="small">These open HMCTS. The desk is not connected to their account and cannot send the application.</p>'
+    + '<p><a href="' + esc(court.url || "") + '" target="_blank" rel="noopener">How a firm files a probate application</a></p>'
     + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/pack">Download the working pack</a></p>'
     + '<form id="filed"><label>HMRC code, when they send it<input name="hmrc_code" value="' + esc(h.hmrc_code || "") + '"></label>'
     + '<label>Date the IHT400 was posted<input type="date" name="hmrc_posted_on" value="' + esc(h.hmrc_posted_on || "") + '"></label>'
@@ -267,6 +275,13 @@ function bind(id, m) {
   if (filed) filed.onsubmit = async (e) => {
     e.preventDefault();
     await api("/api/firm/matters/" + id, { method: "PATCH", body: Object.fromEntries(new FormData(e.target).entries()) });
+    reload();
+  };
+  const fillAll = document.getElementById("fill-all");
+  if (fillAll) fillAll.onclick = async () => {
+    const suggestion_ids = (m.papers || []).flatMap(p => (p.suggestions || []).filter(s => s.mode !== "note" || String(s.label).startsWith("Executor")).map(s => s.id));
+    await api("/api/firm/matters/" + id + "/apply", { method: "POST", body: { suggestion_ids } });
+    TAB = "money";
     reload();
   };
   const up = document.getElementById("up");

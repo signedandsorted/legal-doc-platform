@@ -11,6 +11,9 @@ PAPER_KINDS = ["Will", "Codicil", "Death certificate", "Bank or valuation letter
 IHT400_URL = "https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400"
 PAY_URL = "https://www.gov.uk/paying-inheritance-tax"
 MYHMCTS_URL = "https://www.gov.uk/government/publications/myhmcts-how-to-apply-for-probate-online/apply-for-probate-with-myhmcts"
+MYHMCTS_CASE_URL = "https://manage-case.platform.hmcts.net"
+MYHMCTS_ORG_URL = "https://manage-org.platform.hmcts.net"
+MYHMCTS_REGISTER_URL = "https://www.gov.uk/guidance/register-for-myhmcts-online-case-management-for-professionals"
 APPLY_URL = "https://www.gov.uk/apply-for-probate"
 
 
@@ -57,7 +60,11 @@ def position(matter: dict, compiled: dict | None, uploads: list[dict]) -> dict:
         "blockers": blockers,
         "excepted": excepted,
         "hmrc": {"needed": not excepted, "url": IHT400_URL, "pay_url": PAY_URL, **filing},
-        "hmcts": {"url": MYHMCTS_URL, "public_url": APPLY_URL, "ready": hmcts_ready, "route": figures.get("route") or "", "fee": figures.get("fee")},
+        "hmcts": {
+            "url": MYHMCTS_URL, "case_url": MYHMCTS_CASE_URL, "org_url": MYHMCTS_ORG_URL,
+            "register_url": MYHMCTS_REGISTER_URL, "public_url": APPLY_URL,
+            "ready": hmcts_ready, "route": figures.get("route") or "", "fee": figures.get("fee"),
+        },
         "steps": steps,
         "notice": "Nothing on this page is sent to HMRC or to HMCTS. A solicitor files it, then records the date and the code here.",
     }

@@ -473,7 +473,8 @@ function uploadsHtml(st, draft) {
       + '<div class="field"><label for="kind">What is it?</label><select id="kind"><option value="">Work it out for me</option>' + st.uploads.map(k => '<option>' + esc(k) + '</option>').join("") + '</select></div>' : "")
     + '<div id="upmsg" aria-live="polite"></div>'
     + (draft.uploads.length ? '<ul class="files">' + draft.uploads.map(u => '<li><span>📄 <a href="/api/drafts/' + draft.id + '/uploads/' + u.id + '">' + esc(u.filename) + '</a> <span class="muted">· ' + esc(u.kind) + ' · ' + ({ pdf: "text read", docx: "text read", text: "text read", image: "photo kept for your solicitor", "scanned-pdf": "scan kept for your solicitor", unreadable: "could not read, kept for your solicitor" })[u.read_as] + '</span></span>' + (draft.status === "draft" ? '<button type="button" class="btn ghost small" data-del="' + u.id + '">Delete</button>' : "") + '</li>').join("") + '</ul>' : "")
-    + (sugg.length ? '<div class="sugg"><h3>Suggestions from your documents</h3><ul>' + sugg.map(s => '<li><span>' + esc(s.label) + ' <span class="muted small">(' + esc(s.source) + ')</span></span>' + (s.mode !== "note" && draft.status === "draft" ? '<button type="button" class="btn small" data-sugg="' + esc(s.id) + '">Add</button>' : "") + '</li>').join("") + '</ul></div>' : "");
+    + (sugg.some(s => s.mode !== "note") && draft.status === "draft" ? '<p><button type="button" class="btn" id="fill-papers">Fill in what these papers show</button></p><p class="small">This is the point where the papers are written into the draft. It does not finish questions the papers do not answer, and it does not file anything.</p>' : "")
+    + (sugg.length ? '<div class="sugg"><h3>Read from your documents</h3><ul>' + sugg.map(s => '<li><span>' + esc(s.label) + ' <span class="muted small">(' + esc(s.source) + ')</span></span>' + (s.mode !== "note" && draft.status === "draft" ? '<button type="button" class="btn small" data-sugg="' + esc(s.id) + '">Add</button>' : "") + '</li>').join("") + '</ul></div>' : "");
 }
 
 async function step(id, index) {
@@ -520,6 +521,11 @@ async function step(id, index) {
       const name = key[key.length - 1]; node[name] = node[name] || [];
       if (t.dataset.add) node[name].push({}); else node[name].splice(Number(t.dataset.i), 1);
       rerender(); save();
+    }
+    if (t.id === "fill-papers") {
+      const d = await api("/api/drafts/" + id + "/fill", { method: "POST", body: {} });
+      document.getElementById("upmsg").innerHTML = '<div class="alert ok"><b>Filled from the papers</b><ul>' + (d.filled_from_papers || []).map(x => '<li>' + esc(x) + '</li>').join("") + '</ul><p>' + (d.missing.length ? d.missing.length + ' questions are still blank. Check each step.' : 'Check each step, then continue.') + '</p></div>';
+      return;
     }
     if (t.dataset.del) { await api("/api/drafts/" + id + "/uploads/" + t.dataset.del, { method: "DELETE" }); route(); }
     if (t.dataset.sugg) {

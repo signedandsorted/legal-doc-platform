@@ -20,7 +20,7 @@ from .db import drafts, engine, init_db, new_id, now, uploads
 from .security import audit, client_ip, csrf_ok
 from .documents import build_document, find_issues, missing_fields
 from .documents import save_uploaded_file
-from .extract import detect_kind, extract_text, suggest
+from .extract import detect_kind, extract_text, fill_from_papers, suggest
 from .guides import SERVICES
 from .pdf import render_pdf
 
@@ -329,6 +329,26 @@ async def upload(draft_id: str, request: Request, file: UploadFile = File(...), 
                                             size=len(data), data=data, text=text_, read_as=read_as, suggestions=sugg, created_at=now()))
     audit("upload_added", user, "upload", upload_id, {"draft_id": draft_id, "filename": filename, "size": len(data)}, client_ip(request))
     return [u for u in _uploads(draft_id) if u["id"] == upload_id][0]
+
+
+@app.post("/api/drafts/{draft_id}/fill")
+def fill_draft(draft_id: str, request: Request, user: dict = Depends(require_user)):
+    """The point where uploaded papers are written into the draft. Does not send or file anything."""
+    row = _editable(draft_id, user)
+    suggestions = [item for upload in _uploads(draft_id) for item in (upload.get("suggestions") or [])]
+    if not suggestions:
+        raise HTTPException(400, "Nothing on the uploaded papers could be read. A photo or a scan has to be typed in.")
+    answers, filled, notes = fill_from_papers(row["answers"], suggestions)
+    if not filled:
+        raise HTTPException(400, "The papers were read, but they did not add anything new. What is already typed has been left as it is.")
+    name, email = _client(answers)
+    with engine().begin() as conn:
+        conn.execute(update(drafts).where(drafts.c.id == draft_id).values(answers=answers, client_name=name or row["client_name"], client_email=email or row["client_email"], updated_at=now()))
+    audit("draft_filled", user, "draft", draft_id, {"filled": len(filled)}, client_ip(request))
+    out = _out(_row(draft_id, user))
+    out["filled_from_papers"] = filled
+    out["paper_notes"] = notes
+    return out
 
 
 # ---------------------------------------------------------------------------

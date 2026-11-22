@@ -119,3 +119,37 @@ def suggest(service_id: str, text: str, upload_id: str, filename: str) -> list[d
             value = m.group(2).replace(",", "")
             add(f"{desc}: £{m.group(2)}", "estate", "assets", {"description": f"{desc} ({filename})", "value": value}, "append")
     return s
+
+
+def _same(current: dict, value: dict) -> bool:
+    for key in ("full_name", "description"):
+        if value.get(key) and current.get(key) == value.get(key):
+            return True
+    return False
+
+
+def fill_from_papers(answers: dict, suggestions: list[dict]) -> tuple[dict, list[str], list[str]]:
+    """Copy readable names, dates and amounts into the draft. Never overwrites an answer already typed.
+    Returns (answers, filled labels, notes that were not copied)."""
+    answers = {k: dict(v) if isinstance(v, dict) else v for k, v in (answers or {}).items()}
+    filled, notes = [], []
+    for item in suggestions:
+        if item.get("mode") == "note" or not item.get("step") or not item.get("field"):
+            if item.get("label"):
+                notes.append(item["label"])
+            continue
+        section = dict(answers.get(item["step"]) or {})
+        if item.get("mode") == "append":
+            value = item.get("value") if isinstance(item.get("value"), dict) else {}
+            current = [x for x in (section.get(item["field"]) or []) if isinstance(x, dict) and any(x.values())]
+            if any(_same(x, value) for x in current):
+                continue
+            current.append(value)
+            section[item["field"]] = current
+        else:
+            if section.get(item["field"]) not in (None, ""):
+                continue
+            section[item["field"]] = item.get("value")
+        answers[item["step"]] = section
+        filled.append(item.get("label") or item["field"])
+    return answers, filled, notes
