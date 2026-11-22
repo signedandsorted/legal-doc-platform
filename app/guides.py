@@ -3,6 +3,7 @@ from .guide_lpa import LPA_HEALTH, LPA_PROPERTY
 from .guide_poa import POA_ORDINARY
 from .guide_probate import PROBATE
 from .guide_will import WILL
+from .guide_nuptial import NUPTIAL
 
 # Home page grouping. Order here is the order of the cards.
 for _svc, _cat in (
