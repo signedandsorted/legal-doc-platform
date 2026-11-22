@@ -17,6 +17,7 @@ def answers(**over):
                               {"description": "Joint account", "value": "10000", "ownership": "Joint tenants (passes automatically to the other owner)"}],
                    "debts": [{"description": "Card", "value": "1000"}], "funeral_costs": "4000"},
         "tax": {},
+        "account": {"who_files": "I will file it myself"},
     }
     for k, v in over.items():
         a[k] = {**a[k], **v}
@@ -78,7 +79,12 @@ def test_probate_document_api():
         text = " ".join(x for s in doc["sections"] for x in s["paragraphs"])
         assert "Online on GOV.UK" in text and "£195,000.00" in text and "£526.00" in text
         assert "What is left for the grant" in text and "Joint account" in text
-        assert "not a decision about who inherits" in " ".join(doc["next_steps"])
+        assert "You chose to file the grant yourself" in " ".join(doc["next_steps"])
+        asked = answers()
+        asked["account"] = {"who_files": "I want the firm to file it for me"}
+        asked_doc = c.get(f"/api/drafts/{c.post('/api/drafts', json={'service': 'probate', 'answers': asked}).json()['id']}/document").json()
+        assert "asked the firm to file" in " ".join(asked_doc["next_steps"])
+        assert "cannot sign in to HMCTS" in " ".join(asked_doc["next_steps"])
         assert any("applying-for-probate" in s["url"] for s in doc["sources"])
         blocked = c.post("/api/drafts", json={"service": "probate", "answers": answers(will={"applicant_role": "Unmarried partner", "has_will": "No"})}).json()
         assert c.get(f"/api/drafts/{blocked['id']}/document").status_code == 400

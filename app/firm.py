@@ -139,7 +139,13 @@ def _draft_check(draft_id: str | None) -> dict | None:
         row = conn.execute(select(drafts).where(drafts.c.id == draft_id)).mappings().first()
     if not row:
         return {"missing": [], "issues": [], "detail": "The linked draft has been deleted. Open a new one."}
-    return {"missing": missing_fields(row["service"], row["answers"]), "issues": find_issues(row["service"], row["answers"], ""), "detail": ""}
+    who = ((row["answers"] or {}).get("account") or {}).get("who_files") or ""
+    detail = ""
+    if who.startswith("I want the firm"):
+        detail = "The client has asked the firm to file the grant. A solicitor files it in MyHMCTS, or by post if the online service will not take it. This desk does not send it."
+    elif who.startswith("I will file"):
+        detail = "The client will file the grant themselves."
+    return {"missing": missing_fields(row["service"], row["answers"]), "issues": find_issues(row["service"], row["answers"], ""), "detail": detail, "who_files": who}
 
 
 @router.get("/kinds")

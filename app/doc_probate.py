@@ -169,6 +169,32 @@ def _people(a: dict) -> list[str]:
     return ["People to keep informed: " + ", ".join(names) + ". This is not a decision about who inherits. The will, or the law if there is no will, decides the shares."]
 
 
+def client_steps(a: dict, p: dict) -> list[str]:
+    """What the client does next. Asking the firm to file is a request, not a filing."""
+    choice = (a.get("account") or {}).get("who_files") or ""
+    steps = ["Read the estate account in your plan. It uses the values you entered. A solicitor checks it before anyone is paid."]
+    if not p["excepted"]:
+        steps.append("Full tax details are needed. Form IHT400 is printed, signed and posted to HMRC. Wait for their code. This website cannot send that form.")
+    if choice.startswith("I want the firm"):
+        steps.append("You have asked the firm to file the grant. This is a request. Nothing is filed until a solicitor accepts the matter and sends it. This website cannot sign in to HMCTS.")
+        if p["blockers"]:
+            steps.append("The plan is blocked, so it cannot be filed until those points are sorted out.")
+        elif p["online"]:
+            steps.append("If the firm accepts the matter, a solicitor files the grant in MyHMCTS and will ask you for the original will. You do not apply on GOV.UK yourself.")
+        else:
+            steps.append("The online service will not take this application. If the firm accepts the matter, a solicitor files it by post on the form named above.")
+    else:
+        if p["online"]:
+            steps.append("You chose to file the grant yourself. Apply on GOV.UK and send the original will. This website cannot send the application.")
+        elif not p["blockers"]:
+            steps.append("You chose to file the grant yourself. The online service will not take this one, so apply by post on the form named above and send the original will.")
+        else:
+            steps.append("Sort out the blocked points before anyone applies.")
+    steps.append("When the grant arrives, collect each account and pay the debts and the funeral. Keep a note of money in and money out.")
+    steps.append("Wait at least 6 months from the grant before paying everyone in full. Share what is left as the will says, or as the law says if there is no will.")
+    return steps
+
+
 def build_probate(_, a: dict, uploads: list | None = None) -> dict:
     d, w = a.get("deceased") or {}, a.get("will") or {}
     p = plan(a)
@@ -189,6 +215,10 @@ def build_probate(_, a: dict, uploads: list | None = None) -> dict:
             ("Pay by " + _deadline(d.get("date_of_death", "")) + " to avoid interest." if tax["tax"] and _deadline(d.get("date_of_death", "")) else "This is an estimate, not tax advice. A solicitor will check it.")]},
         {"heading": "Fee", "paragraphs": [f"Application fee: {money(p['fee'])}" + (" (estate over £5,000)" if p["fee"] else " (estate £5,000 or less)") + f". Extra copies of the grant: £{EXTRA_COPY_FEE} each when you apply."]},
         {"heading": "Your estate account", "paragraphs": _plain_account(e, v, tax, p) + _people(a)},
+        {"heading": "Who files the grant", "paragraphs": [
+            (a.get("account") or {}).get("who_files") or "Not chosen yet.",
+            "Asking the firm to file does not send the application. A solicitor files it in MyHMCTS, or by post if the online service will not take it.",
+        ]},
         {"heading": "The person who died", "paragraphs": [person(d), "Date of death: " + d.get("date_of_death", ""), "Lived permanently in England or Wales: " + d.get("domicile", ""), "Marital status: " + d.get("marital_status", "")]},
         {"heading": "Will and applicant", "paragraphs": ["Will: " + w.get("has_will", ""), "Applicant: " + person(w.get("applicant") or {}) + (f" ({w.get('applicant_role')})" if w.get("applicant_role") else ""), "Number applying: " + w.get("applicants", "")]},
         {"heading": "Assets", "paragraphs": [f"{x.get('description')}: {money(x.get('value'))}" + (f" ({x['ownership']})" if x.get("ownership") else "") + (" (abroad)" if x.get("abroad") == "Yes" else "") for x in e.get("assets") or []] or ["None listed yet"]},
@@ -198,4 +228,4 @@ def build_probate(_, a: dict, uploads: list | None = None) -> dict:
     if uploads:
         sec.append({"heading": "Documents you uploaded", "paragraphs": [f"{u['filename']} ({u['kind']})" for u in uploads]})
     return {"title": "Probate plan: " + d.get("full_name", ""), "notice": "Prepared " + date.today().strftime("%d %B %Y") + ". " + DRAFT_NOTICE + " Figures are estimates to guide you.",
-            "sections": sec, "next_steps": PROBATE["next_steps"], "sources": [x for st in PROBATE["steps"] for x in st.get("sources", [])] + [{"title": "GOV.UK: Probate fees", "url": "https://www.gov.uk/applying-for-probate/fees"}]}
+            "sections": sec, "next_steps": client_steps(a, p), "sources": [x for st in PROBATE["steps"] for x in st.get("sources", [])] + [{"title": "GOV.UK: Probate fees", "url": "https://www.gov.uk/applying-for-probate/fees"}]}

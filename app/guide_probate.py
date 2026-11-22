@@ -144,10 +144,11 @@ PROBATE = {
                 "You do not type the money again. This step turns the values you already entered into a simple estate account.",
                 "The account is what the grant covers: things in their name, minus debts and the funeral. A joint bank account or a house owned as joint tenants goes straight to the other owner. It is not in this account, and you do not collect it.",
                 "The order is always the same. Get the papers. Ask each bank for the value on the day they died. If the plan says so, post the tax form and wait for a code. Apply for the grant. When it arrives, collect the money and pay the bills. Share what is left only after that, and not in full until at least 6 months after the grant.",
-                "We cannot send the tax form or the probate application. You do that on GOV.UK, or by post if the plan says the online service will not take it. A solicitor checks the account before anyone is paid.",
+                "You can file the grant yourself, or ask the firm to file it for you. This website cannot sign in to HMCTS. If you ask the firm, a solicitor files it in the firm's MyHMCTS account, or by post where the online service will not take it. That happens only after the firm accepts the matter.",
             ],
             "sources": [GOV["iht_value"], GOV["probate"]],
             "fields": [
+                {"name": "who_files", "label": "Who should file the grant?", "type": "select", "required": True, "options": ["I will file it myself", "I want the firm to file it for me"]},
                 {"name": "people", "label": "People to tell about their share (optional)", "type": "list", "min": 0, "max": 8, "fields": [
                     {"name": "full_name", "label": "Name", "type": "text", "required": True},
                     {"name": "relationship", "label": "Who they were to the person who died", "type": "text"},
