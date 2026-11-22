@@ -19,6 +19,7 @@ from .firm import public_probate_prepare, router as firm_router
 from .db import drafts, engine, init_db, new_id, now, uploads
 from .security import audit, client_ip, csrf_ok
 from .documents import build_document, find_issues, missing_fields
+from .documents import save_uploaded_file
 from .extract import detect_kind, extract_text, suggest
 from .guides import SERVICES
 from .pdf import render_pdf
@@ -327,6 +328,27 @@ async def upload(draft_id: str, request: Request, file: UploadFile = File(...), 
                                             size=len(data), data=data, text=text_, read_as=read_as, suggestions=sugg, created_at=now()))
     audit("upload_added", user, "upload", upload_id, {"draft_id": draft_id, "filename": filename, "size": len(data)}, client_ip(request))
     return [u for u in _uploads(draft_id) if u["id"] == upload_id][0]
+
+
+# ---------------------------------------------------------------------------
+# Generic upload endpoint (not tied to a draft). Allows a user to upload a file
+# and have it stored securely. Uses the same validation rules as the draft
+# upload endpoint.
+# ---------------------------------------------------------------------------
+@app.post("/upload")
+async def generic_upload(file: UploadFile = File(...), user_id: str = Form(...)):
+    # Validate file size and type using the same constants as the draft upload.
+    filename = re.sub(r"[^\w.\- ]", "_", Path(file.filename or "document").name)[:120] or "document"
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_EXT:
+        raise HTTPException(400, "Please upload a PDF, Word (.docx), text file or photo (JPG, PNG, HEIC)")
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(400, "That file is over 10 MB")
+    if not data:
+        raise HTTPException(400, "That file is empty")
+    saved_path = save_uploaded_file(user_id, filename, data)
+    return {"filename": filename, "saved_path": str(saved_path)}
 
 
 @app.get("/api/drafts/{draft_id}/uploads")

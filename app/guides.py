@@ -24,3 +24,26 @@ for _svc, _cat in (
     _svc.setdefault("category", _cat)
 
 SERVICES = {s["id"]: s for s in (WILL, LPA_PROPERTY, LPA_HEALTH, POA_ORDINARY, PROBATE, PRENUP, POSTNUP, EMPLOYMENT_SETTLEMENT, COHABITATION)}
+# Define a stand‑alone document upload descriptor (not added to SERVICES to keep API stable).
+DOCUMENT_UPLOAD = {
+    "id": "document_upload",
+    "title": "Upload supporting documents",
+    "short_title": "Upload",
+    "summary": "Upload PDF, DOCX, JPG, PNG files up to 10 MB that support your draft.",
+    "steps": [
+        {
+            "id": "upload",
+            "title": "Your documents",
+            "guidance": ["Upload a PDF, Word document, or image up to 10 MB."],
+            "fields": [
+                {
+                    "name": "file",
+                    "label": "Document file",
+                    "type": "file",
+                    "required": True,
+                    "accept": ".pdf,.docx,.jpg,.jpeg,.png",
+                }
+            ],
+        }
+    ],
+}
