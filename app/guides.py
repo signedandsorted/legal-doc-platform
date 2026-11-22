@@ -23,7 +23,7 @@ for _svc, _cat in (
 ):
     _svc.setdefault("category", _cat)
 
-SERVICES = {s["id"]: s for s in (WILL, LPA_PROPERTY, LPA_HEALTH, POA_ORDINARY, PROBATE, PRENUP, POSTNUP, EMPLOYMENT_SETTLEMENT, COHABITATION)}
+SERVICES = {s["id"]: s for s in (WILL, LPA_PROPERTY, LPA_HEALTH, POA_ORDINARY, PROBATE, PRENUP, POSTNUP, EMPLOYMENT_SETTLEMENT, COHABITATION, NUPTIAL)}
 # Define a stand‑alone document upload descriptor (not added to SERVICES to keep API stable).
 DOCUMENT_UPLOAD = {
     "id": "document_upload",
