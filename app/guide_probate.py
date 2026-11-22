@@ -133,7 +133,7 @@ PROBATE = {
             "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Other"],
             "guidance": [
                 "Upload copies of the will, codicils, the death certificate, bank letters and valuations. Photos and scans are fine.",
-                "We read text from PDFs and Word files. When the papers are uploaded, use Fill in what these papers show. It writes the names, dates and amounts it can read, and leaves anything you have already typed. A photo or a scan with no text still has to be typed. Check every step. Nothing is filed from here.",
+                "We read text from PDFs and Word files, and we read photos and scans. When the papers are uploaded, use Fill in what these papers show. It writes the names, dates and amounts it can read, and leaves anything you have already typed. A blurry photo may still need to be typed. Check every step. Nothing is filed from here.",
             ],
             "sources": [GOV["probate_before"]],
             "fields": [],

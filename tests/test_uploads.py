@@ -69,6 +69,34 @@ def test_upload_rejects_bad_types_and_big_files():
         assert photo["read_as"] == "image" and photo["kind"] == "Death certificate" and photo["suggestions"] == []
 
 
+def _photo(text: str) -> bytes:
+    from PIL import Image, ImageDraw, ImageFont
+    img = Image.new("RGB", (1600, 360), "white")
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 42)
+    draw.text((40, 80), text, fill="black", font=font)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_a_photo_and_a_scanned_pdf_are_read():
+    from reportlab.lib.utils import ImageReader
+    photo = _photo("Date of death: 1 October 2026")
+    buf = io.BytesIO()
+    page = canvas.Canvas(buf)
+    page.drawImage(ImageReader(io.BytesIO(photo)), 40, 500, width=500, height=110, mask="auto")
+    page.save()
+    with user_client() as c:
+        d = c.post("/api/drafts", json={"service": "probate", "answers": {}}).json()
+        shot = c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("certificate.png", photo, "image/png")}, data={"kind": "Death certificate"}).json()
+        assert shot["read_as"] == "ocr"
+        assert any("Date of death" in s["label"] for s in shot["suggestions"])
+        scan = c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("scan.pdf", buf.getvalue(), "application/pdf")}).json()
+        assert scan["read_as"] == "ocr"
+        assert any("Date of death" in s["label"] for s in scan["suggestions"])
+
+
 def test_lpa_upload_flags_certificate_provider_named_in_old_lpa():
     with user_client() as c:
         d = c.post("/api/drafts", json={"service": "lpa_property", "answers": lpa()}).json()

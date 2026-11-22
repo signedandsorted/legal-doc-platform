@@ -183,13 +183,13 @@ function papersPanel(m) {
   const papers = (m.papers || []).map(p => {
     const ideas = (p.suggestions || []).filter(s => s.mode !== "note" || String(s.label).startsWith("Executor")).map(s => '<label class="check"><input type="checkbox" name="pick" value="' + esc(s.id) + '" checked> ' + esc(s.label) + "</label>").join("");
     return '<article class="stage"><b>' + esc(p.filename) + '</b> <span class="who">' + esc(p.kind) + "</span>"
-      + (p.read_as === "scanned-pdf" || p.read_as === "image" ? '<p class="small">No text could be read from this scan. Type the figures, or upload a file that contains text.</p>' : "")
+      + (p.read_as === "scanned-pdf" || p.read_as === "image" ? '<p class="small">Nothing could be read from this picture. Type the figures, or upload a clearer photo.</p>' : "")
       + (ideas ? '<form class="apply">' + ideas + '<p><button class="btn" type="submit">Add the ticked items to the estate</button></p></form>' : '<p class="small">Nothing on this paper can be copied across.</p>')
       + '<p><a href="/api/firm/matters/' + esc(m.id) + "/uploads/" + esc(p.id) + '">Download</a></p></article>';
   }).join("");
   const court = f.hmcts || {};
   const ids = (m.papers || []).flatMap(p => (p.suggestions || []).filter(s => s.mode !== "note" || String(s.label).startsWith("Executor")).map(s => s.id));
-  return '<div class="firm-card"><h2>Upload the papers</h2><p>Will, death certificate or bank letter. When they are on the file, fill the estate from what can be read. A photo with no text still has to be typed. Nothing is filed from here.</p>'
+  return '<div class="firm-card"><h2>Upload the papers</h2><p>Will, death certificate or bank letter, including a photo or a scan. When they are on the file, fill the estate from what can be read. A blurry picture may still have to be typed. Nothing is filed from here.</p>'
     + '<form id="up"><label>What it is<select name="kind"><option>Will</option><option>Codicil</option><option>Death certificate</option><option>Bank or valuation letter</option><option>Other</option></select></label>'
     + '<input type="file" name="file" required accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.heic,.webp"> <button class="btn" type="submit">Upload</button></form>'
     + (ids.length ? '<p><button type="button" class="btn" id="fill-all">Fill the estate from these papers</button></p>' : "")
