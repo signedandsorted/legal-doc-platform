@@ -4,7 +4,7 @@ from .fields import GOV, PERSON, YES_NO
 COHABITATION = {
     "id": "cohabitation",
     "title": "Cohabitation agreement",
-    "short_title": "Cohabitation",
+    "short_title": "Cohabitation", "hidden": True,
     "summary": "An agreement for unmarried couples living together covering property, money and arrangements if you separate. A solicitor checks it before you sign.",
     "category": "Agreements",
     "steps": [

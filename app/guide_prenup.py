@@ -4,7 +4,7 @@ from .fields import GOV, PERSON, YES_NO
 PRENUP = {
     "id": "prenup",
     "title": "Prenuptial agreement",
-    "short_title": "Prenup",
+    "short_title": "Prenup", "hidden": True,
     "summary": "A clear prenuptial agreement that sets out how assets should be treated if the marriage ends. Both parties receive independent legal advice before signing.",
     "category": "Agreements",
     "steps": [
