@@ -1,6 +1,6 @@
 "use strict";
 const $desk = document.getElementById("desk");
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;" }[c]));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const cookie = name => (document.cookie.split("; ").find(c => c.startsWith(name + "=")) || "").slice(name.length + 1);
 const STATUSES = [["needed", "Needed"], ["asked", "Asked"], ["received", "Received"], ["done", "Done"], ["na", "Not needed"]];
 const MATTER = [["open", "Open"], ["waiting", "Waiting on client"], ["working", "Working"], ["ready", "Ready for sign-off"], ["closed", "Closed"]];
@@ -137,7 +137,11 @@ function showAssist(data) {
 }
 
 (async () => {
-  const me = await api("/api/auth/me");
-  ME = me.user && (me.user.role === "staff" || me.user.role === "admin") ? me.user : null;
-  route();
+  try {
+    const me = await api("/api/auth/me");
+    ME = me.user && (me.user.role === "staff" || me.user.role === "admin") ? me.user : null;
+    route();
+  } catch (err) {
+    if ($desk) $desk.innerHTML = '<div class="firm-card" style="max-width:460px;margin:40px auto"><h1>Firm desk</h1><p>' + esc(err.message || "The desk could not load.") + '</p><p><a class="btn" href="/firm">Try again</a></p></div>';
+  }
 })();
