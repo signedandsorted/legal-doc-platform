@@ -94,11 +94,11 @@ def test_frontend_assets_and_video_metadata():
             svc = client.get(f"/api/services/{sid}").json()
             for st in svc["steps"]:
                 v = st["video"]
-                assert v is None or (v["src"].endswith(".mp4") and client.get(v["src"]).status_code == 200)
+                assert v is None or (".mp4" in v["src"].split("?")[0] and client.get(v["src"]).status_code == 200)
                 if v:
                     assert "presenters" in v
                     for p in v["presenters"]:
-                        assert p["id"] in ("female", "male") and p["src"].endswith(".mp4")
+                        assert p["id"] in ("female", "male") and ".mp4" in p["src"].split("?")[0]
                         assert client.get(p["src"]).status_code == 200
 
 

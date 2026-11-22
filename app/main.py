@@ -134,7 +134,8 @@ def _asset(stem: str, ext: str) -> str | None:
         return None
     if ext == "mp4" and path.stat().st_size < MIN_VIDEO_BYTES:
         return None
-    return f"/static/videos/{stem}.{ext}"
+    stamp = int(path.stat().st_mtime)
+    return f"/static/videos/{stem}.{ext}?v={stamp}"
 
 
 def _presenter(video_id: str, presenter: str) -> dict | None:
