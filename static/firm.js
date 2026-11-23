@@ -235,7 +235,11 @@ function formsPanel(m) {
     + (f.reasons || []).map(x => '<p class="small">' + esc(x) + '</p>').join("")
     + f.schedule.map(s => '<section class="stage"><h3>' + esc(s.code) + ' — ' + esc(s.label) + '</h3><table class="tbl">' + s.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table>'
       + '<p><button type="button" class="btn ghost" data-copied="' + esc(s.code) + '">' + (((m.books || {}).copied || []).indexOf(s.code) >= 0 ? "Copied onto the official form" : "Mark as copied onto the official form") + '</button></p></section>').join("")
-    + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/iht400.pdf">Download the IHT400 filled from these figures</a></p>'
+    + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/iht400.pdf">Download the IHT400 filled from these figures</a> '
+    + '<a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/schedules.zip">Download the extra forms this estate needs</a></p>'
+    + '<div class="stage"><h3>Chosen from the figures</h3>'
+    + ((f.chosen || []).length ? '<ul>' + f.chosen.map(c => '<li><b>' + esc(c.code) + '.</b> ' + esc(c.why) + (c.ready ? '' : ' The official file is not stored, so it is named here and not filled.') + '</li>').join("") + '</ul>' : '<p class="small">No extra Inheritance Tax schedule was chosen. An excepted estate does not use these schedules.</p>')
+    + '<p class="small">The choice follows the list. It is not a guess. A house chooses IHT405, a bank account chooses IHT406, and so on. A solicitor still checks the pages before they are posted.</p></div>'
     + '<p class="small">This writes into HMRC’s own file. The asset boxes on page 7 are not fields in that file, so those amounts are written on the additional information page. Nothing is sent to HMRC. An administrator can replace the file with the one currently on GOV.UK.</p>'
     + (ME && ME.role === "admin" ? '<p><button type="button" class="btn ghost" id="refresh-iht">Get the latest IHT400 from GOV.UK</button></p>' : '')
     + '<p><a href="https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400" target="_blank" rel="noopener">Open the official IHT400</a></p>'

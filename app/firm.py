@@ -1,5 +1,7 @@
 """Firm desk. Staff and admins only. Clients of the public site cannot open it."""
+import io
 import re
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -14,6 +16,7 @@ from .extract import detect_kind, extract_text, suggest
 from .firm_books import clean_books, compile_books, letter_text
 from .firm_account import account_document, account_html, prepare_asset_search
 from .iht400_pdf import fill_iht400, refresh_official_form
+from .iht_schedules import schedule_files
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
 from .firm_work import ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
@@ -420,6 +423,28 @@ def iht400_pdf(matter_id: str, _staff: dict = Depends(require_staff)):
         raise HTTPException(500, str(exc)) from exc
     name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name} IHT400.pdf"'})
+
+
+@router.get("/matters/{matter_id}/schedules.zip")
+def schedules_zip(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    compiled = compile_books(row)
+    forms = compiled.get("forms") or {}
+    if not forms or forms.get("excepted"):
+        raise HTTPException(400, "These answers do not ask for the extra Inheritance Tax schedules")
+    files = schedule_files(row, compiled["books"], choose_rows(compiled))
+    if not files:
+        raise HTTPException(400, "No extra schedule was chosen")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as archive:
+        for code, pdf in files:
+            archive.writestr(f"{code}.pdf", pdf)
+    name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
+    return Response(buf.getvalue(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{name} schedules.zip"'})
+
+
+def choose_rows(compiled: dict) -> list[dict]:
+    return [{"code": item["code"], "why": item["why"], "ready": item["ready"]} for item in (compiled.get("forms") or {}).get("chosen") or []]
 
 
 @router.post("/iht400/refresh")

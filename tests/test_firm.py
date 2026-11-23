@@ -83,6 +83,15 @@ def test_one_ledger_feeds_the_accounts_the_forms_and_the_draft():
         got = PdfReader(io.BytesIO(filled.content)).get_fields()
         assert str(got["IHT400_01_01"].get("/V")) == "Executor"
         assert "400,000.00" in str(got["IHT400_164"].get("/V"))
+        codes_chosen = {item["code"] for item in body["forms"]["chosen"]}
+        assert "IHT405" in codes_chosen and "IHT406" in codes_chosen
+        packed = c.get(f"/api/firm/matters/{matter['id']}/schedules.zip")
+        assert packed.status_code == 200
+        import zipfile
+        archive = zipfile.ZipFile(io.BytesIO(packed.content))
+        assert "IHT406.pdf" in archive.namelist()
+        bank = PdfReader(io.BytesIO(archive.read("IHT406.pdf"))).get_fields()
+        assert "John Executor" in str(bank["IHT406_01"].get("/V"))
         assert body["accounts"]["outside"][0]["name"] == "Joint house"
         assert body["accounts"]["step"]["capital_totals"]["balance"] == 290600
         assert any(s["code"].startswith("IHT400 · Houses") for s in body["forms"]["schedule"])

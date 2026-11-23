@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from .common import money
 from .firm_account import KIND_LABEL, clean_asset_search, clean_copied, clean_credit, clean_discovery, clean_notice, credit_letter, guess_kind, notice_text, step_account
+from .iht_schedules import choose_schedules
 from .doc_probate import plan
 from .guide_probate import APPLICANT_ROLES, FULL_DETAIL_TRIGGERS
 
@@ -328,6 +329,7 @@ def _forms(matter: dict, books: dict, answers: dict, worked: dict) -> dict:
         "post_reasons": worked["post_reasons"],
         "issues": [i["message"] for i in worked["issues"]],
         "schedule": schedule,
+        "chosen": [{"code": item["code"], "why": item["why"], "ready": item["ready"]} for item in choose_schedules(books, worked)],
         "notice": "Working paper to copy onto the official form. It is not the form HMRC or the court issue, and nothing is sent to them from here.",
     }
 
