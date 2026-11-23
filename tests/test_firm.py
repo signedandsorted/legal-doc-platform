@@ -145,3 +145,19 @@ def test_uploaded_papers_fill_the_estate_and_nothing_is_filed():
         assert c.post(f"/api/firm/matters/{matter['id']}/uploads", files={"file": ("x.txt", b"no", "text/plain")}).status_code == 403
 
 
+def test_asset_search_records_a_fee_and_does_not_repeat_a_letter():
+    with admin_client() as c:
+        matter = c.post("/api/firm/matters", json={"kind": "probate", "client_name": "Ann Executor", "deceased_name": "John Executor", "date_of_death": "2026-01-15"}).json()
+        first = c.post(f"/api/firm/matters/{matter['id']}/asset-search", json={"fee": 150, "targets": ["barclays", "nsandi"]})
+        assert first.status_code == 200, first.text
+        body = first.json()
+        assert body["books"]["asset_search"]["fee"] == 150
+        assert body["books"]["asset_search"]["paid"] is False
+        titles = [letter["title"] for letter in body["books"]["letters"]]
+        assert any("Barclays" in title for title in titles) and any("NS&I" in title for title in titles)
+        second = c.post(f"/api/firm/matters/{matter['id']}/asset-search", json={"fee": 150, "paid": True, "targets": ["barclays"]})
+        assert second.status_code == 200
+        assert len(second.json()["books"]["letters"]) == len(titles)
+        assert second.json()["books"]["asset_search"]["paid"] is True
+
+

@@ -190,6 +190,23 @@ function noticePanel(m) {
     + '<p><a href="https://www.thegazette.co.uk/wills-and-probate/place-a-deceased-estates-notice" target="_blank" rel="noopener">Place a deceased estates notice in The Gazette</a></p>'
     + '<p class="small">Paying everyone also waits at least six months from the grant. The section 27 notice does not replace that, and it does not shut out a claim the firm already knows about.</p></div>';
 }
+function searchPanel(m) {
+  const search = ((m.books || {}).asset_search) || { fee: 150, paid: false, items: [] };
+  const items = search.items || [];
+  const open = items.filter(i => !i.status);
+  const live = items.filter(i => i.status);
+  const choices = open.map(i => '<label class="check"><input type="checkbox" name="target" value="' + esc(i.id) + '" checked> ' + esc(i.name) + '</label>').join("");
+  const rows = live.map(i => '<tr><td>' + esc(i.name) + '</td><td><select data-search="' + esc(i.id) + '">'
+    + [["ready", "Letter drafted"], ["sent", "Sent by the firm"], ["found", "They hold something"], ["nothing", "Nothing held"]].map(([v, l]) => '<option value="' + v + '"' + (i.status === v ? " selected" : "") + '>' + l + '</option>').join("")
+    + '</select></td></tr>').join("");
+  return '<div class="firm-card"><h2>Asset search</h2><p>This is the search you charge for. It drafts one letter to each institution you tick. The firm posts or emails those letters, then marks what came back. A find is typed on One set of figures. The software does not write to the bank, and it does not take the fee. You bill it, on this matter, in the usual way.</p>'
+    + '<p><b>Fee on this estate: ' + gbp(search.fee || 0) + (search.paid ? ". Marked as paid." : ". Not marked as paid.") + '</b></p>'
+    + (open.length ? '<form id="search"><label>Your fee (£)<input name="fee" type="number" min="0" step="0.01" value="' + (search.fee || 150) + '"></label>'
+      + '<label class="check"><input name="paid" type="checkbox"' + (search.paid ? " checked" : "") + '> The fee has been paid</label>'
+      + '<div class="stage">' + choices + '</div><p><button class="btn" type="submit">Draft the enquiries and add the fee</button></p></form>' : '<p class="small">Every institution on the list already has a letter.</p>')
+    + (rows ? '<table class="tbl"><thead><tr><th>Institution</th><th>Where it stands</th></tr></thead><tbody>' + rows + '</tbody></table>' : '')
+    + '<p class="small">A credit-file result is still a report you upload. This list does not replace that, and it does not place the Section 27 notice or send the IHT400.</p></div>';
+}
 function findPanel(m) {
   const credit = ((m.books || {}).credit) || {};
   const rows = ((m.books || {}).discovery || []).map(d => '<article class="stage"><h3>' + esc(d.place) + '</h3><p>' + esc(d.ask) + '</p>'
@@ -197,7 +214,8 @@ function findPanel(m) {
     + '<form class="find" data-id="' + esc(d.id) + '"><label>Status<select name="status">'
     + [["not_asked", "Not asked"], ["asked", "Asked"], ["found", "Found, add it to the list"], ["nothing", "Nothing there"]].map(([v, l]) => '<option value="' + v + '"' + (d.status === v ? " selected" : "") + '>' + l + '</option>').join("")
     + '</select></label><label>Note<input name="note" value="' + esc(d.note || "") + '"></label><button class="btn" type="submit">Save</button></form></article>').join("");
-  return '<div class="firm-card"><h2>Credit report</h2><p>Nothing on this page can search a credit file by itself. Estatesearch, Experian, Equifax and TransUnion each run the search in their own system, and only after the firm has an account with them. Estatesearch also writes to banks, pension firms and insurers, then sends a report. Upload that report here. The accounts printed on it can be ticked into the estate, and the tax working paper uses the same figures. Nothing is added that the report does not show.</p>'
+  return searchPanel(m)
+    + '<div class="firm-card"><h2>Credit report</h2><p>Nothing on this page can search a credit file by itself. Estatesearch, Experian, Equifax and TransUnion each run the search in their own system, and only after the firm has an account with them. Estatesearch also writes to banks, pension firms and insurers, then sends a report. Upload that report here. The accounts printed on it can be ticked into the estate, and the tax working paper uses the same figures. Nothing is added that the report does not show.</p>'
     + '<p><a href="https://www.estatesearch.co.uk/" target="_blank" rel="noopener">Open Estatesearch</a></p>'
     + '<form id="credit"><label>Agency<select name="agency"><option value="">Not ordered</option>'
     + ["Experian", "Equifax", "TransUnion", "Estatesearch"].map(a => '<option' + (credit.agency === a ? " selected" : "") + '>' + a + '</option>').join("")
@@ -341,6 +359,19 @@ function bind(id, m) {
     const bits = (found.items || []).map(it => '<li>' + esc(it.where) + ': ' + esc(it.label) + '</li>').concat((found.papers || []).map(p => '<li>' + esc(p.filename) + ': ' + esc(p.snippet) + '</li>'));
     document.getElementById("hits").innerHTML = bits.length ? '<ul>' + bits.join("") + '</ul>' : '<p class="muted">Nothing matched.</p>';
   };
+  const searchForm = document.getElementById("search");
+  if (searchForm) searchForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    await api("/api/firm/matters/" + id + "/asset-search", { method: "POST", body: { fee: Number(fd.get("fee") || 0), paid: !!fd.get("paid"), targets: fd.getAll("target") } });
+    TAB = "find";
+    reload();
+  };
+  $desk.querySelectorAll("[data-search]").forEach(sel => sel.onchange = async () => {
+    const books = m.books;
+    books.asset_search.items = (books.asset_search.items || []).map(it => it.id === sel.dataset.search ? { ...it, status: sel.value } : it);
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+  });
   const creditForm = document.getElementById("credit");
   if (creditForm) creditForm.onsubmit = async (e) => {
     e.preventDefault();

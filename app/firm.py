@@ -12,7 +12,7 @@ from .db import drafts, engine, matter_uploads, matters, new_id, now, users
 from .documents import find_issues, missing_fields
 from .extract import detect_kind, extract_text, suggest
 from .firm_books import clean_books, compile_books, letter_text
-from .firm_account import account_document, account_html
+from .firm_account import account_document, account_html, prepare_asset_search
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
 from .firm_work import ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
@@ -236,6 +236,31 @@ def patch_matter(matter_id: str, body: MatterPatch, request: Request, staff: dic
             answers.update(compiled["answers"])
             conn.execute(update(drafts).where(drafts.c.id == row["draft_id"]).values(answers=answers, updated_at=now()))
     audit("matter_updated", staff, "matter", matter_id, {"item": body.item_id, "status": body.status, "books": body.books is not None}, client_ip(request))
+    return _public(_load(matter_id), full=True)
+
+
+class SearchIn(BaseModel):
+    fee: float = 0
+    paid: bool = False
+    targets: list[str] = Field(default_factory=list)
+
+
+@router.post("/matters/{matter_id}/asset-search")
+def order_asset_search(matter_id: str, body: SearchIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    if row["kind"] != "probate":
+        raise HTTPException(400, "An asset search is for a probate matter")
+    facts = dict(row["facts"] or {})
+    books = clean_books(facts.get("books"))
+    try:
+        books = prepare_asset_search(row, books, body.targets, body.fee, body.paid)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    books = clean_books(books)
+    facts["books"] = books
+    with engine().begin() as conn:
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
+    audit("asset_search", staff, "matter", matter_id, {"targets": len(body.targets), "fee": books["asset_search"]["fee"]}, client_ip(request))
     return _public(_load(matter_id), full=True)
 
 

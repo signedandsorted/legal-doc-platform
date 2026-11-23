@@ -242,3 +242,83 @@ def credit_letter(matter: dict, books: dict) -> dict:
         name,
     ])
     return {"title": f"Credit report request — estate of {estate}", "body": body}
+
+
+SEARCH_TARGETS = [
+    ("barclays", "Barclays"),
+    ("lloyds", "Lloyds"),
+    ("hsbc", "HSBC"),
+    ("natwest", "NatWest"),
+    ("santander", "Santander"),
+    ("nationwide", "Nationwide"),
+    ("halifax", "Halifax"),
+    ("nsandi", "NS&I, including Premium Bonds"),
+    ("aviva", "Aviva"),
+    ("landg", "Legal & General"),
+    ("widows", "Scottish Widows"),
+    ("standard", "Standard Life"),
+    ("hl", "Hargreaves Lansdown"),
+    ("computershare", "Computershare"),
+    ("equiniti", "Equiniti"),
+]
+SEARCH_STATUS = ("ready", "sent", "found", "nothing")
+
+
+def clean_asset_search(raw) -> dict:
+    raw = raw if isinstance(raw, dict) else {}
+    saved = {item.get("id"): item for item in (raw.get("items") or []) if isinstance(item, dict)}
+    items = []
+    for tid, name in SEARCH_TARGETS:
+        row = saved.get(tid) or {}
+        status = row.get("status") if row.get("status") in SEARCH_STATUS else ""
+        items.append({"id": tid, "name": name, "status": status})
+    try:
+        fee = round(float(raw.get("fee") or 0), 2)
+    except (TypeError, ValueError):
+        fee = 0.0
+    fee = min(10000.0, max(0.0, fee))
+    return {"fee": fee, "paid": raw.get("paid") in (True, "Yes", "yes", "on"), "items": items}
+
+
+def enquiry_letter(matter: dict, books: dict, institution: str) -> dict:
+    estate = matter.get("deceased_name") or "[full name]"
+    died = matter.get("date_of_death") or "[date of death]"
+    address = (books.get("case") or {}).get("address") or "[last address]"
+    name = matter.get("client_name") or "The personal representatives"
+    body = "\n".join([
+        f"Dear Bereavement team, {institution},",
+        "",
+        f"We act in the estate of {estate}, late of {address}, who died on {died}.",
+        "Please say whether this person held an account, policy or investment with you, and the balance at the date of death.",
+        "Please also say whether you will release the funds without a grant.",
+        "A copy of the death certificate can follow.",
+        "",
+        "The firm posts or emails this letter. It has not been sent by the software.",
+        "",
+        "Yours faithfully,",
+        name,
+    ])
+    return {"title": f"Asset enquiry — {institution}", "body": body}
+
+
+def prepare_asset_search(matter: dict, books: dict, chosen: list[str], fee: float, paid: bool) -> dict:
+    """Draft one enquiry per chosen institution. Does not send them and does not invent a balance."""
+    books = dict(books)
+    search = clean_asset_search(books.get("asset_search"))
+    wanted = [item for item in search["items"] if item["id"] in set(chosen)]
+    if not wanted:
+        raise ValueError("Choose at least one institution")
+    letters = list(books.get("letters") or [])
+    by_id = {item["id"]: item for item in search["items"]}
+    for item in wanted:
+        if item["status"] in ("ready", "sent", "found", "nothing"):
+            continue
+        letter = enquiry_letter(matter, books, item["name"])
+        letters.append({"title": letter["title"], "body": letter["body"]})
+        by_id[item["id"]]["status"] = "ready"
+    search["items"] = [by_id[tid] for tid, _name in SEARCH_TARGETS]
+    search["fee"] = fee
+    search["paid"] = paid
+    books["letters"] = letters
+    books["asset_search"] = search
+    return books
