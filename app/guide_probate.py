@@ -179,7 +179,7 @@ PROBATE = {
         "If the plan says full details are needed, print form IHT400, sign it, and post it to HMRC. Wait for their code. We cannot send the form.",
         "Apply for the grant on GOV.UK if the plan says you can, or by post on the form it names. Send the original will. We cannot send the application.",
         "When the grant arrives, collect each account and pay the debts and the funeral. Keep a note of money in and money out.",
-        "Put a notice in The Gazette if you want protection from unknown creditors. Wait at least 6 months from the grant before paying everyone in full.",
+        "Place a notice in The London Gazette under section 27 of the Trustee Act 1925, and in a local newspaper if there is land. Give people at least two months to make a claim. Wait at least 6 months from the grant as well before paying everyone in full.",
         "Share what is left as the will says, or as the law says if there is no will. The names you listed are people to keep informed. They are not a decision about who inherits.",
     ],
 }

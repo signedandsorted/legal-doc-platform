@@ -51,7 +51,7 @@ _P = [
     ]),
     ("after", "8. After the grant", [
         ("collect", "Collect the assets and pay the debts", "Write to each organisation with the grant. Pay debts and any tax. Keep a record.", "This is the administration, not the application.", "firm"),
-        ("protect", "Protect against unknown claims", "Consider a deceased estates notice in The Gazette, and wait at least 6 months from the grant before distributing in full.", "That 6-month wait is about claims under the Inheritance (Provision for Family and Dependants) Act 1975. A solicitor decides.", "firm"),
+        ("protect", "Section 27 notice, then wait", "Place a deceased estates notice in The London Gazette. If there is land, place the same notice in a local newspaper. Give claimants at least two months. Also wait at least 6 months from the grant before paying everyone in full.", "Section 27 of the Trustee Act 1925 protects against claims you did not know about. It does not protect against claims you already know about, and it does not replace the 6-month wait under the Inheritance (Provision for Family and Dependants) Act 1975. The firm places the notice. This desk does not.", "firm"),
         ("accounts", "Estate accounts and distribution", "Prepare the accounts, then distribute under the will or the intestacy rules.", "Close the matter only when the accounts are agreed.", "firm"),
     ]),
 ]
@@ -122,6 +122,17 @@ def iht_due(date_of_death: str) -> str | None:
     return date(year, month, calendar.monthrange(year, month)[1]).isoformat()
 
 
+def add_months(iso: str, months: int) -> str | None:
+    start = _parse_iso(iso)
+    if not start:
+        return None
+    month = start.month + months
+    year = start.year + (month - 1) // 12
+    month = (month - 1) % 12 + 1
+    day = min(start.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day).isoformat()
+
+
 def grant_wait_until(grant_date: str) -> str | None:
     """Six months from the grant, before distributing in full. Day-of-month is clamped."""
     g = _parse_iso(grant_date)
@@ -145,7 +156,13 @@ def deadlines(matter: dict) -> list[dict]:
         out.append({"label": "Inheritance tax", "date": "", "note": "Enter the date of death and this date will be filled in."})
     wait = grant_wait_until(matter.get("grant_date") or "")
     if wait:
-        out.append({"label": "Do not distribute in full before", "date": wait, "note": "At least 6 months from the grant, in case of a claim. A solicitor decides."})
+        out.append({"label": "Do not distribute in full before", "date": wait, "note": "At least 6 months from the grant, in case of a family claim. This is separate from the section 27 notice."})
+    notice = ((matter.get("facts") or {}).get("books") or {}).get("notice") or {}
+    expires = add_months(notice.get("placed_on") or "", 2)
+    if expires:
+        out.append({"label": "Section 27 notice: last day for claims", "date": expires, "note": "Two months from the date the notice was placed. Do not pay everyone before this day. Claims the firm already knows about are not shut out."})
+    else:
+        out.append({"label": "Section 27 notice", "date": "", "note": "Not placed yet. The firm places it in The London Gazette, and in a local newspaper if there is land."})
     return out
 
 

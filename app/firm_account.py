@@ -151,3 +151,52 @@ def account_html(matter: dict, accounts: dict) -> str:
 
 def _h(value: str) -> str:
     return (value or "").replace("&", "&").replace("<", "<").replace(">", ">")
+
+
+def clean_notice(raw) -> dict:
+    raw = raw if isinstance(raw, dict) else {}
+    placed = str(raw.get("placed_on") or "").strip()[:10]
+    if len(placed) != 10 or placed[4] != "-" or placed[7] != "-":
+        placed = ""
+    return {
+        "placed_on": placed,
+        "gazette_ref": str(raw.get("gazette_ref") or "").strip()[:80],
+        "local_paper": str(raw.get("local_paper") or "").strip()[:120],
+        "claims_to": str(raw.get("claims_to") or "").strip()[:240],
+    }
+
+
+def clean_copied(raw) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for item in raw[:40]:
+        text = str(item or "").strip()[:80]
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
+def notice_text(matter: dict, books: dict) -> dict:
+    """Wording for a Trustee Act 1925 section 27 notice. The firm places it. This desk does not."""
+    estate = matter.get("deceased_name") or "the person who died"
+    died = matter.get("date_of_death") or "[date of death]"
+    address = (books.get("case") or {}).get("address") or "[last address]"
+    claims = (books.get("notice") or {}).get("claims_to") or "[name and address of the firm]"
+    firm = matter.get("client_name") or "The personal representatives"
+    body = "\n".join([
+        f"{estate}, deceased",
+        f"Late of {address}, who died on {died}.",
+        "",
+        f"Notice is given that creditors and others having claims against the estate of the above named should send written particulars of those claims to {claims} within two months of the date of this notice.",
+        "",
+        "After that time the personal representatives will distribute the estate having regard only to the claims of which they then have notice.",
+        "",
+        "This notice is given under section 27 of the Trustee Act 1925. It does not shut out a claim the firm already knows about.",
+        "If the estate includes land, the same notice also has to go in a newspaper local to that land, as well as The London Gazette.",
+        "",
+        "The firm places this notice. It is not sent from this desk.",
+        "",
+        firm,
+    ])
+    return {"title": f"Section 27 notice — estate of {estate}", "body": body}

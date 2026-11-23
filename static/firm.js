@@ -172,7 +172,23 @@ function accountsPanel(m) {
     + (out ? '<h3>Not in this account</h3><ul>' + out + '</ul>' : "")
     + '<h3>Distribution account</h3><table class="tbl"><thead><tr><th>Person</th><th>Their share</th><th>Paid</th><th>Still due</th></tr></thead><tbody>' + (dist || '<tr><td colspan="4" class="muted">Add the people on the figures tab. Leave the shares blank to split the rest equally, or type a percentage.</td></tr>') + '</tbody></table>'
     + '<h3>Cash</h3><p>In ' + gbp((step.cash || {}).receipts) + '. Out ' + gbp((step.cash || {}).payments) + '. Should be in hand ' + gbp((step.cash || {}).in_hand) + '.</p>'
-    + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/account.pdf">Download the account</a> <a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/account.html">Download a copy you can edit</a></p></div>';
+    + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/account.pdf">Download the account</a> <a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/account.html">Download a copy you can edit</a></p>'
+    + noticePanel(m) + '</div>';
+}
+function noticePanel(m) {
+  const n = ((m.books || {}).notice) || {};
+  const land = ((m.books || {}).lines || []).some(ln => ln.kind === "property" && ln.side !== "debt");
+  const due = (m.deadlines || []).find(d => d.label.indexOf("Section 27") === 0);
+  return '<div class="firm-card"><h2>Section 27 notice</h2><p>This is done in house. A member of the firm writes the notice, places it in The London Gazette, and places the same notice in a local newspaper if there is land. Claimants must be given at least two months. This desk drafts the words and counts the date. It does not place the notice.</p>'
+    + (land ? '<p class="alert">There is land on the file, so a local newspaper is required as well as The London Gazette.</p>' : '<p class="small">If land is added later, a local newspaper is required as well.</p>')
+    + (due && due.date ? '<p><b>Last day for claims: ' + esc(due.date) + '.</b> ' + esc(due.note) + '</p>' : '<p class="small">The two-month date appears here once you record the day the notice was placed.</p>')
+    + '<form id="notice"><label>Date the notice was placed<input type="date" name="placed_on" value="' + esc(n.placed_on || "") + '"></label>'
+    + '<label>Gazette reference<input name="gazette_ref" value="' + esc(n.gazette_ref || "") + '"></label>'
+    + '<label>Local newspaper<input name="local_paper" value="' + esc(n.local_paper || "") + '" placeholder="Name of the paper, if there is land"></label>'
+    + '<label>Where claims should be sent<textarea name="claims_to">' + esc(n.claims_to || "") + '</textarea></label>'
+    + '<p><button class="btn" type="submit">Save the notice record</button> <button class="btn ghost" type="button" data-letter="notice">Draft the notice</button></p></form>'
+    + '<p><a href="https://www.thegazette.co.uk/wills-and-probate/place-a-deceased-estates-notice" target="_blank" rel="noopener">Place a deceased estates notice in The Gazette</a></p>'
+    + '<p class="small">Paying everyone also waits at least six months from the grant. The section 27 notice does not replace that, and it does not shut out a claim the firm already knows about.</p></div>';
 }
 function findPanel(m) {
   const rows = ((m.books || {}).discovery || []).map(d => '<article class="stage"><h3>' + esc(d.place) + '</h3><p>' + esc(d.ask) + '</p>'
@@ -180,15 +196,17 @@ function findPanel(m) {
     + '<form class="find" data-id="' + esc(d.id) + '"><label>Status<select name="status">'
     + [["not_asked", "Not asked"], ["asked", "Asked"], ["found", "Found, add it to the list"], ["nothing", "Nothing there"]].map(([v, l]) => '<option value="' + v + '"' + (d.status === v ? " selected" : "") + '>' + l + '</option>').join("")
     + '</select></label><label>Note<input name="note" value="' + esc(d.note || "") + '"></label><button class="btn" type="submit">Save</button></form></article>').join("");
-  return '<div class="firm-card"><h2>Find accounts the family did not know about</h2><p>Work the official tracing services and write down what came back. This is not a credit-file search, and it does not invent an account. When something is found, add it on One set of figures. The account and the tax papers pick it up.</p>' + rows + '</div>';
+  return '<div class="firm-card"><h2>Find accounts the family did not know about</h2><p>This is an in-house job. A member of staff writes to the banks the family name, and uses the official free tracing services below for the rest. There is no credit-file search on this desk, and it will not invent an account. When a reply finds something, add it on One set of figures.</p>' + rows + '</div>';
 }
 function formsPanel(m) {
   const f = m.forms;
   if (!f) return '<div class="firm-card"><p>Court and tax working papers are kept on probate matters.</p></div>';
-  return '<div class="firm-card"><h2>' + esc(f.grant) + '</h2><p>' + esc(f.route) + '. ' + (f.excepted ? "Full details are not sent to HMRC on these answers." : "These answers need full details on form IHT400.") + '</p><p class="small">' + esc(f.notice) + '</p>'
+  return '<div class="firm-card"><h2>' + esc(f.grant) + '</h2><p>' + esc(f.route) + '. ' + (f.excepted ? "Full details are not sent to HMRC on these answers." : "These answers need full details on form IHT400.") + '</p><p>A member of staff copies each block onto the official form, in house. Tick a block when that has been done. The desk does not fill in HMRC’s own PDF and it does not send the form.</p><p class="small">' + esc(f.notice) + '</p>'
     + (f.blockers || []).map(x => '<p class="alert">' + esc(x) + '</p>').join("")
     + (f.reasons || []).map(x => '<p class="small">' + esc(x) + '</p>').join("")
-    + f.schedule.map(s => '<section class="stage"><h3>' + esc(s.code) + ' — ' + esc(s.label) + '</h3><table class="tbl">' + s.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table></section>').join("")
+    + f.schedule.map(s => '<section class="stage"><h3>' + esc(s.code) + ' — ' + esc(s.label) + '</h3><table class="tbl">' + s.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table>'
+      + '<p><button type="button" class="btn ghost" data-copied="' + esc(s.code) + '">' + (((m.books || {}).copied || []).indexOf(s.code) >= 0 ? "Copied onto the official form" : "Mark as copied onto the official form") + '</button></p></section>').join("")
+    + '<p><a href="https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400" target="_blank" rel="noopener">Open the official IHT400</a></p>'
     + '<p><a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/export">Download the file for the case system</a></p></div>';
 }
 function papersPanel(m) {
@@ -228,7 +246,7 @@ function papersPanel(m) {
 function lettersPanel(m) {
   const saved = ((m.books || {}).letters || []).slice().reverse().map(l => '<article class="stage"><h3>' + esc(l.title) + '</h3><p class="muted small">' + esc(l.by) + '</p><div class="letter">' + esc(l.body) + '</div></article>').join("");
   return '<div class="firm-card"><h2>Letters from these figures</h2><p>Each letter uses the list you have already typed. Keep a copy on the file.</p>'
-    + '<p><button class="btn" type="button" data-letter="bank">Ask for date-of-death values</button> <button class="btn ghost" type="button" data-letter="beneficiary">Update the beneficiaries</button> <button class="btn ghost" type="button" data-letter="grant">Write after the grant</button></p>'
+    + '<p><button class="btn" type="button" data-letter="bank">Ask for date-of-death values</button> <button class="btn ghost" type="button" data-letter="beneficiary">Update the beneficiaries</button> <button class="btn ghost" type="button" data-letter="grant">Write after the grant</button> <button class="btn ghost" type="button" data-letter="notice">Draft a section 27 notice</button></p>'
     + '<div id="preview"></div>' + saved + '</div>';
 }
 function bind(id, m) {
@@ -312,6 +330,23 @@ function bind(id, m) {
     const bits = (found.items || []).map(it => '<li>' + esc(it.where) + ': ' + esc(it.label) + '</li>').concat((found.papers || []).map(p => '<li>' + esc(p.filename) + ': ' + esc(p.snippet) + '</li>'));
     document.getElementById("hits").innerHTML = bits.length ? '<ul>' + bits.join("") + '</ul>' : '<p class="muted">Nothing matched.</p>';
   };
+  const notice = document.getElementById("notice");
+  if (notice) notice.onsubmit = async (e) => {
+    e.preventDefault();
+    const books = m.books || { lines: [], people: [], case: {}, letters: [] };
+    books.notice = Object.fromEntries(new FormData(e.target).entries());
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
+  };
+  $desk.querySelectorAll("[data-copied]").forEach(b => b.onclick = async () => {
+    const books = m.books;
+    const code = b.dataset.copied;
+    const have = new Set(books.copied || []);
+    if (have.has(code)) have.delete(code); else have.add(code);
+    books.copied = [...have];
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
+  });
   const filed = document.getElementById("filed");
   if (filed) filed.onsubmit = async (e) => {
     e.preventDefault();

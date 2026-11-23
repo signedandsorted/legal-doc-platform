@@ -86,6 +86,15 @@ def test_one_ledger_feeds_the_accounts_the_forms_and_the_draft():
         assert b"Balance of capital" in editable.content
         found = c.get(f"/api/firm/matters/{matter['id']}/search?q=Example")
         assert found.json()["items"][0]["label"] == "Bank"
+        books = found.json() and body["books"]
+        books["notice"] = {"placed_on": "2026-01-15", "claims_to": "Example Firm, 1 High Street"}
+        noted = c.patch(f"/api/firm/matters/{matter['id']}", json={"books": books})
+        assert noted.status_code == 200, noted.text
+        dates = {d["label"]: d["date"] for d in noted.json()["deadlines"]}
+        assert dates["Section 27 notice: last day for claims"] == "2026-03-15"
+        notice = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "notice"})
+        assert "Trustee Act 1925" in notice.json()["letter"]["body"]
+        assert "John Executor" in notice.json()["letter"]["body"]
         letter = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "bank"})
         assert "Example Bank" in letter.json()["letter"]["body"]
         answers = c.get(f"/api/drafts/{draft['draft_id']}").json()["answers"]
