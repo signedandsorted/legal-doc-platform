@@ -19,7 +19,9 @@ from .iht400_pdf import fill_iht400, refresh_official_form
 from .iht_schedules import schedule_files
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
 from .firm_practice import clean_practice, conflicts as name_conflicts
-from .firm_work import ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
+from .firm_accounts import bill_summary, clean_bill
+from .firm_trust import clean_deputy, clean_trust
+from .firm_work import FIRM_KINDS, ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
 from .pdf import render_pdf
 from .security import audit, client_ip, hash_password, normalise_email, check_password_rules
@@ -57,6 +59,9 @@ class MatterPatch(BaseModel):
     grant_filed_on: str | None = None
     grant_reference: str | None = None
     practice: dict | None = None
+    bill: dict | None = None
+    trust: dict | None = None
+    deputy: dict | None = None
 
 
 class ApplyIn(BaseModel):
@@ -97,7 +102,7 @@ def _public(row: dict, full: bool = False) -> dict:
     out = {
         "id": row["id"],
         "kind": kind,
-        "kind_label": SERVICES[kind]["short_title"] if kind in SERVICES else kind,
+        "kind_label": FIRM_KINDS.get(kind) or (SERVICES[kind]["short_title"] if kind in SERVICES else kind),
         "title": row["title"],
         "status": row["status"],
         "client_name": row["client_name"],
@@ -111,6 +116,7 @@ def _public(row: dict, full: bool = False) -> dict:
         "next": None if not item else {"stage": stage["title"], "title": item["title"], "ask": item["ask"]},
         "deadlines": deadlines(row),
         "figures": figures,
+        "bill": bill_summary(clean_bill(facts.get("bill"))),
         "updated_at": _iso(row["updated_at"]),
     }
     if full:
@@ -128,6 +134,11 @@ def _public(row: dict, full: bool = False) -> dict:
             out["papers"] = papers
             out["filing"] = position(row, compiled, papers)
         out["practice"] = clean_practice(facts.get("practice"))
+        out["bill_entries"] = clean_bill(facts.get("bill"))["entries"]
+        if kind == "trust":
+            out["trust"] = clean_trust(facts.get("trust"))
+        if kind == "deputyship":
+            out["deputy"] = clean_deputy(facts.get("deputy"))
     return out
 
 
@@ -158,7 +169,23 @@ def _draft_check(draft_id: str | None) -> dict | None:
 
 @router.get("/kinds")
 def kinds(_staff: dict = Depends(require_staff)):
-    return [{"id": s["id"], "label": s.get("short_title") or s["title"], "title": s["title"]} for s in SERVICES.values()]
+    return [{"id": s["id"], "label": s.get("short_title") or s["title"], "title": s["title"]} for s in SERVICES.values()] + [
+        {"id": key, "label": label, "title": label} for key, label in FIRM_KINDS.items()
+    ]
+
+
+@router.get("/accounts")
+def firm_accounts(_staff: dict = Depends(require_staff)):
+    with engine().connect() as conn:
+        rows = conn.execute(select(matters).order_by(matters.c.updated_at.desc())).mappings().all()
+    matters_out = []
+    totals = {"unbilled": 0.0, "billed": 0.0, "paid": 0.0, "outstanding": 0.0}
+    for row in rows:
+        item = _public(dict(row))
+        matters_out.append({"id": item["id"], "title": item["title"], "client_name": item["client_name"], "kind_label": item["kind_label"], "bill": item["bill"]})
+        for key in totals:
+            totals[key] = round(totals[key] + item["bill"][key], 2)
+    return {"totals": totals, "matters": matters_out}
 
 
 @router.get("/matters")
@@ -170,9 +197,9 @@ def list_matters(_staff: dict = Depends(require_staff)):
 
 @router.post("/matters")
 def open_matter(body: MatterIn, request: Request, staff: dict = Depends(require_staff)):
-    if body.kind not in SERVICES:
+    if body.kind not in SERVICES and body.kind not in FIRM_KINDS:
         raise HTTPException(400, "Unknown matter type")
-    title = body.title.strip() or SERVICES[body.kind]["title"]
+    title = body.title.strip() or (SERVICES[body.kind]["title"] if body.kind in SERVICES else FIRM_KINDS[body.kind])
     if body.kind == "probate" and body.deceased_name.strip():
         title = title if body.title.strip() else f"Estate of {body.deceased_name.strip()}"
     mid = new_id()
@@ -241,6 +268,12 @@ def patch_matter(matter_id: str, body: MatterPatch, request: Request, staff: dic
         facts["filing"] = recorded
     if body.practice is not None:
         facts["practice"] = clean_practice(body.practice)
+    if body.bill is not None:
+        facts["bill"] = clean_bill(body.bill)
+    if body.trust is not None:
+        facts["trust"] = clean_trust(body.trust)
+    if body.deputy is not None:
+        facts["deputy"] = clean_deputy(body.deputy)
     values["facts"] = facts
     with engine().begin() as conn:
         conn.execute(update(matters).where(matters.c.id == matter_id).values(**values))

@@ -25,7 +25,9 @@ async function api(path, opts = {}) {
 let ME = null;
 function route() {
   const id = new URLSearchParams(location.search).get("m");
+  const view = new URLSearchParams(location.search).get("view");
   if (!ME) return login();
+  if (view === "accounts") return accounts();
   if (id === "new") return newer();
   if (id) return matter(id);
   return list();
@@ -33,7 +35,7 @@ function route() {
 function nav() {
   const el = document.getElementById("firm-nav");
   if (!ME) { el.innerHTML = '<a href="/">Public site</a>'; return; }
-  el.innerHTML = '<a href="/firm">Matters</a> <a href="/firm?m=new">New matter</a> <a href="/">Public site</a> <button type="button" class="linkbtn" id="out">Sign out</button>';
+  el.innerHTML = '<a href="/firm">Matters</a> <a href="/firm?view=accounts">Accounts</a> <a href="/firm?m=new">New matter</a> <a href="/">Public site</a> <button type="button" class="linkbtn" id="out">Sign out</button>';
   document.getElementById("out").onclick = async () => { await api("/api/auth/logout", { method: "POST" }); ME = null; location.href = "/firm"; };
 }
 
@@ -56,6 +58,16 @@ function login() {
   };
 }
 
+async function accounts() {
+  nav();
+  const data = await api("/api/firm/accounts");
+  const t = data.totals;
+  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Accounts</h1><p>This is the firm’s money: time not yet billed, bills sent, and what is still owed. It is not the estate account and it is not a set of statutory accounts.</p>'
+    + '<div class="figure-strip"><div><span>Not yet billed</span><b>' + gbp(t.unbilled) + '</b></div><div><span>Billed</span><b>' + gbp(t.billed) + '</b></div><div><span>Received</span><b>' + gbp(t.paid) + '</b></div><div><span>Still owed</span><b>' + gbp(t.outstanding) + '</b></div></div>'
+    + '<div class="firm-card"><table class="tbl"><thead><tr><th>Matter</th><th>Not yet billed</th><th>Billed</th><th>Still owed</th></tr></thead><tbody>'
+    + data.matters.map(m => '<tr><td><a href="/firm?m=' + esc(m.id) + '">' + esc(m.title) + '</a><div class="small">' + esc(m.client_name) + ' · ' + esc(m.kind_label) + '</div></td><td>' + gbp(m.bill.unbilled) + '</td><td>' + gbp(m.bill.billed) + '</td><td>' + gbp(m.bill.outstanding) + '</td></tr>').join("")
+    + '</tbody></table></div>';
+}
 async function list() {
   nav();
   const rows = await api("/api/firm/matters");
@@ -87,8 +99,10 @@ let TAB = "next";
 async function matter(id) {
   nav();
   const [m, staff] = await Promise.all([api("/api/firm/matters/" + id), api("/api/firm/colleagues")]);
-  const tabs = [["next", "Next"], ["money", "One set of figures"], ["accounts", "Estate account"], ["forms", "Official forms"], ["find", "Find accounts"], ["papers", "Papers and filing"], ["letters", "Letters"]];
-  const showTabs = m.kind === "probate" ? tabs : tabs.filter(t => t[0] === "next" || t[0] === "letters");
+  const tabs = [["next", "Next"], ["money", "One set of figures"], ["accounts", "Estate account"], ["forms", "Official forms"], ["find", "Find accounts"], ["papers", "Papers and filing"], ["letters", "Letters"], ["bill", "Bill"]];
+  let showTabs = m.kind === "probate" ? tabs : [["next", "Next"], ["letters", "Letters"], ["bill", "Bill"]];
+  if (m.kind === "trust") showTabs = [["next", "Next"], ["trust", "Trust account"], ["bill", "Bill"], ["letters", "Letters"]];
+  if (m.kind === "deputyship") showTabs = [["next", "Next"], ["deputy", "The person's money"], ["bill", "Bill"], ["letters", "Letters"]];
   if (!showTabs.some(t => t[0] === TAB)) TAB = "next";
   const strip = m.figures ? '<div class="figure-strip">'
     + [["Probate gross", m.figures.gross_probate], ["Probate net", m.figures.net_probate], ["Tax estimate", m.figures.tax], ["Still to collect", m.accounts.totals.still_to_collect], ["Left to share", m.accounts.totals.expected_net]].map(([l, n]) => '<div><span>' + l + '</span><b>' + gbp(n) + '</b></div>').join("")
@@ -106,14 +120,49 @@ async function matter(id) {
   else if (TAB === "find") panel.innerHTML = findPanel(m);
   else if (TAB === "papers") panel.innerHTML = papersPanel(m);
   else if (TAB === "letters") panel.innerHTML = lettersPanel(m);
+  else if (TAB === "bill") panel.innerHTML = billPanel(m);
+  else if (TAB === "trust") panel.innerHTML = trustPanel(m);
+  else if (TAB === "deputy") panel.innerHTML = deputyPanel(m);
   else panel.innerHTML = nextPanel(m, staff);
   bind(id, m);
 }
 
+function billPanel(m) {
+  const b = m.bill || {};
+  const rows = (m.bill_entries || []).map(e => '<tr><td>' + esc(e.on || "") + '</td><td>' + esc(e.kind) + '</td><td>' + esc(e.what) + '</td><td>' + gbp(e.amount) + '</td></tr>').join("");
+  return '<div class="firm-card"><h2>Bill</h2><p>Time and costs sit here until you raise a bill. A bill is what you ask the client to pay. Money received is recorded when it arrives. Nothing is collected on this website.</p>'
+    + '<div class="figure-strip"><div><span>Not yet billed</span><b>' + gbp(b.unbilled) + '</b></div><div><span>Billed</span><b>' + gbp(b.billed) + '</b></div><div><span>Received</span><b>' + gbp(b.paid) + '</b></div><div><span>Still owed</span><b>' + gbp(b.outstanding) + '</b></div></div>'
+    + (rows ? '<table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>What</th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>' : '')
+    + '<form id="bill"><label>Type<select name="kind"><option value="time">Time</option><option value="cost">Cost paid for the client</option><option value="bill">Bill</option><option value="paid">Money received</option></select></label>'
+    + '<label>Date<input type="date" name="on"></label><label>What<input name="what" required></label>'
+    + '<label>Hours<input name="hours" type="number" min="0" step="0.1"></label><label>Rate (£)<input name="rate" type="number" min="0" step="0.01"></label><label>Amount (£)<input name="amount" type="number" min="0" step="0.01"></label>'
+    + '<p class="small">For time, hours times the rate is used when both are filled in.</p><p><button class="btn" type="submit">Add</button></p></form></div>';
+}
+function potPanel(m, key, title, note, pots) {
+  const book = m[key] || { lines: [] };
+  const rows = (book.lines || []).map(ln => '<tr><td>' + esc(ln.name) + '</td><td>' + esc(ln.pot) + '</td><td>' + (ln.out ? "Out" : "In") + '</td><td>' + gbp(ln.amount) + '</td></tr>').join("");
+  const totals = pots.map(([id, label]) => {
+    const t = book[id] || { in: 0, out: 0, balance: 0 };
+    return '<div><span>' + label + '</span><b>' + gbp(t.balance) + '</b></div>';
+  }).join("");
+  return '<div class="firm-card"><h2>' + title + '</h2><p>' + note + '</p><div class="figure-strip">' + totals + '</div>'
+    + (rows ? '<table class="tbl"><thead><tr><th>Item</th><th>Pot</th><th></th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>' : '')
+    + '<form id="' + key + '"><label>Item<input name="name" required></label><label>Pot<select name="pot">' + pots.map(([id, label]) => '<option value="' + id + '">' + label + '</option>').join("") + '</select></label>'
+    + '<label>In or out<select name="out"><option value="">In</option><option value="Yes">Out</option></select></label><label>Amount (£)<input name="amount" type="number" min="0" step="0.01" required></label>'
+    + '<p><button class="btn" type="submit">Add</button></p></form></div>';
+}
+function trustPanel(m) {
+  return potPanel(m, "trust", "Trust account", "Capital and income are kept apart. A solicitor approves the account before it goes to a beneficiary. Nothing is paid from this screen.", [["capital", "Capital"], ["income", "Income"]]);
+}
+function deputyPanel(m) {
+  return potPanel(m, "deputy", "The person's money", "This is the deputy's record. It is not mixed with the firm's money. The Office of the Public Guardian is not sent anything from here.", [["money", "Balance"]]);
+}
 function practiceForm(m) {
   const p = m.practice || {};
   const opt = (list, current) => list.map(v => '<option' + (current === v ? " selected" : "") + '>' + esc(v) + '</option>').join("");
   return '<form id="practice"><label>Identity<select name="identity">' + opt(["Not seen", "Seen", "Certified copy on the file"], p.identity) + '</select></label>'
+    + '<label>Identity service<input name="id_provider" value="' + esc(p.id_provider || "") + '"></label><label>Their reference<input name="id_reference" value="' + esc(p.id_reference || "") + '"></label><label>Date of that check<input type="date" name="id_checked_on" value="' + esc(p.id_checked_on || "") + '"></label>'
+    + '<p class="small">If the firm used an identity service, record it here. This desk does not run the check.</p>'
     + '<label>Source of funds<textarea name="source">' + esc(p.source || "") + '</textarea></label>'
     + '<label>Risk<select name="risk">' + opt(["Ordinary", "Higher"], p.risk) + '</select></label>'
     + '<label>Why the risk is higher<textarea name="risk_note">' + esc(p.risk_note || "") + '</textarea></label>'
@@ -388,6 +437,29 @@ function bind(id, m) {
     const bits = (found.items || []).map(it => '<li>' + esc(it.where) + ': ' + esc(it.label) + '</li>').concat((found.papers || []).map(p => '<li>' + esc(p.filename) + ': ' + esc(p.snippet) + '</li>'));
     document.getElementById("hits").innerHTML = bits.length ? '<ul>' + bits.join("") + '</ul>' : '<p class="muted">Nothing matched.</p>';
   };
+  const bill = document.getElementById("bill");
+  if (bill) bill.onsubmit = async (e) => {
+    e.preventDefault();
+    const entry = Object.fromEntries(new FormData(e.target).entries());
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { bill: { entries: (m.bill_entries || []).concat([entry]) } } });
+    TAB = "bill";
+    reload();
+  };
+  for (const key of ["trust", "deputy"]) {
+    const form = document.getElementById(key);
+    if (!form) continue;
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const line = Object.fromEntries(new FormData(e.target).entries());
+      const book = m[key] || { lines: [] };
+      book.lines = (book.lines || []).concat([line]);
+      const body = {};
+      body[key] = book;
+      await api("/api/firm/matters/" + id, { method: "PATCH", body });
+      TAB = key;
+      reload();
+    };
+  }
   const practice = document.getElementById("practice");
   if (practice) practice.onsubmit = async (e) => {
     e.preventDefault();

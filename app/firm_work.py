@@ -85,12 +85,52 @@ def guide_checklist(kind: str):
     return stages
 
 
+FIRM_KINDS = {"trust": "Trust", "deputyship": "Deputyship"}
+
+
 def checklist(kind: str):
+    if kind == "trust":
+        return trust_checklist()
+    if kind == "deputyship":
+        return deputy_checklist()
     if kind not in SERVICES:
         raise KeyError(kind)
     if kind == "probate":
         return probate_checklist()
     return guide_checklist(kind)
+
+
+def trust_checklist():
+    return [{"id": sid, "title": title, "items": [_item(*row) for row in rows]} for sid, title, rows in (
+        ("deed", "1. The trust", [
+            ("deed", "The deed or the will that creates the trust", "Get the document. A photocopy is enough to start. A solicitor reads the powers.", "This desk does not interpret the deed.", "client"),
+            ("trustees", "Who the trustees are", "Record the names. Say if a trustee has died or retired.", "Only the trustees can move the trust money.", "client"),
+            ("people", "Who can benefit", "List the people named, and anyone the deed allows the trustees to consider.", "Do not pay someone the deed does not allow.", "client"),
+        ]),
+        ("money", "2. The trust account", [
+            ("in", "What the trust holds", "Enter each asset and each sum received, as capital or as income.", "Capital and income are kept apart.", "firm"),
+            ("out", "What has been paid", "Enter payments to beneficiaries, tax and expenses against the right pot.", "A payment is not made from this screen.", "firm"),
+            ("accounts", "Accounts for the beneficiaries", "When the year is done, the totals on this matter are the account.", "A solicitor approves them before they are sent.", "firm"),
+        ]),
+    )]
+
+
+def deputy_checklist():
+    return [{"id": sid, "title": title, "items": [_item(*row) for row in rows]} for sid, title, rows in (
+        ("person", "1. The person", [
+            ("who", "Who the application is for", "Record their name, date of birth and where they live.", "The court decides capacity. This screen does not.", "client"),
+            ("already", "An existing power or deputy", "Ask whether there is already a lasting power of attorney or a deputy.", "A new application may not be needed.", "client"),
+            ("family", "Who must be told", "List close family and anyone else the court will expect to be notified.", "The court forms name who must have notice.", "client"),
+        ]),
+        ("order", "2. The order", [
+            ("apply", "The court application", "The firm completes the Court of Protection forms and sends them. This desk does not file them.", "Use the official forms on GOV.UK.", "firm"),
+            ("order", "The order and the bond", "When the order arrives, record its date. Arrange any security the order requires.", "Do not act before the order allows it.", "firm"),
+        ]),
+        ("money", "3. The person's money", [
+            ("account", "A separate record", "Enter money in and money out. Do not mix it with the firm's money or with another person's.", "The Office of the Public Guardian can ask for this record.", "firm"),
+            ("report", "The deputy's report", "Send the report the Office of the Public Guardian asks for, by their date.", "The date is on their letter, not calculated here.", "firm"),
+        ]),
+    )]
 
 
 def client_prepare(kind: str = "probate"):
@@ -194,7 +234,7 @@ def request_letter(matter: dict) -> dict:
             if it["who"] == "client" and states.get(it["id"]) not in ("done", "na", "received"):
                 outstanding.append(it)
     name = matter.get("client_name") or "there"
-    title = matter.get("title") or SERVICES[matter["kind"]]["title"]
+    title = matter.get("title") or FIRM_KINDS.get(matter["kind"]) or SERVICES[matter["kind"]]["title"]
     lines = [f"Dear {name},", "", f"Thank you for instructing us on {title}.", "", "Please send the items below. A clear photo or scan is enough unless we have asked for an original.", ""]
     if not outstanding:
         lines += ["We have nothing outstanding from you at the moment. We will write again if that changes.", ""]

@@ -209,3 +209,26 @@ def test_a_repeated_name_is_shown_and_the_practice_file_is_kept():
         assert practice["identity"] == "Seen" and practice["will_ref"] == "Safe 4" and practice["risk"] == "Higher"
 
 
+def test_firm_accounts_a_trust_and_a_deputyship_stay_separate():
+    with admin_client() as c:
+        matter = c.post("/api/firm/matters", json={"kind": "trust", "client_name": "The trustees", "title": "King trust"}).json()
+        assert matter["kind_label"] == "Trust"
+        assert any(stage["id"] == "money" for stage in matter["stages"])
+        saved = c.patch(f"/api/firm/matters/{matter['id']}", json={
+            "trust": {"lines": [{"name": "House", "pot": "capital", "amount": 1000}, {"name": "Rent", "pot": "income", "amount": 100, "out": "Yes"}]},
+            "bill": {"entries": [{"kind": "time", "what": "Advice", "hours": 2, "rate": 250}, {"kind": "bill", "what": "Bill 1", "amount": 500}, {"kind": "paid", "what": "On account", "amount": 200}]},
+        })
+        assert saved.status_code == 200, saved.text
+        body = saved.json()
+        assert body["trust"]["capital"]["balance"] == 1000
+        assert body["trust"]["income"]["balance"] == -100
+        assert body["bill"]["unbilled"] == 0
+        assert body["bill"]["outstanding"] == 300
+        deputy = c.post("/api/firm/matters", json={"kind": "deputyship", "client_name": "Ada King"}).json()
+        recorded = c.patch(f"/api/firm/matters/{deputy['id']}", json={"deputy": {"lines": [{"name": "Pension", "amount": 800}, {"name": "Care", "amount": 300, "out": "Yes"}]}})
+        assert recorded.json()["deputy"]["money"]["balance"] == 500
+        accounts = c.get("/api/firm/accounts").json()
+        assert accounts["totals"]["outstanding"] == 300
+        assert accounts["totals"]["paid"] == 200
+
+

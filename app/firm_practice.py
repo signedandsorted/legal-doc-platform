@@ -5,6 +5,13 @@ IDENTITY = ("Not seen", "Seen", "Certified copy on the file")
 RISK = ("Ordinary", "Higher")
 
 
+def _date(value) -> str:
+    text = str(value or "").strip()[:10]
+    if len(text) == 10 and text[4] == "-" and text[7] == "-":
+        return text
+    return ""
+
+
 def clean_practice(raw) -> dict:
     raw = raw if isinstance(raw, dict) else {}
     checked = str(raw.get("conflict_checked_on") or "").strip()[:10]
@@ -12,6 +19,9 @@ def clean_practice(raw) -> dict:
         checked = ""
     return {
         "identity": raw.get("identity") if raw.get("identity") in IDENTITY else "Not seen",
+        "id_provider": str(raw.get("id_provider") or "").strip()[:80],
+        "id_reference": str(raw.get("id_reference") or "").strip()[:80],
+        "id_checked_on": _date(raw.get("id_checked_on")),
         "source": str(raw.get("source") or "").strip()[:400],
         "risk": raw.get("risk") if raw.get("risk") in RISK else "Ordinary",
         "risk_note": str(raw.get("risk_note") or "").strip()[:400],
