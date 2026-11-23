@@ -90,6 +90,59 @@ def choose_schedules(books: dict, worked: dict) -> list[dict]:
     return chosen
 
 
+CATALOGUE = {
+    "IHT402": "Unused nil rate band",
+    "IHT403": "Gifts",
+    "IHT404": "Jointly owned assets",
+    "IHT405": "Houses, land and buildings",
+    "IHT406": "Bank and building society accounts",
+    "IHT407": "Household and personal goods",
+    "IHT409": "Pensions",
+    "IHT411": "Stocks and shares",
+    "IHT417": "Foreign assets",
+    "IHT419": "Debts owed by the deceased",
+    "IHT435": "Residence nil rate band",
+    "IHT436": "Transfer of unused residence nil rate band",
+}
+
+
+def clean_form_choice(raw) -> dict:
+    raw = raw if isinstance(raw, dict) else {}
+
+    def codes(key: str) -> list[str]:
+        out = []
+        for item in (raw.get(key) or [])[:40]:
+            code = str(item or "").strip().upper()
+            if code in CATALOGUE and code not in out:
+                out.append(code)
+        return out
+
+    return {"on": codes("on"), "off": codes("off")}
+
+
+def with_choice(suggested: list[dict], choice: dict) -> list[dict]:
+    """The firm's ticks win. A form the figures chose can be taken off. A form they did not can be added."""
+    off = set(choice.get("off") or [])
+    on = set(choice.get("on") or [])
+    kept = []
+    seen = set()
+    for item in suggested:
+        if item["code"] in off:
+            continue
+        kept.append({**item, "source": "figures"})
+        seen.add(item["code"])
+    for code in CATALOGUE:
+        if code in on and code not in seen:
+            kept.append({
+                "code": code,
+                "why": "Added by the firm. The figures had not asked for it.",
+                "rows": 0,
+                "ready": (DIR / f"{code}.pdf").exists(),
+                "source": "firm",
+            })
+    return kept
+
+
 def _fill_identity(values: dict, fields: dict, matter: dict) -> None:
     name = (matter.get("deceased_name") or "")[:80]
     for key, meta in fields.items():

@@ -177,3 +177,23 @@ def test_asset_search_records_a_fee_and_does_not_repeat_a_letter():
         assert second.json()["books"]["asset_search"]["paid"] is True
 
 
+def test_the_firm_can_add_or_remove_a_schedule():
+    with admin_client() as c:
+        matter = c.post("/api/firm/matters", json={"kind": "probate", "client_name": "Ann Executor", "deceased_name": "John Executor", "date_of_death": "2026-01-15"}).json()
+        c.post(f"/api/firm/matters/{matter['id']}/draft")
+        saved = c.patch(f"/api/firm/matters/{matter['id']}", json={"books": {
+            "lines": [{"name": "House", "value": 400000}, {"name": "Bank", "value": 10000}],
+            "case": {"has_will": "Yes, I have the original", "domicile": "Yes"},
+        }})
+        books = saved.json()["books"]
+        books["form_choice"] = {"off": ["IHT406"], "on": ["IHT407"]}
+        changed = c.patch(f"/api/firm/matters/{matter['id']}", json={"books": books})
+        codes = {item["code"] for item in changed.json()["forms"]["chosen"]}
+        assert "IHT405" in codes and "IHT406" not in codes and "IHT407" in codes
+        packed = c.get(f"/api/firm/matters/{matter['id']}/schedules.zip")
+        import zipfile
+        import io
+        names = zipfile.ZipFile(io.BytesIO(packed.content)).namelist()
+        assert "IHT406.pdf" not in names and "IHT407.pdf" in names and "IHT405.pdf" in names
+
+

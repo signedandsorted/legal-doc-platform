@@ -237,9 +237,15 @@ function formsPanel(m) {
       + '<p><button type="button" class="btn ghost" data-copied="' + esc(s.code) + '">' + (((m.books || {}).copied || []).indexOf(s.code) >= 0 ? "Copied onto the official form" : "Mark as copied onto the official form") + '</button></p></section>').join("")
     + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/iht400.pdf">Download the IHT400 filled from these figures</a> '
     + '<a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/schedules.zip">Download the extra forms this estate needs</a></p>'
-    + '<div class="stage"><h3>Chosen from the figures</h3>'
-    + ((f.chosen || []).length ? '<ul>' + f.chosen.map(c => '<li><b>' + esc(c.code) + '.</b> ' + esc(c.why) + (c.ready ? '' : ' The official file is not stored, so it is named here and not filled.') + '</li>').join("") + '</ul>' : '<p class="small">No extra Inheritance Tax schedule was chosen. An excepted estate does not use these schedules.</p>')
-    + '<p class="small">The choice follows the list. It is not a guess. A house chooses IHT405, a bank account chooses IHT406, and so on. A solicitor still checks the pages before they are posted.</p></div>'
+    + '<div class="stage"><h3>Forms for this estate</h3><p>The ticked forms are the ones the figures asked for. Untick one that does not apply, or tick one the figures missed. The download follows these ticks.</p>'
+    + '<form id="form-choice">' + (f.catalogue || []).map(c => {
+        const on = (f.chosen || []).some(x => x.code === c.code);
+        const suggested = (f.suggested || []).some(x => x.code === c.code);
+        return '<label class="check"><input type="checkbox" name="form" value="' + esc(c.code) + '"' + (on ? ' checked' : '') + '> ' + esc(c.code) + ' — ' + esc(c.label) + (suggested ? ' <span class="small">(from the figures)</span>' : '') + '</label>';
+      }).join("")
+    + '<p><button class="btn" type="submit">Save the forms</button></p></form>'
+    + ((f.chosen || []).length ? '<ul>' + f.chosen.map(c => '<li><b>' + esc(c.code) + '.</b> ' + esc(c.why) + (c.ready ? '' : ' The official file is not stored, so it is named here and not filled.') + '</li>').join("") + '</ul>' : '<p class="small">No extra Inheritance Tax schedule is ticked.</p>')
+    + '</div>'
     + '<p class="small">This writes into HMRC’s own file. The asset boxes on page 7 are not fields in that file, so those amounts are written on the additional information page. Nothing is sent to HMRC. An administrator can replace the file with the one currently on GOV.UK.</p>'
     + (ME && ME.role === "admin" ? '<p><button type="button" class="btn ghost" id="refresh-iht">Get the latest IHT400 from GOV.UK</button></p>' : '')
     + '<p><a href="https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400" target="_blank" rel="noopener">Open the official IHT400</a></p>'
@@ -365,6 +371,20 @@ function bind(id, m) {
     const found = await api("/api/firm/matters/" + id + "/search?q=" + encodeURIComponent(q));
     const bits = (found.items || []).map(it => '<li>' + esc(it.where) + ': ' + esc(it.label) + '</li>').concat((found.papers || []).map(p => '<li>' + esc(p.filename) + ': ' + esc(p.snippet) + '</li>'));
     document.getElementById("hits").innerHTML = bits.length ? '<ul>' + bits.join("") + '</ul>' : '<p class="muted">Nothing matched.</p>';
+  };
+  const formChoice = document.getElementById("form-choice");
+  if (formChoice) formChoice.onsubmit = async (e) => {
+    e.preventDefault();
+    const ticked = new Set(new FormData(e.target).getAll("form"));
+    const suggested = new Set((m.forms.suggested || []).map(s => s.code));
+    const books = m.books;
+    books.form_choice = {
+      on: [...ticked].filter(code => !suggested.has(code)),
+      off: [...suggested].filter(code => !ticked.has(code)),
+    };
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    TAB = "forms";
+    reload();
   };
   const refreshIht = document.getElementById("refresh-iht");
   if (refreshIht) refreshIht.onclick = async () => {

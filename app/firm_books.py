@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from .common import money
 from .firm_account import KIND_LABEL, clean_asset_search, clean_copied, clean_credit, clean_discovery, clean_notice, credit_letter, guess_kind, notice_text, step_account
-from .iht_schedules import choose_schedules
+from .iht_schedules import CATALOGUE, choose_schedules, clean_form_choice, with_choice
 from .doc_probate import plan
 from .guide_probate import APPLICANT_ROLES, FULL_DETAIL_TRIGGERS
 
@@ -131,6 +131,7 @@ def clean_books(raw: dict | None) -> dict:
         "notice": clean_notice(raw.get("notice")),
         "credit": clean_credit(raw.get("credit")),
         "asset_search": clean_asset_search(raw.get("asset_search")),
+        "form_choice": clean_form_choice(raw.get("form_choice")),
         "copied": clean_copied(raw.get("copied")),
     }
 
@@ -329,7 +330,9 @@ def _forms(matter: dict, books: dict, answers: dict, worked: dict) -> dict:
         "post_reasons": worked["post_reasons"],
         "issues": [i["message"] for i in worked["issues"]],
         "schedule": schedule,
-        "chosen": [{"code": item["code"], "why": item["why"], "ready": item["ready"]} for item in choose_schedules(books, worked)],
+        "suggested": [{"code": item["code"], "why": item["why"]} for item in choose_schedules(books, worked)],
+        "chosen": [{"code": item["code"], "why": item["why"], "ready": item["ready"], "source": item.get("source") or "figures"} for item in with_choice(choose_schedules(books, worked), books.get("form_choice") or {})],
+        "catalogue": [{"code": code, "label": label} for code, label in CATALOGUE.items()],
         "notice": "Working paper to copy onto the official form. It is not the form HMRC or the court issue, and nothing is sent to them from here.",
     }
 
