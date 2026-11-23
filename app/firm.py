@@ -251,7 +251,7 @@ def matter_assist(matter_id: str, body: AssistIn, _staff: dict = Depends(require
 @router.post("/matters/{matter_id}/letters")
 def keep_letter(matter_id: str, body: LetterIn, request: Request, staff: dict = Depends(require_staff)):
     row = _load(matter_id)
-    if body.kind not in ("bank", "beneficiary", "grant", "notice"):
+    if body.kind not in ("bank", "beneficiary", "grant", "notice", "credit"):
         raise HTTPException(400, "Unknown letter")
     compiled = compile_books(row)
     letter = letter_text(body.kind, row, compiled)

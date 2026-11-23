@@ -191,12 +191,22 @@ function noticePanel(m) {
     + '<p class="small">Paying everyone also waits at least six months from the grant. The section 27 notice does not replace that, and it does not shut out a claim the firm already knows about.</p></div>';
 }
 function findPanel(m) {
+  const credit = ((m.books || {}).credit) || {};
   const rows = ((m.books || {}).discovery || []).map(d => '<article class="stage"><h3>' + esc(d.place) + '</h3><p>' + esc(d.ask) + '</p>'
     + (d.url ? '<p><a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.url_title || d.url) + '</a></p>' : "")
     + '<form class="find" data-id="' + esc(d.id) + '"><label>Status<select name="status">'
     + [["not_asked", "Not asked"], ["asked", "Asked"], ["found", "Found, add it to the list"], ["nothing", "Nothing there"]].map(([v, l]) => '<option value="' + v + '"' + (d.status === v ? " selected" : "") + '>' + l + '</option>').join("")
     + '</select></label><label>Note<input name="note" value="' + esc(d.note || "") + '"></label><button class="btn" type="submit">Save</button></form></article>').join("");
-  return '<div class="firm-card"><h2>Find accounts the family did not know about</h2><p>This is an in-house job. A member of staff writes to the banks the family name, and uses the official free tracing services below for the rest. There is no credit-file search on this desk, and it will not invent an account. When a reply finds something, add it on One set of figures.</p>' + rows + '</div>';
+  return '<div class="firm-card"><h2>Credit report</h2><p>Exizent can search because Experian sold them a feed. This desk cannot buy that feed for you, and it will not invent accounts. The firm orders the report from Experian, Equifax or TransUnion, in that agency’s own system, with the death certificate and proof the firm may ask. When the report comes back, upload it on Papers and filing as a credit report. Tick only the accounts that are actually printed on it.</p>'
+    + '<form id="credit"><label>Agency<select name="agency"><option value="">Not ordered</option>'
+    + ["Experian", "Equifax", "TransUnion"].map(a => '<option' + (credit.agency === a ? " selected" : "") + '>' + a + '</option>').join("")
+    + '</select></label><label>Their reference<input name="reference" value="' + esc(credit.reference || "") + '"></label>'
+    + '<label>Date ordered<input type="date" name="ordered_on" value="' + esc(credit.ordered_on || "") + '"></label>'
+    + '<label>Date the report arrived<input type="date" name="received_on" value="' + esc(credit.received_on || "") + '"></label>'
+    + '<label>Note<textarea name="note">' + esc(credit.note || "") + '</textarea></label>'
+    + '<p><button class="btn" type="submit">Save</button> <button class="btn ghost" type="button" data-letter="credit">Draft the request</button></p></form>'
+    + '<p class="small">Upload the PDF they send. A photo of it is read as well. Nothing is added to the estate until you tick it.</p></div>'
+    + '<div class="firm-card"><h2>Find accounts the family did not know about</h2><p>This is an in-house job. A member of staff writes to the banks the family name, and uses the official free tracing services below for the rest. There is no search button on this page. When a reply finds something, add it on One set of figures.</p>' + rows + '</div>';
 }
 function formsPanel(m) {
   const f = m.forms;
@@ -222,7 +232,7 @@ function papersPanel(m) {
   const court = f.hmcts || {};
   const ids = (m.papers || []).flatMap(p => (p.suggestions || []).filter(s => s.mode !== "note" || String(s.label).startsWith("Executor")).map(s => s.id));
   return '<div class="firm-card"><h2>Upload the papers</h2><p>Will, death certificate or bank letter, including a photo or a scan. When they are on the file, fill the estate from what can be read. A blurry picture may still have to be typed. Nothing is filed from here.</p>'
-    + '<form id="up"><label>What it is<select name="kind"><option>Will</option><option>Codicil</option><option>Death certificate</option><option>Bank or valuation letter</option><option>Other</option></select></label>'
+    + '<form id="up"><label>What it is<select name="kind"><option>Will</option><option>Codicil</option><option>Death certificate</option><option>Bank or valuation letter</option><option>Credit report</option><option>Other</option></select></label>'
     + '<input type="file" name="file" required accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.heic,.webp"> <button class="btn" type="submit">Upload</button></form>'
     + '<form id="seek"><input name="q" placeholder="Search the papers and the list" required minlength="2"><button class="btn ghost" type="submit">Search</button></form><div id="hits"></div>'
     + (ids.length ? '<p><button type="button" class="btn" id="fill-all">Fill the estate from these papers</button></p>' : "")
@@ -329,6 +339,14 @@ function bind(id, m) {
     const found = await api("/api/firm/matters/" + id + "/search?q=" + encodeURIComponent(q));
     const bits = (found.items || []).map(it => '<li>' + esc(it.where) + ': ' + esc(it.label) + '</li>').concat((found.papers || []).map(p => '<li>' + esc(p.filename) + ': ' + esc(p.snippet) + '</li>'));
     document.getElementById("hits").innerHTML = bits.length ? '<ul>' + bits.join("") + '</ul>' : '<p class="muted">Nothing matched.</p>';
+  };
+  const creditForm = document.getElementById("credit");
+  if (creditForm) creditForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const books = m.books || { lines: [], people: [], case: {}, letters: [] };
+    books.credit = Object.fromEntries(new FormData(e.target).entries());
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
   };
   const notice = document.getElementById("notice");
   if (notice) notice.onsubmit = async (e) => {

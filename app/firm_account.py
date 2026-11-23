@@ -200,3 +200,45 @@ def notice_text(matter: dict, books: dict) -> dict:
         firm,
     ])
     return {"title": f"Section 27 notice — estate of {estate}", "body": body}
+
+
+AGENCIES = ("Experian", "Equifax", "TransUnion")
+
+
+def clean_credit(raw) -> dict:
+    raw = raw if isinstance(raw, dict) else {}
+    ordered = str(raw.get("ordered_on") or "").strip()[:10]
+    received = str(raw.get("received_on") or "").strip()[:10]
+    if len(ordered) != 10 or ordered[4] != "-":
+        ordered = ""
+    if len(received) != 10 or received[4] != "-":
+        received = ""
+    agency = raw.get("agency") if raw.get("agency") in AGENCIES else ""
+    return {
+        "agency": agency,
+        "reference": str(raw.get("reference") or "").strip()[:80],
+        "ordered_on": ordered,
+        "received_on": received,
+        "note": str(raw.get("note") or "").strip()[:400],
+    }
+
+
+def credit_letter(matter: dict, books: dict) -> dict:
+    """A letter the firm posts or uploads to the agency. This desk does not send it."""
+    estate = matter.get("deceased_name") or "[full name]"
+    died = matter.get("date_of_death") or "[date of death]"
+    address = (books.get("case") or {}).get("address") or "[last address]"
+    name = matter.get("client_name") or "The personal representatives"
+    body = "\n".join([
+        "Dear Sir or Madam,",
+        "",
+        f"We act in the estate of {estate}, late of {address}, who died on {died}.",
+        "Please send the credit report you hold, including each lender, account and balance on the file.",
+        "A copy of the death certificate is enclosed. The grant will follow if you require it before releasing the report.",
+        "",
+        "The firm sends this request. The software does not.",
+        "",
+        "Yours faithfully,",
+        name,
+    ])
+    return {"title": f"Credit report request — estate of {estate}", "body": body}

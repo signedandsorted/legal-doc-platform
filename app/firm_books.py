@@ -7,7 +7,7 @@ The cash account and the distributions use what has actually been collected and 
 from uuid import uuid4
 
 from .common import money
-from .firm_account import KIND_LABEL, clean_copied, clean_discovery, clean_notice, guess_kind, notice_text, step_account
+from .firm_account import KIND_LABEL, clean_copied, clean_credit, clean_discovery, clean_notice, credit_letter, guess_kind, notice_text, step_account
 from .doc_probate import plan
 from .guide_probate import APPLICANT_ROLES, FULL_DETAIL_TRIGGERS
 
@@ -128,6 +128,7 @@ def clean_books(raw: dict | None) -> dict:
         "letters": letters,
         "discovery": clean_discovery(raw.get("discovery")),
         "notice": clean_notice(raw.get("notice")),
+        "credit": clean_credit(raw.get("credit")),
         "copied": clean_copied(raw.get("copied")),
     }
 
@@ -397,6 +398,8 @@ def letter_text(kind: str, matter: dict, compiled: dict) -> dict | None:
         return {"title": f"After the grant — estate of {estate}", "body": body}
     if kind == "notice":
         return notice_text(matter, books)
+    if kind == "credit":
+        return credit_letter(matter, books)
     if kind == "client":
         return None
     return None

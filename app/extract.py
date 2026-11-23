@@ -105,6 +105,8 @@ def detect_kind(text: str) -> str | None:
         return "Old will"
     if "entry of death" in t or "death certificate" in t:
         return "Death certificate"
+    if "credit report" in t or "experian" in t or "equifax" in t or "transunion" in t:
+        return "Credit report"
     return None
 
 

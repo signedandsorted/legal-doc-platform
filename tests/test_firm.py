@@ -95,6 +95,15 @@ def test_one_ledger_feeds_the_accounts_the_forms_and_the_draft():
         notice = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "notice"})
         assert "Trustee Act 1925" in notice.json()["letter"]["body"]
         assert "John Executor" in notice.json()["letter"]["body"]
+        asked = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "credit"})
+        assert "death certificate" in asked.json()["letter"]["body"]
+        report = c.post(
+            f"/api/firm/matters/{matter['id']}/uploads",
+            data={"kind": "Credit report"},
+            files={"file": ("experian.txt", "Experian credit report. Barclays card: £500.00\n", "text/plain")},
+        )
+        assert report.status_code == 200, report.text
+        assert any("500" in s["label"] for s in report.json()["suggestions"])
         letter = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "bank"})
         assert "Example Bank" in letter.json()["letter"]["body"]
         answers = c.get(f"/api/drafts/{draft['draft_id']}").json()["answers"]

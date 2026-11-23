@@ -7,7 +7,7 @@ what the firm has filed.
 """
 from .common import money
 
-PAPER_KINDS = ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Other"]
+PAPER_KINDS = ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Credit report", "Other"]
 IHT400_URL = "https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400"
 PAY_URL = "https://www.gov.uk/paying-inheritance-tax"
 MYHMCTS_URL = "https://www.gov.uk/government/publications/myhmcts-how-to-apply-for-probate-online/apply-for-probate-with-myhmcts"
