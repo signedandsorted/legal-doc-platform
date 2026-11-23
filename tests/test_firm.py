@@ -76,6 +76,13 @@ def test_one_ledger_feeds_the_accounts_the_forms_and_the_draft():
         assert body["accounts"]["people"][0]["entitlement"] == 290600
         codes = [s["code"] for s in body["forms"]["schedule"]]
         assert "PA1P" in codes and "IHT400" in codes
+        filled = c.get(f"/api/firm/matters/{matter['id']}/iht400.pdf")
+        assert filled.status_code == 200 and filled.content.startswith(b"%PDF")
+        from pypdf import PdfReader
+        import io
+        got = PdfReader(io.BytesIO(filled.content)).get_fields()
+        assert str(got["IHT400_01_01"].get("/V")) == "Executor"
+        assert "400,000.00" in str(got["IHT400_164"].get("/V"))
         assert body["accounts"]["outside"][0]["name"] == "Joint house"
         assert body["accounts"]["step"]["capital_totals"]["balance"] == 290600
         assert any(s["code"].startswith("IHT400 · Houses") for s in body["forms"]["schedule"])

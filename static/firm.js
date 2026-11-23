@@ -235,6 +235,8 @@ function formsPanel(m) {
     + (f.reasons || []).map(x => '<p class="small">' + esc(x) + '</p>').join("")
     + f.schedule.map(s => '<section class="stage"><h3>' + esc(s.code) + ' — ' + esc(s.label) + '</h3><table class="tbl">' + s.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table>'
       + '<p><button type="button" class="btn ghost" data-copied="' + esc(s.code) + '">' + (((m.books || {}).copied || []).indexOf(s.code) >= 0 ? "Copied onto the official form" : "Mark as copied onto the official form") + '</button></p></section>').join("")
+    + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/iht400.pdf">Download the IHT400 filled from these figures</a></p>'
+    + '<p class="small">This writes into HMRC’s own file. If they publish a new file, that file replaces the old one. The asset boxes on page 7 are not fields in their file, so those amounts are written on the additional information page. Nothing is sent to HMRC.</p>'
     + '<p><a href="https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400" target="_blank" rel="noopener">Open the official IHT400</a></p>'
     + '<p><a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/export">Download the file for the case system</a></p></div>';
 }
