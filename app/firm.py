@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, insert, select, update
 
@@ -12,6 +12,7 @@ from .db import drafts, engine, matter_uploads, matters, new_id, now, users
 from .documents import find_issues, missing_fields
 from .extract import detect_kind, extract_text, suggest
 from .firm_books import clean_books, compile_books, letter_text
+from .firm_account import account_document, account_html
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
 from .firm_work import ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
@@ -367,6 +368,53 @@ def matter_pack(matter_id: str, _staff: dict = Depends(require_staff)):
     pdf = render_pdf(pack_document(row, compiled, papers, where))
     name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name} working pack.pdf"'})
+
+
+@router.get("/matters/{matter_id}/account.pdf")
+def account_pdf(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    compiled = compile_books(row)
+    if not compiled.get("accounts"):
+        raise HTTPException(400, "The estate account is for a probate matter")
+    pdf = render_pdf(account_document(row, compiled["accounts"]))
+    name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name} estate account.pdf"'})
+
+
+@router.get("/matters/{matter_id}/account.html")
+def account_edit(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    compiled = compile_books(row)
+    if not compiled.get("accounts"):
+        raise HTTPException(400, "The estate account is for a probate matter")
+    name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
+    html = account_html(row, compiled["accounts"])
+    return HTMLResponse(html, headers={"Content-Disposition": f'attachment; filename="{name} estate account.html"'})
+
+
+@router.get("/matters/{matter_id}/search")
+def search_matter(matter_id: str, q: str = "", _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    needle = q.strip().lower()
+    if len(needle) < 2:
+        raise HTTPException(400, "Type at least two letters")
+    compiled = compile_books(row)
+    items = []
+    for line in (compiled["books"].get("lines") or []):
+        blob = f"{line['name']} {line['holder']}".lower()
+        if needle in blob:
+            items.append({"where": "The list", "label": line["name"], "detail": line["holder"]})
+    papers = []
+    with engine().connect() as conn:
+        stored = conn.execute(select(matter_uploads.c.filename, matter_uploads.c.kind, matter_uploads.c.text).where(matter_uploads.c.matter_id == matter_id)).mappings().all()
+    for paper in stored:
+        text = paper["text"] or ""
+        at = text.lower().find(needle)
+        if at < 0:
+            continue
+        start = max(0, at - 40)
+        papers.append({"filename": paper["filename"], "kind": paper["kind"], "snippet": text[start:at + 80].replace("\n", " ")})
+    return {"items": items, "papers": papers}
 
 
 @router.post("/matters/{matter_id}/draft")

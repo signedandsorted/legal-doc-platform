@@ -7,6 +7,7 @@ The cash account and the distributions use what has actually been collected and 
 from uuid import uuid4
 
 from .common import money
+from .firm_account import KIND_LABEL, clean_discovery, guess_kind, step_account
 from .doc_probate import plan
 from .guide_probate import APPLICANT_ROLES, FULL_DETAIL_TRIGGERS
 
@@ -65,6 +66,7 @@ def _line(raw: dict, n: int) -> dict:
         "costs": _num(raw.get("costs")),
         "paid": bool(raw.get("paid")),
         "funeral": bool(raw.get("funeral")) and side == "debt",
+        "kind": raw.get("kind") if raw.get("kind") in ("property", "bank", "shares", "goods", "pension", "other") else guess_kind(raw.get("name") or ""),
     }
 
 
@@ -124,6 +126,7 @@ def clean_books(raw: dict | None) -> dict:
         "people": [_person(x, i) for i, x in enumerate((raw.get("people") or [])[:40]) if isinstance(x, dict)],
         "case": clean_case,
         "letters": letters,
+        "discovery": clean_discovery(raw.get("discovery")),
     }
 
 
@@ -260,6 +263,7 @@ def _accounts(books: dict, worked: dict) -> dict:
         },
         "people": people,
         "warnings": warnings,
+        "step": None,
     }
 
 
@@ -303,6 +307,14 @@ def _forms(matter: dict, books: dict, answers: dict, worked: dict) -> dict:
                 ["Tax estimate", money(tax["tax"])],
             ] + [[line["name"], money(line["value"])] for line in books["lines"]]
         schedule.append({"code": code, "label": label, "rows": rows or deceased})
+    grouped = {kind: [] for kind in KIND_LABEL}
+    for line in books["lines"]:
+        if line["side"] != "asset" or line["ownership"] == "joint_tenants" or line["abroad"]:
+            continue
+        grouped[line["kind"]].append([line["name"] + (f" — {line['holder']}" if line["holder"] else ""), money(line["value"])])
+    for kind, label in KIND_LABEL.items():
+        if grouped[kind]:
+            schedule.append({"code": "IHT400 · " + label, "label": "Copy onto the official schedule for this type of asset", "rows": grouped[kind]})
     return {
         "route": worked["route"],
         "grant": worked["grant"],
@@ -312,7 +324,7 @@ def _forms(matter: dict, books: dict, answers: dict, worked: dict) -> dict:
         "post_reasons": worked["post_reasons"],
         "issues": [i["message"] for i in worked["issues"]],
         "schedule": schedule,
-        "notice": "Working paper for the official form. It is not the form, and nothing is sent to the probate registry or to HMRC from here.",
+        "notice": "Working paper to copy onto the official form. It is not the form HMRC or the court issue, and nothing is sent to them from here.",
     }
 
 
@@ -323,6 +335,8 @@ def compile_books(matter: dict, books: dict | None = None) -> dict:
     answers = to_answers(matter, books)
     worked = plan(answers)
     v, tax = worked["values"], worked["tax"]
+    accounts = _accounts(books, worked)
+    accounts["step"] = step_account(accounts)
     return {
         "books": books,
         "answers": answers,
@@ -332,7 +346,7 @@ def compile_books(matter: dict, books: dict | None = None) -> dict:
             "tax": tax["tax"], "threshold": tax["threshold"], "nrb": tax["nrb"], "rnrb": tax["rnrb"],
             "excepted": worked["excepted"], "fee": worked["fee"], "route": worked["route"], "grant": worked["grant"],
         },
-        "accounts": _accounts(books, worked),
+        "accounts": accounts,
         "forms": _forms(matter, books, answers, worked),
     }
 

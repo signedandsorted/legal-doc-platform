@@ -77,6 +77,15 @@ def test_one_ledger_feeds_the_accounts_the_forms_and_the_draft():
         codes = [s["code"] for s in body["forms"]["schedule"]]
         assert "PA1P" in codes and "IHT400" in codes
         assert body["accounts"]["outside"][0]["name"] == "Joint house"
+        assert body["accounts"]["step"]["capital_totals"]["balance"] == 290600
+        assert any(s["code"].startswith("IHT400 · Houses") for s in body["forms"]["schedule"])
+        assert any(d["id"] == "banks" and "mylostaccount.org.uk" in d["url"] for d in body["books"]["discovery"])
+        account = c.get(f"/api/firm/matters/{matter['id']}/account.pdf")
+        assert account.status_code == 200 and account.content.startswith(b"%PDF")
+        editable = c.get(f"/api/firm/matters/{matter['id']}/account.html")
+        assert b"Balance of capital" in editable.content
+        found = c.get(f"/api/firm/matters/{matter['id']}/search?q=Example")
+        assert found.json()["items"][0]["label"] == "Bank"
         letter = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "bank"})
         assert "Example Bank" in letter.json()["letter"]["body"]
         answers = c.get(f"/api/drafts/{draft['draft_id']}").json()["answers"]

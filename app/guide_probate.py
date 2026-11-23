@@ -32,7 +32,7 @@ PROBATE = {
     "id": "probate",
     "title": "Probate helper",
     "short_title": "Probate",
-    "summary": "A plain-English walk-through: what they owned, whether tax forms are needed, the figures for the application, a simple estate account, and what you do after the grant. England and Wales.",
+    "summary": "A plain-English walk-through the family can start, then the firm continues on the same figures: what they owned, where else to look, the tax papers, a simple estate account, and what happens after the grant. England and Wales.",
     "review_video": "probate_review",
     "steps": [
         {
@@ -137,6 +137,24 @@ PROBATE = {
             ],
             "sources": [GOV["probate_before"]],
             "fields": [],
+        },
+        {
+            "id": "discovery", "title": "Where else to look", "video": "probate_estate",
+            "guidance": [
+                "People often miss an account. Work through this list before you decide the estate is complete.",
+                "My Lost Account is free and searches banks, building societies and NS&I: https://www.mylostaccount.org.uk/",
+                "The Pension Tracing Service finds workplace and personal pensions: https://www.gov.uk/find-pension-contact-details",
+                "Search the Land Registry if there may be a house or land: https://www.gov.uk/search-property-information-land-registry",
+                "Tell Us Once can notify government departments: https://www.gov.uk/tell-us-once",
+                "Also ask NS&I about Premium Bonds, the last employer, any insurer, and look at email for PayPal or other online balances. This is not a credit-file search. A firm that buys those still has to pay a data company. What you find here is added on the estate step and flows into the account.",
+            ],
+            "sources": [GOV["iht_value"]],
+            "fields": [
+                {"name": "looked_banks", "label": "We have asked the banks, or started a My Lost Account search", "type": "checkbox"},
+                {"name": "looked_pensions", "label": "We have looked for pensions", "type": "checkbox"},
+                {"name": "looked_property", "label": "We have checked for property", "type": "checkbox"},
+                {"name": "looked_rest", "label": "We have asked about Premium Bonds, the employer, insurance and online balances", "type": "checkbox"},
+            ],
         },
         {
             "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",

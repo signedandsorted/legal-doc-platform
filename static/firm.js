@@ -59,7 +59,7 @@ function login() {
 async function list() {
   nav();
   const rows = await api("/api/firm/matters");
-  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Matters</h1><p><a class="btn" href="/firm?m=new">New matter</a></p><div class="firm-card">'
+  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Matters</h1><p>The family can start the file themselves. Photos of the papers are read in, and the same figures run the estate account, the tax working papers and the grant. A credit-file search is not included: those are sold by data companies. Use Find accounts for the official tracing services.</p><p><a class="btn" href="/firm?m=new">New matter</a></p><div class="firm-card">'
     + (rows.length ? rows.map(m => '<div class="matter-row"><div><a href="/firm?m=' + esc(m.id) + '">' + esc(m.title) + '</a><div class="muted small">' + esc(m.client_name || "No client name") + (m.deceased_name ? " · estate of " + esc(m.deceased_name) : "") + (m.figures ? " · net " + gbp(m.figures.net_probate) : "") + '</div></div><div>' + esc(m.kind_label) + '</div><div class="small">' + (m.next ? esc(m.next.title) : "Checklist complete") + '</div><div class="small">' + m.progress.done + "/" + m.progress.total + "</div></div>").join("") : '<p class="muted">No matters yet.</p>')
     + '</div>';
 }
@@ -87,8 +87,8 @@ let TAB = "next";
 async function matter(id) {
   nav();
   const [m, staff] = await Promise.all([api("/api/firm/matters/" + id), api("/api/firm/colleagues")]);
-  const tabs = [["next", "Next"], ["money", "One set of figures"], ["accounts", "Accounts"], ["forms", "Forms"], ["papers", "Papers and filing"], ["letters", "Letters"]];
-  const showTabs = m.kind === "probate" ? tabs : [tabs[0], tabs[5]];
+  const tabs = [["next", "Next"], ["money", "One set of figures"], ["accounts", "Estate account"], ["forms", "Official forms"], ["find", "Find accounts"], ["papers", "Papers and filing"], ["letters", "Letters"]];
+  const showTabs = m.kind === "probate" ? tabs : tabs.filter(t => t[0] === "next" || t[0] === "letters");
   if (!showTabs.some(t => t[0] === TAB)) TAB = "next";
   const strip = m.figures ? '<div class="figure-strip">'
     + [["Probate gross", m.figures.gross_probate], ["Probate net", m.figures.net_probate], ["Tax estimate", m.figures.tax], ["Still to collect", m.accounts.totals.still_to_collect], ["Left to share", m.accounts.totals.expected_net]].map(([l, n]) => '<div><span>' + l + '</span><b>' + gbp(n) + '</b></div>').join("")
@@ -103,7 +103,8 @@ async function matter(id) {
   if (TAB === "money") panel.innerHTML = moneyPanel(m, staff);
   else if (TAB === "accounts") panel.innerHTML = accountsPanel(m);
   else if (TAB === "forms") panel.innerHTML = formsPanel(m);
-  if (TAB === "papers") panel.innerHTML = papersPanel(m);
+  else if (TAB === "find") panel.innerHTML = findPanel(m);
+  else if (TAB === "papers") panel.innerHTML = papersPanel(m);
   else if (TAB === "letters") panel.innerHTML = lettersPanel(m);
   else panel.innerHTML = nextPanel(m, staff);
   bind(id, m);
@@ -136,7 +137,7 @@ function moneyPanel(m) {
   const people = b.people.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + gbp(p.specific) + '</td><td>' + p.share + '%</td><td>' + gbp(p.paid) + '</td><td><button type="button" class="btn ghost small" data-drop-person="' + esc(p.id) + '">Remove</button></td></tr>').join("");
   return '<div class="firm-card"><h2>Type each item once</h2><p>The grant figures, the accounts, the tax working paper and the letters all use this list. Joint tenants and assets abroad stay out of the probate figures.</p>'
     + '<table class="tbl"><thead><tr><th>Item</th><th>Type</th><th>At death</th><th>Collected</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="5" class="muted">Nothing entered yet.</td></tr>') + '</tbody></table>'
-    + '<form id="add" class="line-form"><input name="name" required placeholder="House, bank, card…"><input name="holder" placeholder="Bank or organisation"><select name="side"><option value="asset">Asset</option><option value="debt">Debt</option></select><select name="ownership"><option value="sole">Owned alone</option><option value="joint_tenants">Joint tenants</option><option value="tenants_in_common">Tenants in common, their share</option></select><input name="value" type="number" min="0" step="0.01" required placeholder="Value at death"><input name="realised" type="number" min="0" step="0.01" placeholder="Collected, if different"><input name="income" type="number" min="0" step="0.01" placeholder="Income"><input name="costs" type="number" min="0" step="0.01" placeholder="Costs"><label class="check"><input name="joint" type="checkbox"> Joint debt</label><label class="check"><input name="abroad" type="checkbox"> Abroad</label><label class="check"><input name="funeral" type="checkbox"> Funeral</label><label class="check"><input name="paid" type="checkbox"> Paid</label><button class="btn" type="submit">Add</button></form></div>'
+    + '<form id="add" class="line-form"><input name="name" required placeholder="House, bank, card…"><input name="holder" placeholder="Bank or organisation"><select name="side"><option value="asset">Asset</option><option value="debt">Debt</option></select><select name="kind"><option value="">Work out the type</option><option value="property">House or land</option><option value="bank">Bank account</option><option value="shares">Shares or funds</option><option value="goods">Goods</option><option value="pension">Pension</option><option value="other">Other</option></select><select name="ownership"><option value="sole">Owned alone</option><option value="joint_tenants">Joint tenants</option><option value="tenants_in_common">Tenants in common, their share</option></select><input name="value" type="number" min="0" step="0.01" required placeholder="Value at death"><input name="realised" type="number" min="0" step="0.01" placeholder="Collected, if different"><input name="income" type="number" min="0" step="0.01" placeholder="Income"><input name="costs" type="number" min="0" step="0.01" placeholder="Costs"><label class="check"><input name="joint" type="checkbox"> Joint debt</label><label class="check"><input name="abroad" type="checkbox"> Abroad</label><label class="check"><input name="funeral" type="checkbox"> Funeral</label><label class="check"><input name="paid" type="checkbox"> Paid</label><button class="btn" type="submit">Add</button></form></div>'
     + '<div class="firm-grid"><form id="case" class="firm-card"><h2>The people and the tax answers</h2>'
     + '<label>Will<select name="has_will">' + opt(["", "Yes, I have the original", "Yes, but the original is lost", "No", "Not sure"], c.has_will) + '</select></label>'
     + '<label>Applying as<select name="applicant_role">' + opt(["", "Executor named in the will or a codicil", "Husband, wife or civil partner", "Child aged 18 or over", "Other relative", "Unmarried partner", "Someone else (for example an attorney or a beneficiary)"], c.applicant_role) + '</select></label>'
@@ -153,20 +154,33 @@ function moneyPanel(m) {
     + '<label>Tax already paid (£)<input name="tax_paid" type="number" min="0" step="0.01" value="' + (c.tax_paid || 0) + '"></label>'
     + '<p><button class="btn" type="submit">Update the figures</button></p></form>'
     + '<div class="firm-card"><h2>Who inherits</h2><table class="tbl"><thead><tr><th>Name</th><th>Specific gift</th><th>Share of the rest</th><th>Paid</th><th></th></tr></thead><tbody>' + (people || '<tr><td colspan="5" class="muted">No one yet. If you leave the shares blank, they split the rest equally.</td></tr>') + '</tbody></table>'
-    + '<form id="person" class="line-form"><input name="name" required placeholder="Name"><input name="relationship" placeholder="Child, friend…"><input name="specific" type="number" min="0" step="0.01" placeholder="Specific gift"><input name="share" type="number" min="0" max="100" step="0.01" placeholder="% of the rest"><input name="paid" type="number" min="0" step="0.01" placeholder="Already paid"><button class="btn" type="submit">Add</button></form></div></div>';
+    + '<form id="person" class="line-form"><input name="name" required placeholder="Name"><input name="relationship" placeholder="Child, friend…"><input name="specific" type="number" min="0" step="0.01" placeholder="Specific gift"><input name="share" type="number" min="0" max="100" step="0.01" placeholder="% of the rest"><input name="paid" type="number" min="0" step="0.01" placeholder="Already paid"><button class="btn" type="submit">Add</button></form><p><button type="button" class="btn ghost" id="equal">Split the rest equally</button></p></div></div>';
 }
 function accountsPanel(m) {
   const a = m.accounts;
   if (!a) return '<div class="firm-card"><p>Accounts are kept on probate matters.</p></div>';
   const t = a.totals;
-  const cap = a.capital.map(r => '<tr><td>' + esc(r.name) + '</td><td>' + gbp(r.dod) + '</td><td>' + gbp(r.collected) + '</td><td>' + gbp(r.still) + '</td><td>' + gbp(r.income) + '</td><td>' + gbp(r.costs) + '</td></tr>').join("");
+  const rows = a.capital.map(r => '<tr><td>' + esc(r.name) + '</td><td>' + gbp(r.dod) + '</td><td>' + gbp(r.collected) + '</td><td>' + gbp(r.still) + '</td><td>' + gbp(r.income) + '</td><td>' + gbp(r.costs) + '</td></tr>').join("");
   const out = a.outside.map(r => '<li><b>' + esc(r.name) + '</b> ' + gbp(r.value) + '<div class="small">' + esc(r.why) + '</div></li>').join("");
   const dist = a.people.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + gbp(p.entitlement) + '</td><td>' + gbp(p.paid) + '</td><td>' + gbp(p.due) + '</td></tr>').join("");
-  return '<div class="firm-card"><h2>What is left to share</h2><p class="lead">' + gbp(t.expected_net) + '</p><p>Collected ' + gbp(t.collected) + ' plus still to collect ' + gbp(t.still_to_collect) + ' and income ' + gbp(t.income) + ', after costs ' + gbp(t.costs) + ', debts ' + gbp(t.debts) + ', funeral ' + gbp(t.funeral) + ' and the tax estimate ' + gbp(t.tax) + '. Cash held now is ' + gbp(t.cash_in_hand) + '.</p>'
+  const step = a.step || {};
+  const cap = step.capital_totals || {};
+  return '<div class="firm-card"><h2>Estate account</h2><p>' + esc(step.note || "") + '</p><p class="lead">' + gbp(t.expected_net) + ' left to share</p>'
     + (a.warnings || []).map(w => '<p class="alert">' + esc(w) + '</p>').join("")
-    + '<h3>In the estate</h3><table class="tbl"><thead><tr><th>Item</th><th>At death</th><th>Collected</th><th>Still to collect</th><th>Income</th><th>Costs</th></tr></thead><tbody>' + (cap || '<tr><td colspan="6" class="muted">No assets in the probate estate yet.</td></tr>') + '</tbody></table>'
-    + (out ? '<h3>Not in these figures</h3><ul>' + out + '</ul>' : "")
-    + '<h3>Shares</h3><table class="tbl"><thead><tr><th>Person</th><th>Their share</th><th>Paid</th><th>Still due</th></tr></thead><tbody>' + (dist || '<tr><td colspan="4" class="muted">Add the people on the figures tab.</td></tr>') + '</tbody></table></div>';
+    + '<h3>Capital account</h3><table class="tbl"><thead><tr><th>Item</th><th>At death</th><th>Collected</th><th>Still to collect</th><th>Income</th><th>Costs</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6" class="muted">No assets in the probate estate yet.</td></tr>') + '</tbody></table>'
+    + '<p>At death ' + gbp(cap.at_death) + '. Gains ' + gbp(cap.gains) + '. Losses ' + gbp(cap.losses) + '. Debts ' + gbp(cap.debts) + '. Funeral ' + gbp(cap.funeral) + '. Tax ' + gbp(cap.tax) + '. Specific gifts ' + gbp(cap.legacies) + '.</p><p><b>Balance of capital ' + gbp(cap.balance) + '.</b> Income account ' + gbp(step.income_total) + '.</p>'
+    + (out ? '<h3>Not in this account</h3><ul>' + out + '</ul>' : "")
+    + '<h3>Distribution account</h3><table class="tbl"><thead><tr><th>Person</th><th>Their share</th><th>Paid</th><th>Still due</th></tr></thead><tbody>' + (dist || '<tr><td colspan="4" class="muted">Add the people on the figures tab. Leave the shares blank to split the rest equally, or type a percentage.</td></tr>') + '</tbody></table>'
+    + '<h3>Cash</h3><p>In ' + gbp((step.cash || {}).receipts) + '. Out ' + gbp((step.cash || {}).payments) + '. Should be in hand ' + gbp((step.cash || {}).in_hand) + '.</p>'
+    + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/account.pdf">Download the account</a> <a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/account.html">Download a copy you can edit</a></p></div>';
+}
+function findPanel(m) {
+  const rows = ((m.books || {}).discovery || []).map(d => '<article class="stage"><h3>' + esc(d.place) + '</h3><p>' + esc(d.ask) + '</p>'
+    + (d.url ? '<p><a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.url_title || d.url) + '</a></p>' : "")
+    + '<form class="find" data-id="' + esc(d.id) + '"><label>Status<select name="status">'
+    + [["not_asked", "Not asked"], ["asked", "Asked"], ["found", "Found, add it to the list"], ["nothing", "Nothing there"]].map(([v, l]) => '<option value="' + v + '"' + (d.status === v ? " selected" : "") + '>' + l + '</option>').join("")
+    + '</select></label><label>Note<input name="note" value="' + esc(d.note || "") + '"></label><button class="btn" type="submit">Save</button></form></article>').join("");
+  return '<div class="firm-card"><h2>Find accounts the family did not know about</h2><p>Work the official tracing services and write down what came back. This is not a credit-file search, and it does not invent an account. When something is found, add it on One set of figures. The account and the tax papers pick it up.</p>' + rows + '</div>';
 }
 function formsPanel(m) {
   const f = m.forms;
@@ -192,6 +206,7 @@ function papersPanel(m) {
   return '<div class="firm-card"><h2>Upload the papers</h2><p>Will, death certificate or bank letter, including a photo or a scan. When they are on the file, fill the estate from what can be read. A blurry picture may still have to be typed. Nothing is filed from here.</p>'
     + '<form id="up"><label>What it is<select name="kind"><option>Will</option><option>Codicil</option><option>Death certificate</option><option>Bank or valuation letter</option><option>Other</option></select></label>'
     + '<input type="file" name="file" required accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.heic,.webp"> <button class="btn" type="submit">Upload</button></form>'
+    + '<form id="seek"><input name="q" placeholder="Search the papers and the list" required minlength="2"><button class="btn ghost" type="submit">Search</button></form><div id="hits"></div>'
     + (ids.length ? '<p><button type="button" class="btn" id="fill-all">Fill the estate from these papers</button></p>' : "")
     + papers + "</div>"
     + '<div class="firm-card"><h2>Filing</h2><p>' + esc(f.notice) + "</p>"
@@ -234,7 +249,7 @@ function bind(id, m) {
     e.preventDefault();
     const fd = new FormData(e.target);
     const books = m.books || { lines: [], people: [], case: {}, letters: [] };
-    books.lines.push({ name: fd.get("name"), holder: fd.get("holder"), side: fd.get("side"), ownership: fd.get("ownership"), value: fd.get("value"), realised: fd.get("realised"), income: fd.get("income"), costs: fd.get("costs"), joint: fd.get("joint") ? "Yes" : "No", abroad: fd.get("abroad") ? "Yes" : "No", funeral: !!fd.get("funeral"), paid: !!fd.get("paid") });
+    books.lines.push({ name: fd.get("name"), holder: fd.get("holder"), side: fd.get("side"), kind: fd.get("kind"), ownership: fd.get("ownership"), value: fd.get("value"), realised: fd.get("realised"), income: fd.get("income"), costs: fd.get("costs"), joint: fd.get("joint") ? "Yes" : "No", abroad: fd.get("abroad") ? "Yes" : "No", funeral: !!fd.get("funeral"), paid: !!fd.get("paid") });
     await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
     reload();
   };
@@ -270,6 +285,32 @@ function bind(id, m) {
     books.case = c;
     await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
     reload();
+  };
+  const equal = document.getElementById("equal");
+  if (equal) equal.onclick = async () => {
+    const books = m.books;
+    const people = books.people || [];
+    if (!people.length) return;
+    const each = Math.floor(10000 / people.length) / 100;
+    books.people = people.map((p, i) => ({ ...p, share: i === people.length - 1 ? Math.round((100 - each * (people.length - 1)) * 100) / 100 : each }));
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
+  };
+  $desk.querySelectorAll("form.find").forEach(form => form.onsubmit = async (e) => {
+    e.preventDefault();
+    const books = m.books;
+    const fd = new FormData(form);
+    books.discovery = (books.discovery || []).map(d => d.id === form.dataset.id ? { ...d, status: fd.get("status"), note: fd.get("note") } : d);
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { books } });
+    reload();
+  });
+  const seek = document.getElementById("seek");
+  if (seek) seek.onsubmit = async (e) => {
+    e.preventDefault();
+    const q = new FormData(e.target).get("q");
+    const found = await api("/api/firm/matters/" + id + "/search?q=" + encodeURIComponent(q));
+    const bits = (found.items || []).map(it => '<li>' + esc(it.where) + ': ' + esc(it.label) + '</li>').concat((found.papers || []).map(p => '<li>' + esc(p.filename) + ': ' + esc(p.snippet) + '</li>'));
+    document.getElementById("hits").innerHTML = bits.length ? '<ul>' + bits.join("") + '</ul>' : '<p class="muted">Nothing matched.</p>';
   };
   const filed = document.getElementById("filed");
   if (filed) filed.onsubmit = async (e) => {
