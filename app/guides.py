@@ -6,6 +6,7 @@ from .guide_will import WILL
 from .guide_prenup import PRENUP
 from .guide_postnup import POSTNUP
 from .guide_employment import EMPLOYMENT_SETTLEMENT
+from .guide_employment_ila import EMPLOYMENT_SETTLEMENT_ILA
 from .guide_cohabitation import COHABITATION
 from .guide_nuptial import NUPTIAL
 
@@ -18,9 +19,10 @@ for _svc, _cat in (
     (PROBATE, "Probate"),
     (PRENUP, "Agreements"),
     (POSTNUP, "Agreements"),
-    (EMPLOYMENT_SETTLEMENT, "Agreements"),
+        (EMPLOYMENT_SETTLEMENT, "Agreements"),
+        (EMPLOYMENT_SETTLEMENT_ILA, "Agreements"),
     (COHABITATION, "Agreements"),
 ):
     _svc.setdefault("category", _cat)
 
-SERVICES = {s["id"]: s for s in (WILL, LPA_PROPERTY, LPA_HEALTH, POA_ORDINARY, PROBATE, PRENUP, POSTNUP, EMPLOYMENT_SETTLEMENT, COHABITATION)}
+SERVICES = {s["id"]: s for s in (WILL, LPA_PROPERTY, LPA_HEALTH, POA_ORDINARY, PROBATE, PRENUP, POSTNUP, EMPLOYMENT_SETTLEMENT, EMPLOYMENT_SETTLEMENT_ILA, COHABITATION)}

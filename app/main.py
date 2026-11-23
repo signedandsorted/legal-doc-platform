@@ -108,7 +108,7 @@ def index():
 
 @app.get("/api/services")
 def services():
-    return [{"id": s["id"], "title": s["title"], "summary": s["summary"], "steps": len(s["steps"]), "category": s.get("category", "")} for s in SERVICES.values()]
+    return [{"id": s["id"], "title": s["title"], "summary": s["summary"], "steps": len(s["steps"]), "category": s.get("category", "")} for s in SERVICES.values() if not s["id"].endswith("_ila")]
 
 
 VIDEOS = STATIC / "videos"
