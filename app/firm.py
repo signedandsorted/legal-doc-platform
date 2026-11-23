@@ -13,7 +13,7 @@ from .documents import find_issues, missing_fields
 from .extract import detect_kind, extract_text, suggest
 from .firm_books import clean_books, compile_books, letter_text
 from .firm_account import account_document, account_html, prepare_asset_search
-from .iht400_pdf import fill_iht400
+from .iht400_pdf import fill_iht400, refresh_official_form
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
 from .firm_work import ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
@@ -420,6 +420,15 @@ def iht400_pdf(matter_id: str, _staff: dict = Depends(require_staff)):
         raise HTTPException(500, str(exc)) from exc
     name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name} IHT400.pdf"'})
+
+
+@router.post("/iht400/refresh")
+def refresh_iht400(_admin: dict = Depends(require_admin)):
+    try:
+        url = refresh_official_form()
+    except Exception as exc:
+        raise HTTPException(502, "GOV.UK did not return a new IHT400") from exc
+    return {"ok": True, "source": url}
 
 
 @router.get("/matters/{matter_id}/account.html")
