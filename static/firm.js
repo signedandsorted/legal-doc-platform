@@ -197,9 +197,10 @@ function findPanel(m) {
     + '<form class="find" data-id="' + esc(d.id) + '"><label>Status<select name="status">'
     + [["not_asked", "Not asked"], ["asked", "Asked"], ["found", "Found, add it to the list"], ["nothing", "Nothing there"]].map(([v, l]) => '<option value="' + v + '"' + (d.status === v ? " selected" : "") + '>' + l + '</option>').join("")
     + '</select></label><label>Note<input name="note" value="' + esc(d.note || "") + '"></label><button class="btn" type="submit">Save</button></form></article>').join("");
-  return '<div class="firm-card"><h2>Credit report</h2><p>Exizent can search because Experian sold them a feed. This desk cannot buy that feed for you, and it will not invent accounts. The firm orders the report from Experian, Equifax or TransUnion, in that agency’s own system, with the death certificate and proof the firm may ask. When the report comes back, upload it on Papers and filing as a credit report. Tick only the accounts that are actually printed on it.</p>'
+  return '<div class="firm-card"><h2>Credit report</h2><p>Nothing on this page can search a credit file by itself. Estatesearch, Experian, Equifax and TransUnion each run the search in their own system, and only after the firm has an account with them. Estatesearch also writes to banks, pension firms and insurers, then sends a report. Upload that report here. The accounts printed on it can be ticked into the estate, and the tax working paper uses the same figures. Nothing is added that the report does not show.</p>'
+    + '<p><a href="https://www.estatesearch.co.uk/" target="_blank" rel="noopener">Open Estatesearch</a></p>'
     + '<form id="credit"><label>Agency<select name="agency"><option value="">Not ordered</option>'
-    + ["Experian", "Equifax", "TransUnion"].map(a => '<option' + (credit.agency === a ? " selected" : "") + '>' + a + '</option>').join("")
+    + ["Experian", "Equifax", "TransUnion", "Estatesearch"].map(a => '<option' + (credit.agency === a ? " selected" : "") + '>' + a + '</option>').join("")
     + '</select></label><label>Their reference<input name="reference" value="' + esc(credit.reference || "") + '"></label>'
     + '<label>Date ordered<input type="date" name="ordered_on" value="' + esc(credit.ordered_on || "") + '"></label>'
     + '<label>Date the report arrived<input type="date" name="received_on" value="' + esc(credit.received_on || "") + '"></label>'
@@ -211,7 +212,7 @@ function findPanel(m) {
 function formsPanel(m) {
   const f = m.forms;
   if (!f) return '<div class="firm-card"><p>Court and tax working papers are kept on probate matters.</p></div>';
-  return '<div class="firm-card"><h2>' + esc(f.grant) + '</h2><p>' + esc(f.route) + '. ' + (f.excepted ? "Full details are not sent to HMRC on these answers." : "These answers need full details on form IHT400.") + '</p><p>A member of staff copies each block onto the official form, in house. Tick a block when that has been done. The desk does not fill in HMRC’s own PDF and it does not send the form.</p><p class="small">' + esc(f.notice) + '</p>'
+  return '<div class="firm-card"><h2>' + esc(f.grant) + '</h2><p>' + esc(f.route) + '. ' + (f.excepted ? "Full details are not sent to HMRC on these answers." : "These answers need full details on form IHT400.") + '</p><p>A member of staff copies each block onto HMRC’s own form and ticks it. That form is Crown copyright. No separate government licence is needed to complete it for a client. Their form must be the one that is printed and posted. This page is only the working paper, and nothing is sent to HMRC from here.</p><p class="small">' + esc(f.notice) + '</p>'
     + (f.blockers || []).map(x => '<p class="alert">' + esc(x) + '</p>').join("")
     + (f.reasons || []).map(x => '<p class="small">' + esc(x) + '</p>').join("")
     + f.schedule.map(s => '<section class="stage"><h3>' + esc(s.code) + ' — ' + esc(s.label) + '</h3><table class="tbl">' + s.rows.map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join("") + '</table>'

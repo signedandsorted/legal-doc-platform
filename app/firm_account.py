@@ -202,7 +202,7 @@ def notice_text(matter: dict, books: dict) -> dict:
     return {"title": f"Section 27 notice — estate of {estate}", "body": body}
 
 
-AGENCIES = ("Experian", "Equifax", "TransUnion")
+AGENCIES = ("Experian", "Equifax", "TransUnion", "Estatesearch")
 
 
 def clean_credit(raw) -> dict:
