@@ -110,6 +110,19 @@ async function matter(id) {
   bind(id, m);
 }
 
+function practiceForm(m) {
+  const p = m.practice || {};
+  const opt = (list, current) => list.map(v => '<option' + (current === v ? " selected" : "") + '>' + esc(v) + '</option>').join("");
+  return '<form id="practice"><label>Identity<select name="identity">' + opt(["Not seen", "Seen", "Certified copy on the file"], p.identity) + '</select></label>'
+    + '<label>Source of funds<textarea name="source">' + esc(p.source || "") + '</textarea></label>'
+    + '<label>Risk<select name="risk">' + opt(["Ordinary", "Higher"], p.risk) + '</select></label>'
+    + '<label>Why the risk is higher<textarea name="risk_note">' + esc(p.risk_note || "") + '</textarea></label>'
+    + '<label>Where the original will or deed is<select name="will_held">' + opt(["Not known yet", "With the firm", "With the client", "At a bank", "At the Principal Registry", "Not a will"], p.will_held) + '</select></label>'
+    + '<label>Safe or reference<input name="will_ref" value="' + esc(p.will_ref || "") + '"></label>'
+    + '<label>Names checked on<input type="date" name="conflict_checked_on" value="' + esc(p.conflict_checked_on || "") + '"></label>'
+    + '<label>Conflict note<textarea name="conflict_note">' + esc(p.conflict_note || "") + '</textarea></label>'
+    + '<p><button class="btn" type="submit">Save</button></p></form>';
+}
 function nextPanel(m, staff) {
   const deadlines = (m.deadlines || []).map(d => '<li><b>' + esc(d.label) + '</b>' + (d.date ? " · " + esc(d.date) : "") + '<div class="small">' + esc(d.note) + '</div></li>').join("");
   return '<div class="firm-next"><p class="eyebrow">Do this next</p><h2>' + esc(m.next ? m.next.title : "Checklist complete") + '</h2>'
@@ -123,6 +136,9 @@ function nextPanel(m, staff) {
     + '<h3>What you need</h3>' + (m.stages || []).map(stage => '<section class="stage"><h3>' + esc(stage.title) + '</h3>' + stage.items.map(it => '<div class="item"><div><b>' + esc(it.title) + '</b> <span class="who">' + esc(it.who) + '</span><div class="small">' + esc(it.ask) + '</div></div><select data-item="' + esc(it.id) + '">' + STATUSES.map(([v, l]) => '<option value="' + v + '"' + (it.status === v ? " selected" : "") + '>' + l + '</option>').join("") + '</select></div>').join("") + '</section>').join("")
     + '</div><aside><div class="firm-card"><h2>Assistant</h2><p class="small">Writes from this file. It is not a solicitor and it does not file anything.</p><p><button class="btn" type="button" id="req">Write the client email</button></p><p><button class="btn ghost" type="button" id="chk">Check the draft</button></p><div id="assist"></div></div>'
     + '<div class="firm-card"><h2>Draft</h2><p class="small">The questions stay in step with the figures on this matter.</p><p><button class="btn" type="button" id="draft">' + (m.draft_id ? "Open the draft" : "Start the draft") + '</button></p></div>'
+    + '<div class="firm-card"><h2>Before you act</h2><p class="small">Identity, where the original is kept, and whether these names are already on another matter. This is the firm’s own record. It is not an electronic identity check.</p>'
+    + practiceForm(m)
+    + '<div id="conflicts"></div></div>'
     + '<div class="firm-card"><h2>File note</h2><form id="note"><textarea name="note" rows="4" required></textarea><p><button class="btn ghost" type="submit">Add note</button></p></form>'
     + (m.notes || []).slice().reverse().map(n => '<p class="small"><b>' + esc(n.by) + '</b><br>' + esc(n.text) + '</p>').join("") + '</div></aside></div>';
 }
@@ -372,6 +388,21 @@ function bind(id, m) {
     const bits = (found.items || []).map(it => '<li>' + esc(it.where) + ': ' + esc(it.label) + '</li>').concat((found.papers || []).map(p => '<li>' + esc(p.filename) + ': ' + esc(p.snippet) + '</li>'));
     document.getElementById("hits").innerHTML = bits.length ? '<ul>' + bits.join("") + '</ul>' : '<p class="muted">Nothing matched.</p>';
   };
+  const practice = document.getElementById("practice");
+  if (practice) practice.onsubmit = async (e) => {
+    e.preventDefault();
+    await api("/api/firm/matters/" + id, { method: "PATCH", body: { practice: Object.fromEntries(new FormData(e.target).entries()) } });
+    reload();
+  };
+  const hits = document.getElementById("conflicts");
+  if (hits) {
+    api("/api/firm/matters/" + id + "/conflicts").then(r => {
+      const rows = r.matches || [];
+      hits.innerHTML = rows.length
+        ? '<p class="alert">These names are already on another matter.</p><ul>' + rows.map(h => '<li><a href="/firm?m=' + esc(h.id) + '">' + esc(h.title) + '</a> · ' + esc(h.client_name) + (h.deceased_name ? " · estate of " + esc(h.deceased_name) : "") + '</li>').join("") + '</ul>'
+        : '<p class="small">No other matter uses this client’s name or the name of the person who died.</p>';
+    }).catch(() => { hits.innerHTML = ""; });
+  }
   const formChoice = document.getElementById("form-choice");
   if (formChoice) formChoice.onsubmit = async (e) => {
     e.preventDefault();

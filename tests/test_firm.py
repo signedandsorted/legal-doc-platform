@@ -197,3 +197,15 @@ def test_the_firm_can_add_or_remove_a_schedule():
         assert "IHT406.pdf" not in names and "IHT407.pdf" in names and "IHT405.pdf" in names
 
 
+def test_a_repeated_name_is_shown_and_the_practice_file_is_kept():
+    with admin_client() as c:
+        first = c.post("/api/firm/matters", json={"kind": "will", "client_name": "Ann Executor"}).json()
+        second = c.post("/api/firm/matters", json={"kind": "probate", "client_name": "Ann Executor", "deceased_name": "John Executor"}).json()
+        hits = c.get(f"/api/firm/matters/{second['id']}/conflicts")
+        assert hits.status_code == 200
+        assert first["id"] in {row["id"] for row in hits.json()["matches"]}
+        saved = c.patch(f"/api/firm/matters/{second['id']}", json={"practice": {"identity": "Seen", "will_held": "With the firm", "will_ref": "Safe 4", "risk": "Higher", "source": "Sale of the house"}})
+        practice = saved.json()["practice"]
+        assert practice["identity"] == "Seen" and practice["will_ref"] == "Safe 4" and practice["risk"] == "Higher"
+
+

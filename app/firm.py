@@ -18,6 +18,7 @@ from .firm_account import account_document, account_html, prepare_asset_search
 from .iht400_pdf import fill_iht400, refresh_official_form
 from .iht_schedules import schedule_files
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
+from .firm_practice import clean_practice, conflicts as name_conflicts
 from .firm_work import ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
 from .pdf import render_pdf
@@ -55,6 +56,7 @@ class MatterPatch(BaseModel):
     hmrc_posted_on: str | None = None
     grant_filed_on: str | None = None
     grant_reference: str | None = None
+    practice: dict | None = None
 
 
 class ApplyIn(BaseModel):
@@ -125,6 +127,7 @@ def _public(row: dict, full: bool = False) -> dict:
             papers = _papers(row["id"])
             out["papers"] = papers
             out["filing"] = position(row, compiled, papers)
+        out["practice"] = clean_practice(facts.get("practice"))
     return out
 
 
@@ -191,6 +194,14 @@ def get_matter(matter_id: str, _staff: dict = Depends(require_staff)):
     return _public(_load(matter_id), full=True)
 
 
+@router.get("/matters/{matter_id}/conflicts")
+def matter_conflicts(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    with engine().connect() as conn:
+        others = conn.execute(select(matters.c.id, matters.c.title, matters.c.kind, matters.c.client_name, matters.c.deceased_name)).mappings().all()
+    return {"matches": name_conflicts(row, [dict(other) for other in others])}
+
+
 @router.patch("/matters/{matter_id}")
 def patch_matter(matter_id: str, body: MatterPatch, request: Request, staff: dict = Depends(require_staff)):
     row = _load(matter_id)
@@ -228,6 +239,8 @@ def patch_matter(matter_id: str, body: MatterPatch, request: Request, staff: dic
             recorded[key] = val.strip()[:40]
     if any(getattr(body, key) is not None for key in ("hmrc_code", "hmrc_posted_on", "grant_filed_on", "grant_reference")):
         facts["filing"] = recorded
+    if body.practice is not None:
+        facts["practice"] = clean_practice(body.practice)
     values["facts"] = facts
     with engine().begin() as conn:
         conn.execute(update(matters).where(matters.c.id == matter_id).values(**values))
