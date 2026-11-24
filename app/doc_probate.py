@@ -4,6 +4,7 @@ import calendar
 from datetime import date
 
 from .common import DRAFT_NOTICE, issue, money, num, person
+from .integrations.companies_house import apply_companies_house_matches
 from .guide_probate import (EXCEPTED_EXEMPT_LIMIT, EXCEPTED_FOREIGN_DOM_LIMIT, EXCEPTED_TNRB_LIMIT, EXTRA_COPY_FEE, FULL_DETAIL_TRIGGERS, NRB, PROBATE,
                             PROBATE_FEE, PROBATE_FEE_FREE_UNDER, RNRB, RNRB_TAPER_FROM)
 
@@ -11,6 +12,7 @@ JOINT_TENANTS = "Joint tenants"
 
 
 def values(a: dict) -> dict:
+    a = apply_companies_house_matches(a)
     e, t = a.get("estate") or {}, a.get("tax") or {}
     assets, debts = e.get("assets") or [], e.get("debts") or []
     gifts = num(t.get("gifts_7_years"))

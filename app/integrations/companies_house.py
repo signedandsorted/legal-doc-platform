@@ -86,3 +86,33 @@ class CompaniesHouseClient:
 
 def clear_cache() -> None:
     _cache.clear()
+
+
+def apply_companies_house_matches(answers: dict) -> dict:
+    """Copy ticked officer matches into the estate asset checklist. Idempotent. Does not call the API."""
+    block = answers.get("companies_house") or {}
+    officers = block.get("officers") or []
+    estate = dict(answers.get("estate") or {})
+    assets = list(estate.get("assets") or [])
+    existing = {(x.get("description") or "").strip() for x in assets}
+    for officer in officers:
+        match = officer.get("match")
+        if match not in (True, "Yes", "yes", "on", "true"):
+            continue
+        name = (officer.get("name") or "officer").strip()
+        apps = (officer.get("appointments") or "appointment").strip()
+        desc = "Companies House: %s — %s" % (name, apps)
+        if desc in existing:
+            continue
+        assets.append({
+            "description": desc,
+            "category": "Stocks, shares or investments",
+            "value": "0",
+            "ownership": "Owned on their own",
+            "abroad": "No",
+        })
+        existing.add(desc)
+    estate["assets"] = assets
+    out = dict(answers)
+    out["estate"] = estate
+    return out
