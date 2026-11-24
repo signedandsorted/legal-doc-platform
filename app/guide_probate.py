@@ -111,6 +111,25 @@ PROBATE = {
                 {"name": "funeral_costs", "label": "Funeral costs (£)", "type": "number"},
             ],
         },
+        # Companies House check step added for probate estate wiring
+        {
+            "id": "companies_house", "title": "Check Companies House", "video": "probate_estate",
+            "guidance": [
+                "Search the Companies House officer register for the deceased to confirm any directorships or appointments. This helps identify assets or liabilities linked to companies.",
+                "If the API key is not configured, a message will appear indicating the feature is not available.",
+                "Tick the boxes for any officers that match the deceased; these will be added to the estate asset checklist.",
+                "This helper prepares a pack for the family. It does not file or submit anything to Companies House or any government service.",
+            ],
+            "sources": [],
+            "fields": [
+                {"name": "officers", "label": "Companies House officers", "type": "list", "min": 0, "max": 20, "fields": [
+                    {"name": "name", "label": "Officer name", "type": "text", "required": True},
+                    {"name": "dob_month_year", "label": "Date of birth (month/year)", "type": "text"},
+                    {"name": "appointments", "label": "Appointments (company, role)", "type": "textarea"},
+                    {"name": "match", "label": "This is the deceased", "type": "checkbox"},
+                ]},
+            ],
+        },
         {
             "id": "tax", "title": "Inheritance Tax", "video": "probate_tax",
             "guidance": [
