@@ -17,6 +17,7 @@ WILL = {
     "residue": {"residuary_beneficiaries": [{"full_name": "Byron King", "share": "1"}, {"full_name": "Anne King", "share": "1"}], "inherit_age": "25", "substitution": "Their children take their share"},
     "trusts": {"life_interest": "Yes, over my share of my home", "life_tenant": "William King", "vulnerable_beneficiary": "Anne King"},
     "extras": {"funeral_wishes": "Cremation", "organ_donation": "I wish to donate my organs and tissue", "loans_forgiven": "£2,000 lent to my brother", "exclude_person": "Yes", "exclusion_name": "Ralph King", "exclusion_reason": "We have not spoken for 20 years", "letter_of_wishes": "Look after the garden."},
+    "safeguards": {"act_read": True, "capacity": "No reason to doubt it", "doctor": "Not needed", "seen_alone": "Yes", "drafter_benefits": "No", "couple": "No, one will only"},
 }
 
 
@@ -24,11 +25,11 @@ def test_services_and_health():
     with user_client() as client:
         assert client.get("/healthz").json()["ok"] is True
         public = {s["id"] for s in client.get("/api/services").json()}
-        assert {"will", "lpa_property", "lpa_health", "poa_ordinary", "probate", "nuptial"} <= public
-        assert not public & {"prenup", "postnup", "cohabitation", "employment_settlement"}  # hidden from the public list
+        assert {"will", "lpa_property", "lpa_health", "poa_ordinary", "probate", "nuptial", "us_will", "us_trust", "us_poa", "us_health", "us_probate"} <= public
+        assert "United States" in client.get("/").text and "England and Wales" in client.get("/").text
         assert client.get("/").status_code == 200
         svc = client.get("/api/services/will").json()
-        assert [s["id"] for s in svc["steps"]] == ["intro", "about_you", "family", "executors", "gifts", "residue", "trusts", "business", "extras", "documents"]
+        assert [s["id"] for s in svc["steps"]] == ["intro", "about_you", "family", "executors", "gifts", "residue", "trusts", "business", "safeguards", "extras", "documents"]
         assert all(s.get("sources") for s in svc["steps"])
 
 
@@ -50,6 +51,12 @@ def test_will_flow_to_pdf_and_review():
         heads = [s["heading"] for s in doc["sections"]]
         assert any(h.startswith("Statement of reasons") for h in heads) and any(h.startswith("Letter of wishes") for h in heads)
         assert "Ralph King" not in text
+        unpaid = client.get(f"/api/drafts/{draft['id']}/pdf")
+        assert unpaid.status_code == 402
+        from sqlalchemy import update
+        from app.db import drafts, engine
+        with engine().begin() as conn:
+            conn.execute(update(drafts).where(drafts.c.id == draft["id"]).values(payment={"status": "paid", "amount": 14900, "currency": "gbp"}))
         pdf = client.get(f"/api/drafts/{draft['id']}/pdf")
         assert pdf.headers["content-type"] == "application/pdf" and pdf.content.startswith(b"%PDF")
         assert client.post(f"/api/drafts/{draft['id']}/submit").json()["status"] == "submitted_for_review"
@@ -76,6 +83,32 @@ def test_discretionary_trust_replaces_fixed_shares():
         d = client.post("/api/drafts", json={"service": "will", "answers": a}).json()
         text = " ".join(client.get(f"/api/drafts/{d['id']}/document").json()["sections"][0]["paragraphs"])
         assert "discretionary trust" in text and "50%" not in text
+
+
+def test_old_will_conflict_and_mutual_flag():
+    from app.doc_will import will_issues
+    answers = {**WILL, "safeguards": {**WILL["safeguards"], "couple": "Mirror wills: each of us can change our own", "couple_name": "William King"}}
+    messages = " ".join(item["message"] for item in will_issues(answers, "This mutual will shall not revoke. I give my piano to Ralph King. I appoint Susan Foreman of 1 Road to be my executor."))
+    assert "mirror will" in messages and "Susan Foreman" in messages and "1975" in messages
+    assert "immune" not in messages
+    assert "File protection" in messages and "correction fluid" in messages
+
+
+def test_old_will_review_flags_for_the_solicitor():
+    from app.doc_will import will_issues
+    from app.firm_books import protection_letter
+    text = (
+        "I revoke all former wills. I give my house in Spain to my wife if she survives me by 28 days. "
+        "The nil-rate band is held on discretionary trust. This will incorporates the STEP Standard Provisions. "
+        "A codicil crossed out the gift. My pension and a policy written in trust are mentioned."
+    )
+    messages = " ".join(item["message"] for item in will_issues({"safeguards": {}}, text))
+    for needle in ("foreign will", "nil-rate", "STEP", "codicil", "section 21", "pension", "spouse exemption"):
+        assert needle in messages
+    note = protection_letter("old_will", {"client_name": "Ada King", "kind": "Will"})
+    assert note["title"].startswith("Old will review")
+    assert "Larke v Nugus" in note["body"] and "does not make the firm immune" in note["body"]
+    assert "not a finished clause" in note["body"]
 
 
 def test_will_upload_suggests_old_executors():

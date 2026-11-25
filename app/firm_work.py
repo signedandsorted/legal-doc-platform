@@ -4,7 +4,7 @@ The assistant only restates this checklist and the same draft checks the public 
 It does not invent law, and it does not file anything.
 """
 import calendar
-from datetime import date
+from datetime import date, timedelta
 
 from .guides import SERVICES
 from .integrations.gazette import claim_deadline
@@ -204,6 +204,20 @@ def deadlines(matter: dict) -> list[dict]:
         out.append({"label": "Section 27 notice: last day for claims", "date": expires, "note": "Two months and one day from the date the notice was placed. Do not pay everyone before this day. Claims the firm already knows about are not shut out."})
     else:
         out.append({"label": "Section 27 notice", "date": "", "note": "Not placed yet. The firm places it in The London Gazette, and in a local newspaper if there is land."})
+    wiqs = (matter.get("facts") or {}).get("wiqs") or {}
+    last = _parse_iso(wiqs.get("last_report") or "")
+    if last:
+        out.append({
+            "label": "Next progress report to the client",
+            "date": (last + timedelta(days=28)).isoformat(),
+            "note": "28 days after the last report recorded on the Scheme tab, unless a different interval was agreed.",
+        })
+    else:
+        out.append({
+            "label": "Progress report to the client",
+            "date": "",
+            "note": "None recorded. On an estate the Wills and Inheritance Protocol expects a report every 28 days unless a different interval was agreed.",
+        })
     return out
 
 

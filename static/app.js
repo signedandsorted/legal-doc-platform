@@ -2,7 +2,7 @@
 const $app = document.getElementById("app");
 const HOME_HTML = $app ? $app.innerHTML : "";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const ICONS = { will: "📜", lpa_property: "🏦", lpa_health: "🩺", poa_ordinary: "📝", probate: "⚖️" };
+const ICONS = { will: "📜", lpa_property: "🏦", lpa_health: "🩺", poa_ordinary: "📝", probate: "⚖️", us_will: "📜", us_trust: "🏛️", us_poa: "🏦", us_health: "🩺", us_probate: "⚖️" };
 const cache = {};
 
 let ME = null;
@@ -46,7 +46,7 @@ async function route() {
     if (parts[0] === "reset") return resetPage(parts[1]);
     if (parts[0] === "mine") return await mine();
     if (parts[0] === "admin") return await adminPage(parts.slice(1));
-    if (parts[0] === "how") return howPage();
+    if (parts[0] === "law") return await lawPage();
     if (parts[0] === "about") return aboutPage();
     if (parts[0] === "pricing") return pricingPage();
     if (parts[0] === "faq") return faqPage();
@@ -60,12 +60,49 @@ async function route() {
   } catch (e) {
     if (e.quiet) return;
     $app.innerHTML = '<h1>Sorry, something went wrong</h1><div class="alert error">' + esc(e.message) + '</div><p><a class="btn ghost" href="#/">Back to the start</a></p>';
-  } finally { focusMain(); }
+  } finally { applyCountry(); focusMain(); }
 }
 
 
+function country() { return localStorage.getItem("sas_country") || "gb"; }
+function ensureCountryBar() {
+  if (document.getElementById("country-bar")) return;
+  const bar = document.createElement("div");
+  bar.className = "country-bar";
+  bar.id = "country-bar";
+  bar.innerHTML = '<div class="country-bar-inner"><span>Choose your country</span><button type="button" data-set-country="gb">England and Wales</button><button type="button" data-set-country="us">United States</button></div>';
+  const header = document.querySelector(".site-header");
+  if (header) header.insertAdjacentElement("afterend", bar);
+}
+function setCountry(code) {
+  localStorage.setItem("sas_country", code === "us" ? "us" : "gb");
+  const onHome = !location.hash || location.hash === "#" || location.hash === "#/";
+  if (!onHome) { location.hash = "#/"; return; }
+  home();
+}
+function applyCountry() {
+  ensureCountryBar();
+  const chosen = country();
+  document.querySelectorAll("[data-country-panel]").forEach(el => { el.hidden = false; });
+  document.querySelectorAll("[data-set-country]").forEach(btn => {
+    btn.classList.toggle("on", btn.getAttribute("data-set-country") === chosen);
+    btn.onclick = () => setCountry(btn.getAttribute("data-set-country"));
+  });
+  const start = document.querySelector("[data-start-link]");
+  if (start) start.setAttribute("href", chosen === "us" ? "#/s/us_will" : "#/s/will");
+}
+function countryPicker() {
+  const chosen = country();
+  return '<p class="eyebrow">Where do you live?</p><p><button type="button" class="btn' + (chosen === "gb" ? "" : " ghost") + '" id="pick-gb">England and Wales</button> <button type="button" class="btn' + (chosen === "us" ? "" : " ghost") + '" id="pick-us">United States</button></p>';
+}
+function bindCountryPicker() {
+  const gb = document.getElementById("pick-gb");
+  const us = document.getElementById("pick-us");
+  if (gb) gb.onclick = () => { localStorage.setItem("sas_country", "gb"); route(); };
+  if (us) us.onclick = () => { localStorage.setItem("sas_country", "us"); route(); };
+}
 function cardHtml(s) {
-  return '<article class="card svc"><span class="icon" aria-hidden="true">' + (ICONS[s.id] || "📄") + '</span><h3>' + esc(s.title) + '</h3><p class="muted">' + esc(s.summary) + '</p><p class="meta">' + s.steps + ' steps · about ' + (s.steps * 3) + ' minutes</p><a class="btn" href="#/s/' + s.id + '" data-start="' + s.id + '">Start</a></article>';
+  return '<article class="card svc"><span class="icon" aria-hidden="true">' + (ICONS[s.id] || "📄") + '</span><h3>' + esc(s.title) + '</h3><p class="muted">' + esc(s.summary) + '</p><p class="meta">' + (s.price ? esc(s.price) + ' · ' : '') + s.steps + ' steps · about ' + (s.steps * 3) + ' minutes</p><a class="btn" href="#/s/' + s.id + '" data-start="' + s.id + '">Start</a></article>';
 }
 function serviceGroups(list) {
   const order = [];
@@ -105,34 +142,34 @@ function howPage() {
     + '<div class="how"><div><b>1. Choose</b>Will, LPA, probate, prenup, postnup, cohabitation or an employment settlement.</div>'
     + '<div><b>2. Watch and answer</b>Each step has a short video, plain-English help, then a few questions. Answers save as you go.</div>'
     + '<div><b>3. Check</b>Read the draft, with a note on every clause, and fix anything flagged.</div>'
-    + '<div><b>4. Solicitor review</b>Send it for review before anything is signed or filed.</div></div>'
+    + '<div><b>4. Finish</b>Download the PDF and do it yourself, or send it to a solicitor. A solicitor is optional, except where the law requires advice.</div></div>'
     + '<p><a class="btn" href="#/s/will">Start a will</a> <a class="btn ghost" href="#/pricing">See pricing</a></p></div>';
 }
 function pricingPage() {
   const rows = [
-    ["Will", "£149", "Single will, video on every step, solicitor review before you sign.", "#/s/will"],
+    ["Will", "£149", "Make it yourself. Video on every step. A solicitor check is optional.", "#/s/will"],
     ["Lasting power of attorney", "£149 each", "Property and financial affairs, or health and welfare. Both together £249.", "#/s/lpa_property"],
     ["Health and welfare LPA", "£149", "Decisions about care and medical treatment if you cannot decide.", "#/s/lpa_health"],
     ["Ordinary power of attorney", "£99", "For while you still have capacity. It ends if you lose capacity.", "#/s/poa_ordinary"],
     ["Probate", "from £399", "Application support and document checking. Complex estates are quoted.", "#/s/probate"],
-    ["Prenuptial agreement", "£349", "Before marriage. Full disclosure and solicitor review.", "#/s/prenup"],
-    ["Postnuptial agreement", "£349", "After marriage. Solicitor review included.", "#/s/postnup"],
+    ["Prenuptial agreement", "£349", "Prepare it yourself. It is not binding unless each of you has had your own advice.", "#/s/prenup"],
+    ["Postnuptial agreement", "£349", "Prepare it yourself. Each of you still needs your own advice if you want a court to follow it.", "#/s/postnup"],
     ["Cohabitation agreement", "£249", "For unmarried couples, covering the home and money.", "#/s/cohabitation"],
     ["Employment settlement", "£299", "Agreed exit terms. The employee still needs independent advice.", "#/s/employment_settlement"]
   ];
   $app.innerHTML = '<div class="inner-page"><p class="eyebrow">Pricing</p><h1>Guide prices</h1>'
-    + '<p class="lead">These are guide prices, not a quote. They can be changed. Solicitor review of the draft is included. You are not charged on this page.</p>'
+    + '<p class="lead">These are the prices to download the document and use it yourself. The questions are free. You pay when the draft is complete. A solicitor is optional. The price shown is the price taken.</p>'
     + '<div class="price-grid">' + rows.map(r => '<article class="service-card"><h3>' + esc(r[0]) + '</h3><p class="price">' + esc(r[1]) + '</p><p>' + esc(r[2]) + '</p><a class="btn" href="' + r[3] + '">Start</a></article>').join("") + '</div></div>';
 }
 function aboutPage() {
   $app.innerHTML = '<div class="inner-page"><p class="eyebrow">About us</p><h1>Signed and Sorted</h1>'
     + '<p class="lead">Wills, lasting powers of attorney, probate, and family and employment agreements for England and Wales.</p>'
-    + '<p>You answer guided questions. A short video explains each step, and you can choose a woman or a man as the presenter. A solicitor checks the draft before you sign. This is not legal advice until that review is done.</p>'
+    + '<p>You answer guided questions. A short video explains each step, and you can choose a woman or a man as the presenter. You can download the draft and deal with it yourself. Asking a solicitor to check it is optional. This is not legal advice.</p>'
     + '<p><a class="btn" href="#/">See the services</a></p></div>';
 }
 function legalPage(kind) {
   const pages = {
-    terms: ["Terms", "Using Signed and Sorted does not create a solicitor-client relationship by itself. The questions and videos are guidance. A solicitor reviews the draft before you sign or file anything. Guide prices on the pricing page are not a quote and nothing is taken on this website until a payment step is switched on."],
+    terms: ["Terms", "Using Signed and Sorted does not create a solicitor-client relationship. You can use the public pages on your own: answer the questions, download the PDF or Word file, and deal with a will, a lasting power of attorney or a probate application yourself. Asking a solicitor to check it is optional. An employment settlement that gives up claims still needs the employee’s own legal advice, and a prenuptial or postnuptial agreement is not automatically binding without that advice. Guide prices are not a quote and nothing is taken on this website until a payment step is switched on. If you sign a retainer at home, in hospital, at work, or online, you have 14 days to cancel. The retainer can ask the firm to start every section during those 14 days. Signing it does not remove that right. The right to cancel a section ends only when that section has been fully done. Until then you can cancel it and pay a reasonable amount for the work already done."],
     privacy: ["Privacy", "Your answers, uploads and account email are stored so you can finish a draft and so a solicitor can review it. They are not sold. Sign in to see your own documents. An administrator can see drafts for review. Do not put passwords in a will or an upload."],
     complaints: ["Complaints", "If something has gone wrong, email the address you used to contact Signed and Sorted and include your draft reference from My documents. We will reply with what will happen next. This page is not a regulator complaint form."]
   };
@@ -143,8 +180,9 @@ function faqPage() {
   const qs = [
     ["Do I have to watch the video?", "No. It is there to explain the step. You can pause it or skip it and still answer the questions."],
     ["Can I choose a man or a woman?", "Yes. On any video, choose Woman or Man. The choice is saved in this browser and used on the next steps."],
-    ["When do I pay?", "Not while you are drafting. Guide prices are on the pricing page. Nothing is taken on this site until a payment step is switched on."],
-    ["Is this legal advice?", "The questions and videos are guidance. A solicitor reviews the draft before you sign or file anything."]
+    ["When do I pay?", "The questions are free. You pay the price on the pricing page when the draft is complete, before the PDF or Word file is downloaded. A solicitor is not included in that price."],
+    ["Is this legal advice?", "No. The questions and videos are guidance. You can finish a will, a lasting power of attorney or a probate application yourself. A solicitor is optional."],
+    ["Do I need a solicitor?", "Not for a will, a lasting power of attorney, an ordinary power, or applying for probate. You can do those on the public pages and download them. A solicitor is there if you want one. An employment settlement that gives up claims needs the employee’s own advice. A prenuptial or postnuptial agreement is not automatically binding without each person’s own advice."]
   ];
   $app.innerHTML = '<div class="inner-page"><p class="eyebrow">Help</p><h1>Help and support</h1>'
     + qs.map(q => '<h2>' + esc(q[0]) + '</h2><p>' + esc(q[1]) + '</p>').join("")
@@ -153,20 +191,20 @@ function faqPage() {
 function home() {
   if (HOME_HTML && HOME_HTML.indexOf("hero-section") !== -1) {
     $app.innerHTML = HOME_HTML;
+    applyCountry();
     return;
   }
   return homeFromApi();
 }
 async function homeFromApi() {
-  const list = await api("/api/services");
-  $app.innerHTML = '<section class="hero"><div><p class="eyebrow">England and Wales</p><h1>Your will, power of attorney or probate, sorted step by step</h1>'
-    + '<p class="lead">Short videos and plain-English help on every step. Upload your old documents and we suggest answers. A solicitor checks everything before you sign.</p></div>'
-    + '<div class="hero-card" aria-label="What you get"><ul><li>Guided questions with a video on each step</li><li>Built on the official GOV.UK forms (LP1F, LP1H, PA1P, PA1A, IHT400)</li><li>Upload an old will, LPA or probate papers</li><li>Download a PDF and send it for solicitor review</li></ul></div></section>'
+  const list = (await api("/api/services")).filter(s => (s.country || "gb") === country());
+  $app.innerHTML = countryPicker() + '<section class="hero"><div><p class="eyebrow">' + (country() === "us" ? "United States" : "England and Wales") + '</p><h1>' + (country() === "us" ? "A will or a trust for your state" : "Your will, power of attorney or probate, sorted step by step") + '</h1>'
+    + '<p class="lead">' + (country() === "us"
+      ? "A will still goes through probate. A revocable trust avoids it only for assets you transfer into the trust. Louisiana is not a common-law will. A lawyer in your state is optional."
+      : "Short videos and plain-English help on every step. You can finish a will, an LPA or probate yourself. A solicitor is optional.") + '</p></div></section>'
     + serviceGroups(list)
-    + businessSection()
-    + '<h2>How it works</h2><div class="how"><div><b>1. Answer</b>Watch the short video, read the help and answer a few questions. Your answers save automatically.</div><div><b>2. Check</b>See your draft with a plain-English note on every clause, and any points to fix.</div><div><b>3. Review</b>Send it to a solicitor. They check it with you before anything is signed or sent.</div></div>'
-    + '<h2>Carry on where you left off</h2><div class="card">' + (ME ? '<p>You are signed in as <b>' + esc(ME.email) + '</b>.</p><p><a class="btn ghost" href="#/mine">Go to my documents</a></p>'
-      : '<p>Your drafts and documents are kept in your account. Sign in to carry on.</p><p><a class="btn ghost" href="#/login">Sign in</a> <a class="btn ghost" href="#/register">Create an account</a></p>') + '</div>';
+    + (country() === "us" ? "" : businessSection());
+  bindCountryPicker();
   bindStart();
 }
 
@@ -487,16 +525,58 @@ function sideHtml(s, draft, index) {
     + '<li class="' + (index < 0 ? "on" : "") + '"><a href="#/d/' + draft.id + '/review">Check and send</a></li></ol></aside>';
 }
 
-function uploadsHtml(st, draft) {
-  if (!st.uploads) return "";
+function uploadsHtml(st, draft, s) {
+  const paper = (s && s.steps || []).find(x => x.id === "papers" && x.uploads);
+  const kinds = st.uploads || (draft.service === "probate" && paper ? paper.uploads : null);
+  if (!kinds) return "";
   const sugg = draft.uploads.flatMap(u => u.suggestions || []);
-  return '<h2>Upload documents</h2>'
+  const when = u => u.created_at ? new Date(u.created_at).toLocaleDateString("en-GB") : "";
+  const groups = {};
+  draft.uploads.forEach(u => { (groups[u.kind || "Other"] = groups[u.kind || "Other"] || []).push(u); });
+  const library = Object.keys(groups).map(kind => '<h3>' + esc(kind) + '</h3><ul class="files">' + groups[kind].map(u => '<li><span>📄 <a href="/api/drafts/' + draft.id + '/uploads/' + u.id + '">' + esc(u.filename) + '</a> <span class="muted">· ' + esc(when(u)) + ' · ' + ({ pdf: "text read", docx: "text read", text: "text read", ocr: "read from the photo or scan", image: "photo kept, nothing could be read", "scanned-pdf": "scan kept, nothing could be read", unreadable: "could not read, kept for your solicitor" })[u.read_as] + '</span></span>' + (draft.status === "draft" ? '<button type="button" class="btn ghost small" data-del="' + u.id + '">Delete</button>' : "") + '</li>').join("") + '</ul>').join("");
+  return '<h2>' + (st.uploads ? "Estate papers" : "Papers already on this file") + '</h2>'
+    + (st.uploads ? "" : '<p class="small">Add anything that has arrived. It is kept with the papers from step 1.</p>')
     + (draft.status === "draft" ? '<label class="drop" id="drop"><input type="file" id="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.heic,.webp"><b>Choose files</b> or drag them here<br><span class="muted small">PDF, Word, text or photos · up to 10 MB each</span></label>'
-      + '<div class="field"><label for="kind">What is it?</label><select id="kind"><option value="">Work it out for me</option>' + st.uploads.map(k => '<option>' + esc(k) + '</option>').join("") + '</select></div>' : "")
+      + '<div class="field"><label for="kind">What is it?</label><select id="kind"><option value="">Work it out for me</option>' + kinds.map(k => '<option>' + esc(k) + '</option>').join("") + '</select></div>' : "")
     + '<div id="upmsg" aria-live="polite"></div>'
-    + (draft.uploads.length ? '<ul class="files">' + draft.uploads.map(u => '<li><span>📄 <a href="/api/drafts/' + draft.id + '/uploads/' + u.id + '">' + esc(u.filename) + '</a> <span class="muted">· ' + esc(u.kind) + ' · ' + ({ pdf: "text read", docx: "text read", text: "text read", ocr: "read from the photo or scan", image: "photo kept, nothing could be read", "scanned-pdf": "scan kept, nothing could be read", unreadable: "could not read, kept for your solicitor" })[u.read_as] + '</span></span>' + (draft.status === "draft" ? '<button type="button" class="btn ghost small" data-del="' + u.id + '">Delete</button>' : "") + '</li>').join("") + '</ul>' : "")
-    + (sugg.some(s => s.mode !== "note") && draft.status === "draft" ? '<p><button type="button" class="btn" id="fill-papers">Fill in what these papers show</button></p><p class="small">This is the point where the papers are written into the draft. It does not finish questions the papers do not answer, and it does not file anything.</p>' : "")
+    + (draft.uploads.length ? library : '<p class="muted">No papers yet.</p>')
+    + (sugg.some(s => s.mode !== "note") && draft.status === "draft" ? '<p><button type="button" class="btn" id="fill-papers">Fill in what these papers show</button></p><p class="small">Names, the date of death and amounts that can be read are written in. Anything you have already typed is left as it is.</p>' : "")
     + (sugg.length ? '<div class="sugg"><h3>Read from your documents</h3><ul>' + sugg.map(s => '<li><span>' + esc(s.label) + ' <span class="muted small">(' + esc(s.source) + ')</span></span>' + (s.mode !== "note" && draft.status === "draft" ? '<button type="button" class="btn small" data-sugg="' + esc(s.id) + '">Add</button>' : "") + '</li>').join("") + '</ul></div>' : "");
+}
+
+function retainerCard(section) {
+  const r = (ME && ME.retainer) || {};
+  if (r.signed) {
+    const done = (r.finished || []).indexOf(section) >= 0;
+    return '<div class="alert">' + esc(r.effect || "Your retainer asks the firm to start every section during the 14 days.")
+      + (done ? " This section is recorded as finished, so the right to cancel it has ended." : " This section is not finished, so you can still cancel it.")
+      + ' <a href="/api/retainer.pdf">Download the request</a></div>';
+  }
+  if (!ME) {
+    return '<div class="alert">If you sign the retainer at home, in hospital, at work, or online, you have 14 days to cancel. One signed request covers every section: wills, lasting powers, probate and the agreements. It asks the firm to start during those 14 days. It does not remove the right until that section is finished. <a href="#/login">Sign in</a> to record it.</div>';
+  }
+  const places = ["At the firm’s office", "At my home, or someone else’s home", "At a hospital or care home", "At my workplace", "Online or by telephone, not in person"];
+  return '<form id="retainer" class="card"><h2>Start during the 14 days</h2><p>One request covers every section on this site. Signing asks the firm to start. It does not waive the right to cancel. That right for a section ends only when the section has been fully done. Until then you pay a reasonable amount for the work already done if you cancel.</p>'
+    + '<label>Your full name<input name="signed_name" required></label>'
+    + '<label>Date<input type="date" name="signed_on" required></label>'
+    + '<label>Where you are signing<select name="place" required><option value="">Choose</option>' + places.map(p => '<option>' + esc(p) + '</option>').join("") + '</select></label>'
+    + '<p><button class="btn" type="submit">Sign the request for every section</button></p><div id="retainer-msg"></div></form>';
+}
+function bindRetainer() {
+  const form = document.getElementById("retainer");
+  if (!form) return;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const box = document.getElementById("retainer-msg");
+    try {
+      await api("/api/retainer", { method: "POST", body: { signed_name: fd.get("signed_name"), signed_on: fd.get("signed_on"), place: fd.get("place") } });
+      await whoami();
+      route();
+    } catch (err) {
+      box.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>';
+    }
+  };
 }
 
 async function step(id, index) {
@@ -511,14 +591,16 @@ async function step(id, index) {
   $app.innerHTML = '<div class="layout">' + sideHtml(s, draft, index) + '<section>' + topStepHtml(s, draft, index)
     + (st.form_section ? '<p class="eyebrow"><span class="pill">' + esc(st.form_section) + '</span></p>' : "")
     + '<h1>' + esc(st.title) + '</h1>' + videoHtml(st.video, st.title)
+    + retainerCard(draft.service)
     + '<div class="guide">' + st.guidance.map(p => '<p>' + esc(p) + '</p>').join("") + '</div>' + sourcesHtml(st.sources)
     + (editable ? "" : '<div class="alert ok">This draft has been sent for solicitor review, so it can no longer be changed.</div>')
     + (st.tool ? '<div id="tool" class="tool"></div>' : "")
-    + '<form id="f" novalidate><div id="fields">' + st.fields.map(f => fieldHtml(f, cur[f.name], [f.name], cur)).join("") + '</div>' + uploadsHtml(st, draft)
+    + '<form id="f" novalidate><div id="fields">' + st.fields.map(f => fieldHtml(f, cur[f.name], [f.name], cur)).join("") + '</div>' + uploadsHtml(st, draft, s)
     + '<div id="msg" aria-live="assertive"></div><div class="actions">' + (index ? '<a class="btn ghost" href="#/d/' + id + '/' + (index - 1) + '">← Back</a>' : '<a class="btn ghost" href="#/">Home</a>')
     + '<span class="saved" id="saved" aria-live="polite"></span><button class="btn" type="submit">' + (last ? "Check my draft →" : "Save and continue →") + '</button></div></form></section></div>';
   const form = document.getElementById("f"), fields = document.getElementById("fields"), saved = document.getElementById("saved");
   if (st.tool && TOOLS[st.tool]) TOOLS[st.tool](document.getElementById("tool"), draft);
+  bindRetainer();
   if (!editable) form.querySelectorAll("input,select,textarea").forEach(el => el.disabled = true);
   const rerender = () => { fields.innerHTML = st.fields.map(f => fieldHtml(f, cur[f.name], [f.name], cur)).join(""); };
   let timer;
@@ -594,7 +676,54 @@ async function step(id, index) {
   };
 }
 
+async function lawPage() {
+  const data = await api("/api/law");
+  const watch = data.watch || {};
+  const changes = (watch.changes || []).map(c => '<li><a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.title) + '</a> · ' + esc((c.at || "").slice(0, 10)) + '<br>' + esc(c.note || "") + '</li>').join("");
+  const failed = (watch.failed || []).map(c => '<li>' + esc(c.title) + ' · ' + esc(c.error || "could not be read") + '</li>').join("");
+  const scheme = data.scheme || { links: [], cannot: [] };
+  $app.innerHTML = '<div class="inner-page"><p class="eyebrow">Law updates</p><h1>What this desk is using</h1><p class="lead">' + esc(data.note) + '</p>'
+    + '<p>These are the rules the questions and letters are written against. Keeping them on the file reduces the chance of a mistake. It does not make a solicitor immune from a claim, and it does not stop a claim under the Inheritance (Provision for Family and Dependants) Act 1975.</p>'
+    + '<article class="card"><h2>Daily check</h2><p>' + esc(watch.note || "") + '</p><p class="small">Last check: ' + esc(watch.checked_at ? watch.checked_at.slice(0, 16).replace("T", " ") + " UTC" : "not yet") + '.</p>'
+    + (changes ? '<ul>' + changes + '</ul>' : '<p>No page change is waiting.</p>')
+    + (failed ? '<p class="small">Could not be read this time:</p><ul>' + failed + '</ul>' : '')
+    + '</article>'
+    + '<article class="card"><h2>' + esc(scheme.title || "Scheme") + '</h2>'
+    + (scheme.cannot || []).map(line => '<p>' + esc(line) + '</p>').join("")
+    + '<p>' + (scheme.links || []).map(link => '<a href="' + esc(link.url) + '" target="_blank" rel="noopener">' + esc(link.title) + '</a>').join(' · ') + '</p></article>'
+    + data.updates.map(u => '<article class="card"><p class="eyebrow">' + esc(u.area) + ' · checked ' + esc(u.checked) + '</p><p>' + esc(u.point) + '</p><p><a href="' + esc(u.url) + '" target="_blank" rel="noopener">Open the source</a></p></article>').join("")
+    + '<p><a class="btn ghost" href="#/">Home</a></p></div>';
+}
+
+function onYourOwn(id) {
+  const notes = {
+    will: "You do not need a solicitor to make this will. Download it, then sign it in front of two adult witnesses who are both there and are not beneficiaries, or married to or in a civil partnership with a beneficiary. It is not valid until it is signed that way. Read any warning above before you sign. A solicitor is optional.",
+    lpa_property: "You do not need a solicitor to make or register this lasting power. Copy the answers onto the official form, or use the GOV.UK service, and follow the signing order. The Office of the Public Guardian registers it. A solicitor is optional.",
+    lpa_health: "You do not need a solicitor to make or register this lasting power. Copy the answers onto the official form, or use the GOV.UK service, and follow the signing order. The Office of the Public Guardian registers it. A solicitor is optional.",
+    poa_ordinary: "You can make this ordinary power yourself and sign it as a deed while you still have capacity. It ends if you lose capacity. If it is limited, or it will be used for land, have the wording checked before it is used. A solicitor is optional for a general power.",
+    probate: "You can deal with this yourself. If the estate qualifies, you apply for probate on GOV.UK. This website does not file it. Asking the firm to file is optional.",
+    prenup: "You can prepare this yourself and download it. It is not automatically binding. A court is much more likely to follow it if each of you has had your own legal advice and there was full financial disclosure. This page does not give that advice.",
+    postnup: "You can prepare this yourself and download it. It is not automatically binding. A court is much more likely to follow it if each of you has had your own legal advice and there was full financial disclosure. This page does not give that advice.",
+    nuptial: "You can prepare this yourself and download it. It is not automatically binding. A court is much more likely to follow it if each of you has had your own legal advice and there was full financial disclosure. This page does not give that advice.",
+    cohabitation: "You can write and sign this yourselves. It does not give you the rights of a marriage or a civil partnership. A solicitor is optional.",
+    employment_settlement: "You can set out the terms yourself. If the agreement asks the employee to give up employment claims, the law requires the employee to have independent legal advice before they sign. Without that advice the waiver does not work. This page cannot give that advice.",
+    us_will: "You can download this will and sign it under your state's rules. Two adult witnesses is the usual rule. Louisiana is different: do not sign this printout as a testament. Pennsylvania can allow a will with no witnesses, but two are safer. A lawyer in your state is optional.",
+    us_trust: "You can download the trust and the pour-over will. The trust avoids probate only after you transfer assets into it. This site does not sign a deed. A lawyer in your state is optional.",
+    us_poa: "You can name an agent for money and property. Sign before a notary, and add witnesses if your state or your bank requires them. This is not a healthcare directive.",
+    us_health: "You can name a healthcare agent and write your wishes. Your agent should not be a witness. This is not a POLST or MOLST.",
+    us_probate: "You can use the checklist yourself. You still file in the probate court of the county where the person lived. This site does not file it, and it does not invent the creditor deadline."
+  };
+  return notes[id] || "You can finish this on the public pages and download it. Asking a solicitor to check it is optional.";
+}
+
 async function review(id) {
+  const session = query().get("session_id");
+  if (session) {
+    try { await api("/api/drafts/" + id + "/payment", { method: "POST", body: { session_id: session } }); }
+    catch (e) { /* the review page shows the unpaid price if the payment did not complete */ }
+    location.hash = "#/d/" + id + "/review";
+    return;
+  }
   const draft = await api("/api/drafts/" + id);
   remember(draft);
   const s = await service(draft.service);
@@ -609,15 +738,62 @@ async function review(id) {
     return;
   }
   const doc = await api("/api/drafts/" + id + "/document");
+  const versions = await api("/api/drafts/" + id + "/versions").catch(() => []);
+  const flow = s.steps.map((st, i) => '<li><b>' + (i + 1) + '. ' + esc(st.title) + '</b> — ' + (draft.answers[st.id] ? "answered" : "not started") + '</li>').join("");
+  const latest = (versions || []).length ? versions[versions.length - 1] : null;
+  const pay = draft.payment || {};
+  const paid = pay.status === "paid";
+  const price = pay.label || "";
+  const versionList = (versions || []).map(v => '<li>Version ' + v.number + ' · ' + esc(v.label) + (v.note ? ' · ' + esc(v.note) : '') + ' · ' + esc(v.at || "")
+    + (paid ? ' · <a href="/api/drafts/' + id + '/versions/' + esc(v.id) + '.pdf">PDF</a> · <a href="/api/drafts/' + id + '/versions/' + esc(v.id) + '.docx">Word</a>' : '') + '</li>').join("");
+  const downloads = paid
+    ? '<a class="btn ghost" href="/api/drafts/' + id + '/pdf">PDF</a> <a class="btn ghost" href="/api/drafts/' + id + '/docx">Word</a> <a class="btn ghost" href="/api/drafts/' + id + '/summary.pdf">Summary PDF</a> <button type="button" class="btn ghost" id="email-summary">Email the summary</button> '
+    : '<button type="button" class="btn" id="pay">Pay ' + esc(price) + ' to download</button> ';
   $app.innerHTML = head + '<h1>Check your draft</h1>' + videoHtml(s.review_video, "Check and send") + issuesHtml(doc.issues)
+    + '<h2>What was asked</h2><ol class="flow">' + flow + '</ol>'
     + '<article class="doc"><h2>' + esc(doc.title) + '</h2><p class="notice">' + esc(doc.notice) + '</p>'
-    + doc.sections.map(sec => '<h3>' + esc(sec.heading) + '</h3>' + sec.paragraphs.map((p, i) => '<div class="clause"><p>' + esc(p) + '</p>' + (sec.notes && sec.notes[i] ? '<p class="note">💡 ' + esc(sec.notes[i].replace(/^\d+\.\s*/, "")) + '</p>' : "") + '</div>').join("")).join("") + '</article>'
+    + doc.sections.map(sec => '<h3>' + esc(sec.heading) + '</h3>' + sec.paragraphs.map((p, i) => '<div class="clause"><p>' + esc(p) + '</p>' + (sec.notes && sec.notes[i] ? '<p class="note">' + esc(sec.notes[i].replace(/^\d+\.\s*/, "")) + '</p>' : "") + '</div>').join("")).join("") + '</article>'
     + '<h2>What happens next</h2><ol>' + doc.next_steps.map(n => '<li>' + esc(n) + '</li>').join("") + '</ol>' + sourcesHtml(doc.sources)
+    + '<h2>Versions</h2><p>' + (latest ? 'The latest kept copy is version ' + latest.number + ' (' + esc(latest.label) + '). You are looking at the answers as they are now. Older copies stay on the file.' : 'No version has been kept yet. Finishing it yourself keeps a copy. Older ones stay.') + ' A downloaded copy is still not signed until the paper is signed.</p>'
+    + (versionList ? '<ol>' + versionList + '</ol>' : '')
+    + '<div class="alert">' + esc(onYourOwn(draft.service)) + '</div>'
+    + '<p><button type="button" class="btn" id="own">Finish on my own</button> <button type="button" class="btn ghost" id="keep">Keep this version</button> <button type="button" class="btn ghost" id="final">Note that the final copy was sent</button></p>'
     + '<div id="statement-panel"></div>'
-    + '<div class="actions"><a class="btn ghost" href="#/d/' + id + '/0">Change answers</a><span><a class="btn ghost" href="/api/drafts/' + id + '/pdf">Download PDF</a> '
-    + (draft.status === "draft" ? '<button class="btn accent" id="submit">Send to a solicitor for review</button>' : '<span class="alert ok">Sent for solicitor review</span>') + '</span></div><div id="msg" aria-live="polite"></div></section></div>';
+    + '<div class="actions"><a class="btn ghost" href="#/d/' + id + '/0">Change answers</a><span>'
+    + downloads
+    + (draft.status === "draft" && paid ? '<button class="btn ghost" id="submit">Ask a solicitor to check it</button>' : '')
+    + (draft.status !== "draft" ? '<span class="alert ok">Sent for solicitor review. This version is kept. You can still download it. It is not signed until the paper is signed.</span>' : '')
+    + (paid ? '' : '<p class="small">Paying asks for the file straight away. Once it is downloaded, the 14-day right to cancel this download ends. You can still cancel before you pay.</p>')
+    + '</span></div><div id="msg" aria-live="polite"></div></section></div>';
+  const keep = async (label, note) => { await api("/api/drafts/" + id + "/versions", { method: "POST", body: { label, note } }); route(); };
+  document.getElementById("keep").onclick = () => keep("Kept", "A working version, before the final copy.");
+  document.getElementById("own").onclick = () => keep("Finished by me", "Finished on the public pages without a solicitor. It is not signed until the paper is signed.");
+  document.getElementById("final").onclick = () => keep("Final copy sent", "The final draft was sent to the client. It is still not signed until they sign the paper.");
+  const email = document.getElementById("email-summary");
+  if (email) email.onclick = async () => {
+    const box = document.getElementById("msg");
+    box.innerHTML = '<p class="muted">Sending…</p>';
+    try {
+      const r = await api("/api/drafts/" + id + "/summary-email", { method: "POST", body: {} });
+      box.innerHTML = '<div class="alert ' + (r.sent ? "ok" : "") + '">' + esc(r.message) + '</div>';
+    } catch (err) { box.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+  };
+  const payBtn = document.getElementById("pay");
+  if (payBtn) payBtn.onclick = async () => {
+    const box = document.getElementById("msg");
+    payBtn.disabled = true;
+    box.innerHTML = '<p class="muted">Opening the card page…</p>';
+    try {
+      const r = await api("/api/drafts/" + id + "/checkout", { method: "POST", body: {} });
+      if (r.paid) { route(); return; }
+      location.href = r.url;
+    } catch (err) {
+      payBtn.disabled = false;
+      box.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>';
+    }
+  };
   const btn = document.getElementById("submit");
-  if (btn) btn.onclick = async () => { if (!confirm("Send this draft to a solicitor for review? You will not be able to change it afterwards.")) return; btn.disabled = true; await api("/api/drafts/" + id + "/submit", { method: "POST" }); route(); };
+  if (btn) btn.onclick = async () => { if (!confirm("Ask a solicitor to check this? You will not be able to change it afterwards. You do not have to. You can finish it yourself instead.")) return; btn.disabled = true; await api("/api/drafts/" + id + "/submit", { method: "POST" }); route(); };
   mountStatementPanel(id);
 }
 

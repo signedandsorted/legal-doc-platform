@@ -34,6 +34,14 @@ EXTRA = {
         "Some business and farm assets can qualify for inheritance tax business relief, but the rules are detailed and they change. Do not rely on a summary. A solicitor must check.",
         "If there are co-owners, talk to them first, and check any partnership or shareholders' agreement.",
         "This will is not a lasting power of attorney. If you want someone to run the business while you are alive but cannot decide, that is a separate LPA."]},
+    "lpa_signing": {"title": "The order of signing", "lines": [
+        "The Office of the Public Guardian will not register a lasting power of attorney unless everyone signs the same original paper form, in the right order.",
+        "You, the donor, sign first. On a health and welfare LPA, sign section five, about life-sustaining treatment, before section nine. If you used a continuation sheet, sign that before section nine as well. Then sign section nine.",
+        "A witness aged eighteen or over must watch you sign, and sign straight after you. An attorney or a replacement attorney cannot be that witness. Your certificate provider can.",
+        "The certificate provider signs section ten next. They must sign after you, and before any attorney.",
+        "Each attorney and each replacement attorney then signs section eleven. Someone must witness them. You cannot be that witness. Attorneys can witness each other, but nobody witnesses their own signature.",
+        "The person applying to register signs section fifteen last, and dates it after every attorney has signed. If the order is wrong, the LPA cannot be registered, and the attorneys cannot use it.",
+    ]},
     "lpa_property_business": {"title": "Business or personal finances", "lines": [
         "If you have a business, a farm, or company shares, you can keep them apart from your personal finances.",
         "To use different attorneys for the business and for your household, make two property and financial lasting powers of attorney, not one.",

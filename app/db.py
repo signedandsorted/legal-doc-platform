@@ -18,6 +18,7 @@ drafts = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
     Column("user_id", String(36), index=True),  # added by migration 2; NULL only for drafts made before logins existed
+    Column("payment", JSON),
 )
 
 users = Table(
@@ -29,6 +30,7 @@ users = Table(
     Column("role", String(16), nullable=False, default="client"),  # client | staff | admin
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("last_login_at", DateTime(timezone=True)),
+    Column("retainer", JSON),
 )
 
 sessions = Table(
@@ -71,6 +73,25 @@ audit_log = Table(
     Column("target_id", String(64)),
     Column("detail", JSON),
     Column("ip", String(64)),
+)
+
+firm_settings = Table(
+    "firm_settings",
+    metadata,
+    Column("key", String(64), primary_key=True),
+    Column("value", JSON, nullable=False),
+)
+
+draft_versions = Table(
+    "draft_versions",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("draft_id", String(36), ForeignKey("drafts.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("number", Integer, nullable=False),
+    Column("label", String(80), nullable=False),
+    Column("note", Text, nullable=False, default=""),
+    Column("document", JSON, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
 schema_migrations = Table(

@@ -197,6 +197,33 @@ def test_the_firm_can_add_or_remove_a_schedule():
         assert "IHT406.pdf" not in names and "IHT407.pdf" in names and "IHT405.pdf" in names
 
 
+def test_a_credit_report_is_ticked_onto_the_estate_and_the_fee_is_a_cost():
+    with admin_client() as c:
+        matter = c.post("/api/firm/matters", json={"kind": "probate", "client_name": "Ann Executor", "deceased_name": "John Executor", "date_of_death": "2026-01-15"}).json()
+        saved = c.patch(f"/api/firm/matters/{matter['id']}", json={"books": {"credit": {"agency": "Estatesearch", "reference": "ES-100", "fee": 210}}, "bill": {"entries": []}})
+        assert saved.json()["books"]["credit"]["reference"] == "ES-100"
+        assert saved.json()["books"]["credit"]["fee"] == 210
+        billed = c.patch(f"/api/firm/matters/{matter['id']}", json={"bill": {"entries": [{"kind": "cost", "what": "Estatesearch search ES-100", "amount": 210}]}})
+        assert billed.json()["bill"]["costs"] == 210
+        report = c.post(
+            f"/api/firm/matters/{matter['id']}/uploads",
+            data={"kind": "Credit report"},
+            files={"file": ("estatesearch.txt", "Estatesearch report\nBarclays current account balance £1,200.00\nHSBC credit card balance £300.00\n", "text/plain")},
+        )
+        assert report.status_code == 200, report.text
+        picks = {item["label"]: item for item in report.json()["suggestions"]}
+        bank = next(item for item in picks.values() if "1,200" in item["label"])
+        card = next(item for item in picks.values() if "300" in item["label"])
+        assert bank["value"]["side"] == "asset" and card["value"]["side"] == "debt"
+        applied = c.post(f"/api/firm/matters/{matter['id']}/apply", json={"suggestion_ids": [bank["id"]]})
+        assert applied.status_code == 200, applied.text
+        assert applied.json()["figures"]["gross_probate"] == 1200
+        names = [line["name"] for line in applied.json()["books"]["lines"]]
+        assert any("Barclays" in name for name in names)
+        assert not any("HSBC" in name for name in names)
+
+
+
 def test_a_repeated_name_is_shown_and_the_practice_file_is_kept():
     with admin_client() as c:
         first = c.post("/api/firm/matters", json={"kind": "will", "client_name": "Ann Executor"}).json()

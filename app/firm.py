@@ -7,23 +7,31 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import func, delete, insert, select, update
 
 from .auth import require_admin, require_staff
-from .db import drafts, engine, matter_uploads, matters, new_id, now, users
-from .documents import find_issues, missing_fields
+from .actionstep import deceased_name, fetch_actions, fetch_people, guess_kind, merge_connection, public_connection, refresh_connection
+from .db import draft_versions, drafts, engine, firm_settings, matter_uploads, matters, new_id, now, users
+from .documents import build_document, client_summary, find_issues, missing_fields, summary_text
 from .extract import detect_kind, extract_text, suggest
 from .firm_books import clean_books, compile_books, letter_text
+from .docx_out import render_docx
+from .mailer import send as send_mail
 from .firm_account import account_document, account_html, prepare_asset_search
 from .iht400_pdf import fill_iht400, refresh_official_form
 from .iht_schedules import schedule_files
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
 from .firm_practice import clean_practice, conflicts as name_conflicts
 from .firm_accounts import bill_summary, clean_bill
+from .firm_client import clean_client_account, post_entry, reconcile, set_statement
+from .outlook import fetch_mailbox, fetch_message, merge_outlook, public_outlook
 from .firm_trust import clean_deputy, clean_trust
 from .firm_work import FIRM_KINDS, ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
 from .guides import SERVICES
 from .pdf import render_pdf
+from .retainer import clean_retainer, document as retainer_document, effect as retainer_effect
+from .scheme import clean_saved, for_matter
+from .source_watch import public_watch, run_check
 from .security import audit, client_ip, hash_password, normalise_email, check_password_rules
 
 router = APIRouter(prefix="/api/firm")
@@ -70,6 +78,11 @@ class ApplyIn(BaseModel):
 
 class LetterIn(BaseModel):
     kind: str
+
+
+class VersionIn(BaseModel):
+    label: str = "Kept"
+    note: str = ""
 
 
 class AssistIn(BaseModel):
@@ -134,6 +147,10 @@ def _public(row: dict, full: bool = False) -> dict:
             out["papers"] = papers
             out["filing"] = position(row, compiled, papers)
         out["practice"] = clean_practice(facts.get("practice"))
+        out["scheme"] = for_matter(kind, facts.get("wiqs"))
+        record = clean_retainer(facts.get("retainer"))
+        out["retainer"] = {**record, "effect": retainer_effect(record, kind if kind in record["sections"] else "will")}
+        out["watch"] = public_watch()
         out["bill_entries"] = clean_bill(facts.get("bill"))["entries"]
         if kind == "trust":
             out["trust"] = clean_trust(facts.get("trust"))
@@ -174,6 +191,163 @@ def kinds(_staff: dict = Depends(require_staff)):
     ]
 
 
+class ClientEntryIn(BaseModel):
+    kind: str
+    on: str = ""
+    matter_id: str = ""
+    what: str = ""
+    amount: float = 0
+    reference: str = ""
+
+
+class ClientStatementIn(BaseModel):
+    on: str = ""
+    balance: float = 0
+    unpresented: float = 0
+    outstanding: float = 0
+
+
+class OutlookIn(BaseModel):
+    access_token: str = ""
+
+
+class OutlookFileIn(BaseModel):
+    message_id: str
+    matter_id: str
+
+
+def _client_book() -> dict:
+    with engine().connect() as conn:
+        row = conn.execute(select(firm_settings.c.value).where(firm_settings.c.key == "client_account")).scalar()
+    return clean_client_account(row if isinstance(row, dict) else {})
+
+
+def _save_client_book(book: dict) -> None:
+    with engine().begin() as conn:
+        exists = conn.execute(select(firm_settings.c.key).where(firm_settings.c.key == "client_account")).first()
+        if exists:
+            conn.execute(update(firm_settings).where(firm_settings.c.key == "client_account").values(value=book))
+        else:
+            conn.execute(insert(firm_settings).values(key="client_account", value=book))
+
+
+def _matter_titles() -> dict[str, str]:
+    with engine().connect() as conn:
+        rows = conn.execute(select(matters.c.id, matters.c.title)).mappings().all()
+    return {row["id"]: row["title"] for row in rows}
+
+
+def _outlook() -> dict:
+    with engine().connect() as conn:
+        row = conn.execute(select(firm_settings.c.value).where(firm_settings.c.key == "outlook")).scalar()
+    return row if isinstance(row, dict) else {}
+
+
+def _save_outlook(value: dict) -> None:
+    with engine().begin() as conn:
+        exists = conn.execute(select(firm_settings.c.key).where(firm_settings.c.key == "outlook")).first()
+        if exists:
+            conn.execute(update(firm_settings).where(firm_settings.c.key == "outlook").values(value=value))
+        else:
+            conn.execute(insert(firm_settings).values(key="outlook", value=value))
+
+
+@router.get("/client-account")
+def client_account(_staff: dict = Depends(require_staff)):
+    titles = _matter_titles()
+    return {"matters": [{"id": key, "title": title} for key, title in titles.items()], **reconcile(_client_book(), titles)}
+
+
+@router.post("/client-account/entries")
+def client_entry(body: ClientEntryIn, request: Request, staff: dict = Depends(require_staff)):
+    titles = _matter_titles()
+    try:
+        book = post_entry(_client_book(), body.model_dump(), set(titles))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _save_client_book(book)
+    posted = book["entries"][-1]
+    if posted["kind"] == "transfer":
+        row = _load(posted["matter_id"])
+        facts = dict(row["facts"] or {})
+        bill = clean_bill(facts.get("bill"))
+        bill["entries"].append({
+            "id": posted["id"],
+            "kind": "paid",
+            "on": posted["on"],
+            "what": "From the client account: " + posted["what"],
+            "hours": 0,
+            "rate": 0,
+            "amount": posted["amount"],
+        })
+        facts["bill"] = bill
+        with engine().begin() as conn:
+            conn.execute(update(matters).where(matters.c.id == posted["matter_id"]).values(facts=facts, updated_at=now()))
+    audit("client_money", staff, "matter", posted["matter_id"], {"kind": posted["kind"], "amount": posted["amount"]}, client_ip(request))
+    return reconcile(book, titles)
+
+
+@router.put("/client-account/statement")
+def client_statement(body: ClientStatementIn, request: Request, staff: dict = Depends(require_staff)):
+    book = set_statement(_client_book(), body.model_dump())
+    _save_client_book(book)
+    audit("client_statement", staff, "firm", "client_account", {"balance": book["statement"]["balance"]}, client_ip(request))
+    return reconcile(book, _matter_titles())
+
+
+@router.get("/outlook")
+def outlook_status(_staff: dict = Depends(require_staff)):
+    return public_outlook(_outlook())
+
+
+@router.put("/outlook")
+def outlook_save(body: OutlookIn, request: Request, admin: dict = Depends(require_admin)):
+    try:
+        saved = merge_outlook(_outlook(), body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _save_outlook(saved)
+    audit("outlook_connected", admin, "firm", "outlook", {}, client_ip(request))
+    return public_outlook(saved)
+
+
+@router.post("/outlook/mailbox")
+def outlook_mailbox(_staff: dict = Depends(require_staff)):
+    saved = _outlook()
+    if not saved.get("access_token"):
+        raise HTTPException(400, "Outlook is not connected")
+    try:
+        return fetch_mailbox(saved["access_token"])
+    except PermissionError as exc:
+        raise HTTPException(401, "Outlook refused the token. An admin needs to paste a new one.") from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
+@router.post("/outlook/file")
+def outlook_file(body: OutlookFileIn, request: Request, staff: dict = Depends(require_staff)):
+    saved = _outlook()
+    if not saved.get("access_token"):
+        raise HTTPException(400, "Outlook is not connected")
+    matter_id = body.matter_id.strip()
+    if matter_id not in _matter_titles():
+        raise HTTPException(404, "Choose a matter")
+    try:
+        message = fetch_message(saved["access_token"], body.message_id)
+    except PermissionError as exc:
+        raise HTTPException(401, "Outlook refused the token. An admin needs to paste a new one.") from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(502, str(exc)) from exc
+    row = _load(matter_id)
+    facts = dict(row["facts"] or {"items": {}, "notes": []})
+    text = f"Outlook: {message['subject']} from {message['from']} on {message['on']}. {message['preview']}".strip()
+    facts.setdefault("notes", []).append({"at": now().isoformat(), "by": staff["email"], "text": text[:4000]})
+    with engine().begin() as conn:
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
+    audit("outlook_filed", staff, "matter", matter_id, {"subject": message["subject"][:120]}, client_ip(request))
+    return {"filed": True, "subject": message["subject"]}
+
+
 @router.get("/accounts")
 def firm_accounts(_staff: dict = Depends(require_staff)):
     with engine().connect() as conn:
@@ -186,6 +360,126 @@ def firm_accounts(_staff: dict = Depends(require_staff)):
         for key in totals:
             totals[key] = round(totals[key] + item["bill"][key], 2)
     return {"totals": totals, "matters": matters_out}
+
+
+class ActionstepIn(BaseModel):
+    api_endpoint: str = ""
+    access_token: str = ""
+    refresh_token: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+    orgkey: str = ""
+
+
+class ActionstepImport(BaseModel):
+    action_id: str
+
+
+def _actionstep() -> dict:
+    with engine().connect() as conn:
+        row = conn.execute(select(firm_settings.c.value).where(firm_settings.c.key == "actionstep")).scalar()
+    return row if isinstance(row, dict) else {}
+
+
+def _save_actionstep(value: dict) -> None:
+    with engine().begin() as conn:
+        exists = conn.execute(select(firm_settings.c.key).where(firm_settings.c.key == "actionstep")).first()
+        if exists:
+            conn.execute(update(firm_settings).where(firm_settings.c.key == "actionstep").values(value=value))
+        else:
+            conn.execute(insert(firm_settings).values(key="actionstep", value=value))
+
+
+def _matter_for_action(action_id: str) -> str | None:
+    with engine().connect() as conn:
+        rows = conn.execute(select(matters.c.id, matters.c.facts)).mappings().all()
+    for row in rows:
+        link = ((row["facts"] or {}).get("actionstep") or {})
+        if str(link.get("id") or "") == str(action_id):
+            return row["id"]
+    return None
+
+
+@router.get("/actionstep")
+def actionstep_status(_staff: dict = Depends(require_staff)):
+    return public_connection(_actionstep())
+
+
+@router.put("/actionstep")
+def actionstep_save(body: ActionstepIn, request: Request, admin: dict = Depends(require_admin)):
+    try:
+        saved = merge_connection(_actionstep(), body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _save_actionstep(saved)
+    audit("actionstep_connected", admin, "firm", "actionstep", {"endpoint": saved.get("api_endpoint")}, client_ip(request))
+    return public_connection(saved)
+
+
+def _actions_or_refresh(saved: dict) -> tuple[dict, list]:
+    try:
+        return saved, fetch_actions(saved)
+    except PermissionError:
+        if not (saved.get("refresh_token") and saved.get("client_id") and saved.get("client_secret")):
+            raise
+        saved = refresh_connection(saved)
+        _save_actionstep(saved)
+        return saved, fetch_actions(saved)
+
+
+@router.post("/actionstep/matters")
+def actionstep_matters(_staff: dict = Depends(require_staff)):
+    saved = _actionstep()
+    if not saved.get("access_token"):
+        raise HTTPException(400, "Actionstep is not connected")
+    try:
+        _saved, rows = _actions_or_refresh(saved)
+    except PermissionError as exc:
+        raise HTTPException(401, "Actionstep refused the token. An admin needs to paste a new one.") from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return {"matters": rows}
+
+
+@router.post("/actionstep/import")
+def actionstep_import(body: ActionstepImport, request: Request, staff: dict = Depends(require_staff)):
+    action_id = body.action_id.strip()
+    if not action_id:
+        raise HTTPException(400, "Choose a matter")
+    already = _matter_for_action(action_id)
+    if already:
+        return _public(_load(already), full=True)
+    saved = _actionstep()
+    if not saved.get("access_token"):
+        raise HTTPException(400, "Actionstep is not connected")
+    try:
+        saved, rows = _actions_or_refresh(saved)
+        match = next((row for row in rows if row["id"] == action_id), None)
+        if not match:
+            raise HTTPException(404, "That matter is not in the Actionstep list")
+        people = fetch_people(saved, action_id)
+    except PermissionError as exc:
+        raise HTTPException(401, "Actionstep refused the token. An admin needs to paste a new one.") from exc
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(502, str(exc)) from exc
+    kind = guess_kind(match["name"])
+    client = people[0] if people else {"name": "", "email": ""}
+    died = deceased_name(match["name"], people) if kind == "probate" else ""
+    title = match["name"] or (f"Estate of {died}" if died else "Matter from Actionstep")
+    mid = new_id()
+    stamp = now()
+    facts = {"items": {}, "notes": [], "actionstep": {"id": action_id, "reference": match["reference"], "status": match["status"]}}
+    with engine().begin() as conn:
+        conn.execute(insert(matters).values(
+            id=mid, kind=kind, title=title[:160], status="open",
+            client_name=client.get("name") or "", client_email=client.get("email") or "",
+            deceased_name=died, date_of_death="", grant_date="", facts=facts, draft_id=None,
+            opened_by=staff["id"], created_at=stamp, updated_at=stamp,
+        ))
+    audit("actionstep_imported", staff, "matter", mid, {"action_id": action_id}, client_ip(request))
+    return _public(_load(mid), full=True)
 
 
 @router.get("/matters")
@@ -323,10 +617,63 @@ def matter_assist(matter_id: str, body: AssistIn, _staff: dict = Depends(require
     return assist(row, body.action, draft)
 
 
+class SchemeIn(BaseModel):
+    done: list[str] = []
+    last_report: str = ""
+
+
+@router.post("/matters/{matter_id}/scheme")
+def save_scheme(matter_id: str, body: SchemeIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    facts = dict(row["facts"] or {})
+    facts["wiqs"] = clean_saved(body.done, body.last_report)
+    with engine().begin() as conn:
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
+    audit("scheme", staff, "matter", matter_id, {"done": len(facts["wiqs"]["done"])}, client_ip(request))
+    return {"matter": _public(_load(matter_id), full=True)}
+
+
+class MatterRetainerIn(BaseModel):
+    place: str = ""
+    signed_on: str = ""
+    signed_name: str = ""
+    finished: bool = False
+
+
+@router.post("/matters/{matter_id}/retainer")
+def save_matter_retainer(matter_id: str, body: MatterRetainerIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    facts = dict(row["facts"] or {})
+    existing = clean_retainer(facts.get("retainer"))
+    finished = [item for item in existing["finished"] if item != row["kind"]]
+    if body.finished and row["kind"] not in finished:
+        finished.append(row["kind"])
+    record = clean_retainer({**body.model_dump(), "finished": finished})
+    if not record["signed"]:
+        raise HTTPException(400, "Enter the client’s name, the date, and where the retainer was signed.")
+    facts["retainer"] = record
+    with engine().begin() as conn:
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
+    audit("matter_retainer", staff, "matter", matter_id, {"place": record["place"], "finished": body.finished}, client_ip(request))
+    return {"matter": _public(_load(matter_id), full=True)}
+
+
+@router.post("/source-check")
+def source_check(_staff: dict = Depends(require_staff)):
+    """Read the official pages now. A change is recorded. Clauses are not rewritten."""
+    result = run_check()
+    return {
+        "checked_at": result.get("checked_at"),
+        "found": result.get("found") or [],
+        "failed": result.get("failed") or [],
+        "watch": public_watch(),
+    }
+
+
 @router.post("/matters/{matter_id}/letters")
 def keep_letter(matter_id: str, body: LetterIn, request: Request, staff: dict = Depends(require_staff)):
     row = _load(matter_id)
-    if body.kind not in ("bank", "beneficiary", "grant", "notice", "credit"):
+    if body.kind not in ("bank", "beneficiary", "grant", "notice", "credit", "estatesearch", "will_ipw", "will_sww", "will_probate", "will_local", "pension", "act1975", "golden", "couple", "file_summary", "old_will", "retainer"):
         raise HTTPException(400, "Unknown letter")
     compiled = compile_books(row)
     letter = letter_text(body.kind, row, compiled)
@@ -340,6 +687,133 @@ def keep_letter(matter_id: str, body: LetterIn, request: Request, staff: dict = 
         conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
     audit("matter_letter", staff, "matter", matter_id, {"kind": body.kind}, client_ip(request))
     return {"letter": letter, "matter": _public(_load(matter_id), full=True)}
+
+
+def _as_document(title: str, body: str) -> dict:
+    paragraphs = [line for line in body.splitlines() if line.strip()]
+    return {
+        "title": title,
+        "notice": "Draft for the file. Nothing has been sent from this desk. It does not stop a claim and it does not make the firm immune.",
+        "sections": [{"heading": title, "paragraphs": paragraphs or [body]}],
+        "next_steps": ["The firm checks this and sends it, if it is a letter. The desk does not send it."],
+        "sources": [],
+    }
+
+
+def _letter_file(matter_id: str, letter_id: str, kind: str):
+    row = _load(matter_id)
+    books = clean_books((row.get("facts") or {}).get("books"))
+    letter = next((item for item in books["letters"] if item["id"] == letter_id), None)
+    if not letter:
+        raise HTTPException(404, "That letter is not on the file")
+    stem = f"letter-{letter_id}"
+    document = _as_document(letter["title"], letter["body"])
+    if kind == "docx":
+        return Response(render_docx(document), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        headers={"Content-Disposition": f'attachment; filename="{stem}.docx"'})
+    return Response(render_pdf(document), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{stem}.pdf"'})
+
+
+@router.get("/matters/{matter_id}/letters/{letter_id}.pdf")
+def letter_pdf(matter_id: str, letter_id: str, _staff: dict = Depends(require_staff)):
+    return _letter_file(matter_id, letter_id, "pdf")
+
+
+@router.get("/matters/{matter_id}/letters/{letter_id}.docx")
+def letter_docx(matter_id: str, letter_id: str, _staff: dict = Depends(require_staff)):
+    return _letter_file(matter_id, letter_id, "docx")
+
+
+def _linked_draft(row: dict):
+    if not row.get("draft_id"):
+        raise HTTPException(400, "This matter has no client draft yet. Start the draft from the file first.")
+    with engine().connect() as conn:
+        draft = conn.execute(select(drafts).where(drafts.c.id == row["draft_id"])).mappings().first()
+    if not draft:
+        raise HTTPException(404, "The linked draft is not on the file")
+    return draft
+
+
+def _draft_document(row: dict):
+    draft = _linked_draft(row)
+    if draft["service"] not in SERVICES:
+        raise HTTPException(400, "This matter is not linked to a will, lasting power, probate or agreement draft.")
+    with engine().connect() as conn:
+        stored = conn.execute(select(matter_uploads.c.text).where(matter_uploads.c.matter_id == row["id"])).scalars().all()
+    from .db import uploads as upload_table
+    with engine().connect() as conn:
+        texts = conn.execute(select(upload_table.c.filename, upload_table.c.kind, upload_table.c.text).where(upload_table.c.draft_id == draft["id"])).mappings().all()
+    ups = [{"filename": item["filename"], "kind": item["kind"], "text": item["text"] or ""} for item in texts]
+    ups += [{"filename": "matter paper", "kind": "Other", "text": text or ""} for text in stored]
+    return draft, build_document(draft["service"], draft["answers"] or {}, ups)
+
+
+@router.get("/matters/{matter_id}/draft.pdf")
+def matter_draft_pdf(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    _, document = _draft_document(row)
+    name = (row.get("client_name") or "draft").replace(" ", "-")
+    return Response(render_pdf(document), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name}.pdf"'})
+
+
+@router.get("/matters/{matter_id}/draft.docx")
+def matter_draft_docx(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    _, document = _draft_document(row)
+    name = (row.get("client_name") or "draft").replace(" ", "-")
+    return Response(render_docx(document), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f'attachment; filename="{name}.docx"'})
+
+
+@router.get("/matters/{matter_id}/summary.pdf")
+def matter_summary_pdf(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    draft, document = _draft_document(row)
+    summary = client_summary(draft["service"], draft["answers"] or {}, document, document.get("issues") or [])
+    name = (row.get("client_name") or "client").replace(" ", "-")
+    return Response(render_pdf(summary), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="summary-{name}.pdf"'})
+
+
+@router.post("/matters/{matter_id}/summary-email")
+def matter_summary_email(matter_id: str, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    to = (row.get("client_email") or "").strip()
+    draft, document = _draft_document(row)
+    summary = client_summary(draft["service"], draft["answers"] or {}, document, document.get("issues") or [])
+    if "@" not in to:
+        return {"sent": False, "how": "none", "message": "There is no client email on this matter. Download the summary and send it yourself. Nothing was sent."}
+    how = send_mail(to, summary["title"], summary_text(summary))
+    audit("summary_email", staff, "matter", matter_id, {"how": how}, client_ip(request))
+    if how in ("resend", "smtp"):
+        return {"sent": True, "how": how, "message": f"The summary was emailed to {to}. Sending it does not stop a claim."}
+    return {"sent": False, "how": how, "message": f"Email is not switched on, so nothing was sent to {to}. Download the summary PDF and send it from the firm’s own email."}
+
+
+@router.get("/matters/{matter_id}/versions")
+def matter_versions(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    draft = _linked_draft(row)
+    with engine().connect() as conn:
+        rows = conn.execute(select(draft_versions.c.id, draft_versions.c.number, draft_versions.c.label, draft_versions.c.note, draft_versions.c.created_at)
+                            .where(draft_versions.c.draft_id == draft["id"]).order_by(draft_versions.c.number)).mappings().all()
+    return [{"id": item["id"], "number": item["number"], "label": item["label"], "note": item["note"], "at": item["created_at"].isoformat()} for item in rows]
+
+
+@router.post("/matters/{matter_id}/versions")
+def matter_keep_version(matter_id: str, body: VersionIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    draft = _linked_draft(row)
+    _, document = _draft_document(row)
+    with engine().begin() as conn:
+        current = conn.execute(select(func.max(draft_versions.c.number)).where(draft_versions.c.draft_id == draft["id"])).scalar() or 0
+        number = int(current) + 1
+        vid = new_id()
+        conn.execute(insert(draft_versions).values(
+            id=vid, draft_id=draft["id"], number=number, label=(body.label or "Kept")[:80], note=(body.note or "")[:1000],
+            document=document, created_at=now(),
+        ))
+    audit("draft_version", staff, "matter", matter_id, {"number": number, "label": body.label}, client_ip(request))
+    return {"id": vid, "number": number, "label": body.label or "Kept"}
 
 
 @router.get("/matters/{matter_id}/export")

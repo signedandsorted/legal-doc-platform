@@ -7,7 +7,7 @@ what the firm has filed.
 """
 from .common import money
 
-PAPER_KINDS = ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Credit report", "Other"]
+PAPER_KINDS = ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Pension statement", "Credit report", "Other"]
 IHT400_URL = "https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400"
 PAY_URL = "https://www.gov.uk/paying-inheritance-tax"
 MYHMCTS_URL = "https://www.gov.uk/government/publications/myhmcts-how-to-apply-for-probate-online/apply-for-probate-with-myhmcts"
@@ -93,7 +93,14 @@ def apply_suggestions(matter: dict, books: dict, chosen: list[dict]) -> tuple[di
                 continue
             if amount < 0:
                 continue
-            lines.append({"name": name, "holder": "", "side": "asset", "ownership": "sole", "value": amount})
+            side = "debt" if value.get("side") == "debt" else "asset"
+            lines.append({
+                "name": name,
+                "holder": str(value.get("holder") or "")[:80],
+                "side": side,
+                "ownership": "sole",
+                "value": amount,
+            })
             known.add(name)
         elif mode == "note" and isinstance(item.get("label"), str) and item["label"].startswith("Executor named"):
             name = item["label"].split(":", 1)[-1].strip()

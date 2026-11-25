@@ -10,6 +10,7 @@ from sqlalchemy import delete, insert, select, update
 
 from .db import engine, new_id, now, password_resets, sessions, users, utc
 from .mailer import send
+from .retainer import clean_retainer, effect
 from .security import (CSRF_COOKIE, RESET_MINUTES, SESSION_COOKIE, SESSION_DAYS, audit, check_password_rules, clear_attempts, client_ip, cookie_secure,
                        dummy_verify, hash_password, new_token, normalise_email, rate_limited, record_attempt, token_hash, verify_password)
 
@@ -32,7 +33,11 @@ class ResetConfirm(BaseModel):
 
 
 def public(u) -> dict:
-    return {"id": u["id"], "email": u["email"], "role": u["role"]}
+    record = clean_retainer(u.get("retainer") or {})
+    return {
+        "id": u["id"], "email": u["email"], "role": u["role"],
+        "retainer": {**record, "effect": effect(record, "will") if record["signed"] else ""},
+    }
 
 
 def set_csrf_cookie(response: Response, request: Request) -> str:

@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b1f3a">
 <title>Signed and Sorted · Wills, LPA and Probate</title>
 <meta name="description" content="Wills, lasting powers of attorney, probate and agreements. Clear, secure legal support for England and Wales.">
-<link rel="stylesheet" href="/static/styles.css?v=9">
+<link rel="stylesheet" href="/static/styles.css?v=10">
 <style>
   .rule{width:52px;height:3px;background:#0b1f3a;margin:0 0 18px;border:0}
   .service-card .btn{width:100%;justify-content:center}
@@ -27,13 +27,21 @@
       <a href="#/about">About Us</a>
       <a href="#/pricing">Pricing</a>
       <a href="#/faq">Help and Support</a>
+      <a href="#/law">Law updates</a>
     </nav>
     <div class="header-actions" id="acct">
       <a href="#/login" class="btn ghost small">Client Login</a>
-      <a href="#/s/will" class="btn">Get Started</a>
+      <a href="#/s/will" class="btn" data-start-link>Get Started</a>
     </div>
   </div>
 </header>
+<div class="country-bar" id="country-bar">
+  <div class="country-bar-inner">
+    <span>Choose your country</span>
+    <a href="#uk-services">England and Wales</a>
+    <a href="#us-services">United States</a>
+  </div>
+</div>
 <main id="main">
   <div id="app">
     <section class="hero-section">
@@ -41,10 +49,10 @@
         <p class="eyebrow">Legal documents, made simple</p>
         <h1>Wills, LPA and Probate you can trust.</h1>
         <hr class="rule">
-        <p class="lead">Signed and Sorted helps you plan ahead and sort what matters with clear, secure legal support for you and your family in England and Wales.</p>
+        <p class="lead">Signed and Sorted helps you plan ahead in England and Wales, or in the United States. Pick the country first. The documents are not the same.</p>
         <div class="hero-actions">
-          <a class="btn" href="#/s/will">Start Today →</a>
-          <a class="btn ghost" href="#/how">How It Works</a>
+          <a class="btn" href="#uk-services">England and Wales</a>
+          <a class="btn" href="#us-services">United States</a>
         </div>
       </div>
       <div class="hero-image">
@@ -52,8 +60,8 @@
       </div>
     </section>
 
-    <section class="services-section">
-      <h2>Our legal services</h2>
+    <section class="services-section" data-country-panel="gb" id="uk-services">
+      <h2 id="uk-heading">England and Wales</h2>
       <div class="service-grid">
         <article class="service-card">
           <div class="icon">📄</div>
@@ -151,9 +159,71 @@
       </div>
     </section>
 
+    <section class="services-section" data-country-panel="us" id="us-services">
+      <h2>United States</h2>
+      <p class="muted">For the state where you live. A will does not avoid probate. A revocable trust avoids it only for assets you later transfer into the trust. Louisiana does not use a common-law will.</p>
+      <div class="service-grid">
+        <article class="service-card">
+          <div class="icon">📄</div>
+          <h3>Last will</h3>
+          <p>Who inherits, who is executor, and who looks after children. Signed with your state's witness rules.</p>
+          <ul>
+            <li>Two witnesses in most states</li>
+            <li>Louisiana is a different form</li>
+            <li>$129 to download</li>
+          </ul>
+          <a class="btn" href="#/s/us_will">Start a will →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🏛️</div>
+          <h3>Revocable living trust</h3>
+          <p>You keep control. A pour-over will covers what you forget. You still have to retitle the assets.</p>
+          <ul>
+            <li>Includes the pour-over will</li>
+            <li>Does not deed the house for you</li>
+            <li>$299 to download</li>
+          </ul>
+          <a class="btn" href="#/s/us_trust">Start a trust →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🏦</div>
+          <h3>Financial power of attorney</h3>
+          <p>An agent for money and property if you cannot act. Durable. Not a healthcare form.</p>
+          <ul>
+            <li>Notarised in most states</li>
+            <li>Not a UK lasting power</li>
+            <li>$79 to download</li>
+          </ul>
+          <a class="btn" href="#/s/us_poa">Start a financial power →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">🩺</div>
+          <h3>Healthcare directive</h3>
+          <p>Name who decides on treatment, and what you want. Not a doctor's POLST.</p>
+          <ul>
+            <li>Agent plus your wishes</li>
+            <li>Witnesses, not your agent</li>
+            <li>$79 to download</li>
+          </ul>
+          <a class="btn" href="#/s/us_health">Start a directive →</a>
+        </article>
+        <article class="service-card">
+          <div class="icon">⚖️</div>
+          <h3>Probate checklist</h3>
+          <p>For the person handling an estate. You still file in the county court. This site does not.</p>
+          <ul>
+            <li>State and county</li>
+            <li>No invented creditor deadline</li>
+            <li>$199 to download</li>
+          </ul>
+          <a class="btn" href="#/s/us_probate">Start the checklist →</a>
+        </article>
+      </div>
+    </section>
+
     <section class="trust-bar">
       <div class="trust-inner">
-        <div class="trust-item"><strong>England and Wales</strong>A solicitor reviews the draft before you sign.</div>
+        <div class="trust-item"><strong>England and Wales</strong>Do a will, an LPA or probate yourself. A solicitor is optional.</div>
         <div class="trust-item"><strong>Secure and confidential</strong></div>
         <div class="trust-item"><strong>Step-by-step questions</strong></div>
         <div class="trust-item"><strong>Videos where a clip is ready</strong></div>
@@ -166,7 +236,7 @@
     <div>
       <strong>Signed and Sorted</strong><br>
       <small>Wills · Powers of attorney · Probate · Agreements</small>
-      <p class="muted small">Drafts for England and Wales. A solicitor checks the document before you sign.</p>
+      <p class="muted small">Drafts for England and Wales. You can finish a will, an LPA or probate yourself. A solicitor is optional.</p>
     </div>
     <div>
       <strong>SERVICES</strong>
@@ -193,6 +263,7 @@
       <a href="#/terms">Terms</a>
       <a href="#/privacy">Privacy</a>
       <a href="#/complaints">Complaints</a>
+      <a href="#/law">Law updates</a>
     </div>
     <div>
       <strong>Stay informed</strong>
@@ -207,6 +278,6 @@
     <p>England and Wales. Solicitor review before you sign.</p>
   </div>
 </footer>
-<script src="/static/app.js?v=10"></script>
+<script src="/static/app.js?v=12"></script>
 </body>
 </html>

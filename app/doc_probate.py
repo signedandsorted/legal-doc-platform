@@ -11,24 +11,62 @@ from .guide_probate import (EXCEPTED_EXEMPT_LIMIT, EXCEPTED_FOREIGN_DOM_LIMIT, E
 JOINT_TENANTS = "Joint tenants"
 
 
+def _pension_lines(a: dict, v: dict) -> list[str]:
+    rows = (a.get("pensions") or {}).get("schemes") or []
+    died = str((a.get("deceased") or {}).get("date_of_death") or "")
+    lines = []
+    for row in rows:
+        lines.append(
+            f"{row.get('provider') or 'Scheme'}: {money(row.get('value'))}"
+            + (f" ({row.get('benefit')})" if row.get("benefit") else "")
+            + (f", of which {money(row.get('exempt'))} is for a spouse, civil partner or charity" if num(row.get("exempt")) else "")
+        )
+    if not lines:
+        lines.append("No scheme entered yet. Use the Pension Tracing Service if one may be missing, then write to the scheme on the annual statement.")
+    if died and died < "2027-04-06":
+        lines.append("This death is before 6 April 2027, so these figures are not in the Inheritance Tax total.")
+    else:
+        lines.append(f"In the Inheritance Tax total: {money(v.get('pension_iht'))}. Left out of that as exempt: {money(v.get('pension_exempt'))}. Not added to the probate total.")
+    lines.append("There is no connection that collects these figures. The email is drafted on the firm desk. The scheme's reply is typed here.")
+    return lines
+
+
+def pension_figures(a: dict) -> tuple[float, float]:
+    """Unused pensions count for Inheritance Tax only for deaths on or after 6 April 2027.
+    Death-in-service benefits stay out. The exempt part is what the scheme says is for a spouse, civil partner or charity."""
+    died = str((a.get("deceased") or {}).get("date_of_death") or "")
+    if died < "2027-04-06":
+        return 0.0, 0.0
+    gross = exempt = 0.0
+    for row in (a.get("pensions") or {}).get("schemes") or []:
+        if row.get("benefit") == "Death in service":
+            continue
+        value = num(row.get("value"))
+        gross += value
+        exempt += min(value, num(row.get("exempt")))
+    return gross, exempt
+
+
 def values(a: dict) -> dict:
     a = apply_companies_house_matches(a)
     e, t = a.get("estate") or {}, a.get("tax") or {}
     assets, debts = e.get("assets") or [], e.get("debts") or []
     gifts = num(t.get("gifts_7_years"))
     funeral = num(e.get("funeral_costs"))
+    pension_gross, pension_exempt = pension_figures(a)
     total_assets = sum(num(x.get("value")) for x in assets)
     all_debts = sum(num(x.get("value")) for x in debts)
     sole_debts = sum(num(x.get("value")) for x in debts if x.get("joint") != "Yes")
-    gross_iht = total_assets + gifts
+    gross_iht = total_assets + gifts + pension_gross
     net_iht = gross_iht - all_debts - funeral
-    exempt = num(t.get("to_spouse")) + num(t.get("to_charity"))
+    exempt = num(t.get("to_spouse")) + num(t.get("to_charity")) + pension_exempt
     net_qualifying = max(0.0, net_iht - exempt)
     excluded = sum(num(x.get("value")) for x in assets if str(x.get("ownership", "")).startswith(JOINT_TENANTS) or x.get("abroad") == "Yes")
     gross_probate = max(0.0, total_assets - excluded)
     net_probate = max(0.0, gross_probate - sole_debts - funeral)
     return {"gross_iht": gross_iht, "net_iht": net_iht, "net_qualifying": net_qualifying, "gross_probate": gross_probate, "net_probate": net_probate,
-            "abroad": sum(num(x.get("value")) for x in assets if x.get("abroad") == "Yes"), "gifts": gifts}
+            "abroad": sum(num(x.get("value")) for x in assets if x.get("abroad") == "Yes"), "gifts": gifts,
+            "pension_iht": pension_gross, "pension_exempt": pension_exempt}
 
 
 def iht(a: dict, v: dict) -> dict:
@@ -222,7 +260,7 @@ def build_probate(_, a: dict, uploads: list | None = None) -> dict:
             f"Gross estate value for Inheritance Tax: {money(v['gross_iht'])}", f"Net estate value for Inheritance Tax: {money(v['net_iht'])}",
             f"Net qualifying estate value for Inheritance Tax: {money(v['net_qualifying'])}", f"Gross value for probate: {money(v['gross_probate'])}",
             f"Net value for probate: {money(v['net_probate'])}",
-            "Probate values leave out joint-tenancy assets passing to the surviving owner, gifts, assets abroad and trust assets, and jointly owed debts."]},
+            "Probate values leave out joint-tenancy assets passing to the surviving owner, gifts, assets abroad and trust assets, jointly owed debts, and unused pension funds. From 6 April 2027 those pension funds are in the Inheritance Tax total, not in the probate total."]},
         {"heading": "Inheritance Tax estimate", "paragraphs": [
             f"Estate type: {'excepted estate (no full details to HMRC)' if p['excepted'] else 'full details needed on form IHT400'}."] + [f"Reason: {r}" for r in p["estate_reasons"]] + [
             f"Tax-free threshold used: {money(tax['threshold'])} (nil rate band {money(tax['nrb'])}" + (f", residence nil rate band {money(tax['rnrb'])}" if tax['rnrb'] else "") + ").",
@@ -236,7 +274,7 @@ def build_probate(_, a: dict, uploads: list | None = None) -> dict:
         ]},
         {"heading": "The person who died", "paragraphs": [person(d), "Date of death: " + d.get("date_of_death", ""), "Lived permanently in England or Wales: " + d.get("domicile", ""), "Marital status: " + d.get("marital_status", "")]},
         {"heading": "Will and applicant", "paragraphs": ["Will: " + w.get("has_will", ""), "Applicant: " + person(w.get("applicant") or {}) + (f" ({w.get('applicant_role')})" if w.get("applicant_role") else ""), "Number applying: " + w.get("applicants", "")]},
-        {"heading": "Assets", "paragraphs": [f"{x.get('description')}: {money(x.get('value'))}" + (f" ({x['ownership']})" if x.get("ownership") else "") + (" (abroad)" if x.get("abroad") == "Yes" else "") for x in e.get("assets") or []] or ["None listed yet"]},
+        {"heading": "Pensions", "paragraphs": _pension_lines(a, v)},
         {"heading": "Debts and funeral costs", "paragraphs": [f"{x.get('description')}: {money(x.get('value'))}" + (" (joint)" if x.get("joint") == "Yes" else "") for x in e.get("debts") or []] + ([f"Funeral: {money(e['funeral_costs'])}"] if e.get("funeral_costs") else []) or ["None listed yet"]},
         {"heading": "Checklist", "paragraphs": ["Original will and any codicils" if str(w.get("has_will", "")).startswith("Yes") else "Confirm there is no will", "Death certificate", "Date-of-death valuations from each bank and organisation", "Lead applicant's email and mobile, and the same for every other applicant (they sign the legal declaration online)"]},
     ]

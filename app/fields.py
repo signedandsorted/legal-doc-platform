@@ -17,6 +17,13 @@ GOV = {
     "make_will": src("GOV.UK: Making a will", "https://www.gov.uk/make-will"),
     "will_legal": src("GOV.UK: Make sure your will is legal", "https://www.gov.uk/make-will/make-sure-your-will-is-legal"),
     "will_update": src("GOV.UK: Updating your will", "https://www.gov.uk/make-will/updating-your-will"),
+    "act1975": src("Legislation.gov.uk: Inheritance (Provision for Family and Dependants) Act 1975", "https://www.legislation.gov.uk/ukpga/1975/63"),
+    "sra_wills": src("SRA: Drafting and preparation of wills (updated 25 November 2019)", "https://www.sra.org.uk/solicitors/guidance/drafting-preparation-wills/"),
+    "sww_mirror": src("Society of Will Writers: Reflecting on mirror wills", "https://www.willwriters.com/blog/reflecting-on-mirror-wills/"),
+    "ipw_changes": src("Institute of Professional Willwriters: do not cross out a will", "https://www.ipw.org.uk/blog/chaning-your-will.aspx"),
+    "file_retention": src("The Law Society: file retention, wills and probate (1 November 2018)", "https://www.lawsociety.org.uk/topics/private-client/file-retention-wills-and-probate"),
+    "will_storage": src("The Law Society: how long an original will should be retained (2 August 2019)", "https://www.lawsociety.org.uk/contact-or-visit-us/helplines/practice-advice-service/q-and-as/how-long-should-a-clients-original-will-be-retained"),
+    "wills_act": src("Wills Act 1837", "https://www.legislation.gov.uk/ukpga/Will4and1Vict/7/26/contents"),
     "iht": src("GOV.UK: How Inheritance Tax works", "https://www.gov.uk/inheritance-tax"),
     # Trust links checked 2026-11-24 (https://www.gov.uk/trusts and /make-a-trust return 404; these are the live pages).
     "trusts": src("GOV.UK: Trusts and taxes", "https://www.gov.uk/trusts-taxes"),
@@ -47,6 +54,8 @@ GOV = {
     "pa1a": src("GOV.UK: Form PA1A (by post, there is no will)", "https://www.gov.uk/government/publications/apply-for-probate-by-post-if-there-is-not-a-will"),
     "iht_value": src("GOV.UK: Value the estate for Inheritance Tax", "https://www.gov.uk/valuing-estate-of-someone-who-died"),
     "iht_estate_type": src("GOV.UK: Check if you need to send full details (excepted estates)", "https://www.gov.uk/valuing-estate-of-someone-who-died/check-type-of-estate"),
+    "iht_pensions": src("GOV.UK: Inheritance Tax on pensions, technical note (from 6 April 2027)", "https://www.gov.uk/government/publications/inheritance-tax-on-pensions-technical-note/technical-note-inheritance-tax-on-pensions"),
+    "pension_trace": src("GOV.UK: Find pension contact details", "https://www.gov.uk/find-pension-contact-details"),
     "iht400": src("GOV.UK: Inheritance Tax account (IHT400)", "https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400"),
     "iht402": src("GOV.UK: Claim to transfer unused nil rate band (IHT402)", "https://www.gov.uk/government/publications/inheritance-tax-claim-to-transfer-unused-nil-rate-band-iht402"),
     "iht435": src("GOV.UK: Claim the residence nil rate band (IHT435)", "https://www.gov.uk/guidance/claim-the-residence-nil-rate-band"),
@@ -63,6 +72,13 @@ GOV = {
     "business_relief": src("GOV.UK: Business Relief for Inheritance Tax", "https://www.gov.uk/business-relief-inheritance-tax"),
     "business_relief_qualifies": src("GOV.UK: What qualifies for Business Relief", "https://www.gov.uk/business-relief-inheritance-tax/what-qualifies-for-business-relief"),
     "law_soc_dfm": src("The Law Society: A good investment (May 2022), quoting the former OPG LP12 standard clause on discretionary investment management", "https://communities.lawsociety.org.uk/may-2022/a-good-investment/6002319.article"),
+    "wiqs": src("The Law Society: Wills and Inheritance Quality Scheme (page updated 22 August 2025)", "https://www.lawsociety.org.uk/topics/firm-accreditations/wills-and-inheritance-quality-scheme"),
+    "wiqs_apply": src("The Law Society: how to apply for the Wills and Inheritance Quality Scheme", "https://www.lawsociety.org.uk/topics/firm-accreditations/wills-and-inheritance-quality-scheme/how-to-apply"),
+    "consumer_2013": src("Consumer Contracts (Information, Cancellation and Additional Charges) Regulations 2013", "https://www.legislation.gov.uk/uksi/2013/3134/contents"),
+    "dbs": src("GOV.UK: request a basic DBS check", "https://www.gov.uk/request-copy-criminal-record"),
+    "tell_us_once": src("GOV.UK: Tell Us Once", "https://www.gov.uk/after-a-death/organisations-you-need-to-contact-and-tell-us-once"),
+    "search_will": src("GOV.UK: search probate records", "https://www.gov.uk/search-will-probate"),
+    "iov2": src("GOV.UK: instrument of variation checklist (IOV2)", "https://www.gov.uk/government/publications/inheritance-tax-instrument-of-variation-checklist-iov2"),
 }
 
 YES_NO = ["No", "Yes"]

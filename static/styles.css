@@ -13,6 +13,11 @@ a{color:inherit;text-decoration:none}
 .main-nav{display:flex;gap:24px;margin-left:auto;font-size:15px;font-weight:500}
 .main-nav a:hover{color:var(--navy)}
 .header-actions{display:flex;gap:10px;align-items:center}
+.country-bar{background:#0b1f3a;color:#fff;padding:12px 24px}
+.country-bar-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.country-bar span{font-weight:700;font-size:15px;margin-right:8px}
+.country-bar a{background:transparent;color:#fff;border:2px solid rgba(255,255,255,.55);border-radius:999px;padding:8px 18px;font-weight:700;font-size:15px}
+.country-bar a:hover{background:#fff;color:#0b1f3a}
 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:6px;background:var(--navy);color:#fff;padding:11px 20px;border-radius:8px;font-weight:600;font-size:14.5px;border:0;cursor:pointer;text-decoration:none}

@@ -38,13 +38,25 @@ PROBATE = {
     "review_video": "probate_review",
     "steps": [
         {
+            "id": "papers", "title": "Estate papers", "video": "probate_documents",
+            "uploads": ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Pension statement", "Other"],
+            "guidance": [
+                "Start here. Upload the will, the death certificate, bank letters, pension statements and any valuation. A photo or a scan is fine.",
+                "The papers stay on this file. You can add more on any later step as letters and statements arrive. Use the list to find one again.",
+                "When a paper can be read, use Fill in what these papers show. Names, the date of death and amounts are written into the draft. Anything you have already typed is left as it is. A blurry photo may still have to be typed. Nothing is filed from here.",
+            ],
+            "sources": [GOV["probate_before"], GOV["iht_value"]],
+            "fields": [],
+        },
+        {
             "id": "intro", "title": "Before you start", "video": "probate_intro",
             "guidance": [
                 "We are sorry for your loss. This helper follows the GOV.UK steps: check probate is needed, check who can apply, value the estate for Inheritance Tax, then apply online or by post.",
                 "Probate is the legal right to deal with someone's property, money and possessions. You may not need it if they only had savings, or owned everything jointly as joint tenants. Each bank has its own limit, so ask them.",
                 "Do not make financial plans or put property on the market until you have probate.",
+                "Tell Us Once can notify several government departments of the death. A proved will can be searched on GOV.UK. Neither of those is done from this page.",
             ],
-            "sources": [GOV["probate"], GOV["probate_before"]],
+            "sources": [GOV["probate"], GOV["probate_before"], GOV["tell_us_once"], GOV["search_will"]],
             "fields": [],
         },
         {
@@ -133,13 +145,33 @@ PROBATE = {
             ],
         },
         {
+            "id": "pensions", "title": "Pensions", "video": "probate_estate",
+            "guidance": [
+                "From 6 April 2027, most unused pension funds and pension death benefits count in the estate for Inheritance Tax. Death-in-service benefits do not. The personal representatives report the tax and pay it. This applies to deaths on or after that date. For an earlier death, a pension paid at the scheme's discretion is usually outside the estate.",
+                "There is no feed that returns every pension. Find a lost scheme through the Pension Tracing Service: https://www.gov.uk/find-pension-contact-details . The address and phone number on the annual statement is who you write to. This page drafts the email. You send it. When they reply, type the figure here. It is added to the Inheritance Tax estimate, not to the probate total, because the scheme may pay the beneficiary directly.",
+                "Ask each scheme for the value of the unused fund at death, how much is for a husband, wife, civil partner or charity, and how much is for anyone else. The scheme should give the value within 28 days, and the split of beneficiaries by the later of 28 days or 14 days after those people are chosen. HMRC has said it will publish tools and notice templates before April 2027. Those templates are not this email.",
+                "If tax is expected, a personal representative can later direct the scheme to hold back up to half of the taxable benefits and to pay HMRC. Use HMRC's notice when it is published. Do not send this email as if it were that notice.",
+            ],
+            "sources": [GOV["iht_pensions"], GOV["pension_trace"], GOV["iht"]],
+            "fields": [
+                {"name": "schemes", "label": "Pension schemes", "type": "list", "min": 0, "max": 12, "fields": [
+                    {"name": "provider", "label": "Scheme or provider", "type": "text", "required": True},
+                    {"name": "reference", "label": "Membership or policy number, if you have it", "type": "text"},
+                    {"name": "benefit", "label": "What sort of benefit", "type": "select", "options": ["Unused pension fund", "Death in service", "Not sure yet"]},
+                    {"name": "value", "label": "Value they have confirmed (£)", "type": "number"},
+                    {"name": "exempt", "label": "Of that, the part for a spouse, civil partner or charity (£)", "type": "number"},
+                ]},
+            ],
+        },
+        {
             "id": "tax", "title": "Inheritance Tax", "video": "probate_tax",
             "guidance": [
                 f"There is normally no Inheritance Tax if the estate is below the £{NRB:,} threshold, or everything above it goes to a spouse, civil partner, charity or community amateur sports club.",
                 "Leaving a home to children or grandchildren can raise the threshold to £500,000, and unused threshold from a spouse or civil partner who died first can be added.",
                 "Most estates are 'excepted estates': no full details go to HMRC. Some things mean you must send form IHT400 even if no tax is due. Tax is due by the end of the sixth month after the death.",
+                "If the family later agree to change who inherits, that is usually an instrument of variation within two years of the death. It is their decision. This page does not send it.",
             ],
-            "sources": [GOV["iht"], GOV["iht_estate_type"], GOV["iht400"]],
+            "sources": [GOV["iht"], GOV["iht_estate_type"], GOV["iht400"], GOV["iov2"]],
             "fields": [
                 {"name": "to_spouse", "label": "Value left to a husband, wife or civil partner living in the UK (£)", "type": "number"},
                 {"name": "to_charity", "label": "Value left to UK charities or community amateur sports clubs (£)", "type": "number"},
@@ -153,8 +185,8 @@ PROBATE = {
         {
             "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": ["Will", "Codicil", "Death certificate", "Grant of probate or letters of administration", "Signed engagement letter", "Bank or valuation letter", "Estatesearch report", "Other"],
             "guidance": [
-                "Upload copies of the will, codicils, the death certificate, bank letters and valuations. Photos and scans are fine.",
-                "We read text from PDFs and Word files, and we read photos and scans. When the papers are uploaded, use Fill in what these papers show. It writes the names, dates and amounts it can read, and leaves anything you have already typed. A blurry photo may still need to be typed. Check every step. Nothing is filed from here.",
+                "Add anything that has arrived since you started: a bank letter, a pension reply, a valuation. It is added to the same list as step 1.",
+                "Use Fill in what these papers show again. New amounts are added. Answers you have already typed are not overwritten.",
             ],
             "sources": [GOV["probate_before"]],
             "fields": [],
@@ -271,7 +303,7 @@ PROBATE = {
         },
     ],
     "next_steps": [
-        "Read the estate account in your plan. It uses the values you entered. A solicitor checks it before anyone is paid.",
+        "Read the estate account in your plan. It uses the values you entered. Check them before anyone is paid. You can apply for probate yourself on GOV.UK if the estate qualifies. Asking the firm to file is optional.",
         "If the plan says full details are needed, print form IHT400, sign it, and post it to HMRC. Wait for their code. We cannot send the form.",
         "Apply for the grant on GOV.UK if the plan says you can, or by post on the form it names. Send the original will. We cannot send the application.",
         "When the grant arrives, collect each account and pay the debts and the funeral. Keep a note of money in and money out.",

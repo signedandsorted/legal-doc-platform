@@ -10,6 +10,8 @@ NAME = r"([A-Z][a-zA-Z'\-]+(?:\s+[A-Z][a-zA-Z'\-]+){1,3})"
 MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December"
 DATE_RE = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({MONTHS})\s+(\d{{4}})\b")
 MONEY_RE = re.compile(r"([A-Za-z][A-Za-z &'\-]{2,40}?)[\s:\-]*£\s?([\d,]+(?:\.\d{2})?)")
+CREDIT_HINT = re.compile(r"credit report|experian|equifax|transunion|estatesearch", re.I)
+_DEBT_WORDS = ("card", "loan", "mortgage", "overdraft", "finance", "hp ")
 STOP = {"The", "This", "My", "Will", "Testament", "Last", "Power", "Attorney", "Lasting", "Signed", "Dated", "Witness", "Executor", "Executors", "Trustees", "Trustee"}
 _ENGINE = None
 
@@ -91,6 +93,34 @@ def extract_text(filename: str, content_type: str, data: bytes) -> tuple[str, st
     except Exception:  # unreadable file: keep it for the solicitor
         return "", "unreadable"
     return "", "image"
+
+
+def credit_hits(text: str) -> list[tuple[str, str, str]]:
+    """Accounts printed on a bureau or Estatesearch report. Nothing is inferred beyond the line."""
+    hits = []
+    seen = set()
+    for raw in text.splitlines():
+        line = " ".join(raw.split())
+        if not line or len(line) > 180:
+            continue
+        money = re.search(r"(?:£|GBP\s*)(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", line, re.I)
+        if not money:
+            money = re.search(r"\bbalance\b[^0-9£]{0,16}(\d{1,3}(?:,\d{3})*(?:\.\d{2})|\d+\.\d{2})", line, re.I)
+        if not money:
+            continue
+        amount = money.group(1)
+        who = line[:money.start()]
+        who = re.sub(r"\b(balance|credit report|experian|equifax|transunion|estatesearch|reference)\b", " ", who, flags=re.I)
+        who = re.sub(r"[^A-Za-z0-9&'./\- ]", " ", who)
+        who = " ".join(who.split()).strip(" -")
+        if len(who) < 3 or len(who) > 60 or who.lower() in seen:
+            continue
+        seen.add(who.lower())
+        side = "debt" if any(word in who.lower() for word in _DEBT_WORDS) else "asset"
+        hits.append((who, amount, side))
+        if len(hits) == 12:
+            break
+    return hits
 
 
 def detect_kind(text: str) -> str | None:
@@ -176,10 +206,20 @@ def suggest(service_id: str, text: str, upload_id: str, filename: str) -> list[d
             add(f"Date of death: {dm.group(1)} {dm.group(2)} {dm.group(3)}", "deceased", "date_of_death", f"{int(dm.group(3)):04d}-{MONTHS.split('|').index(dm.group(2)) + 1:02d}-{int(dm.group(1)):02d}")
         for n in executors[:4]:
             add(f"Executor named in the will: {n}", None, None, None, "note")
-        for m in list(MONEY_RE.finditer(flat))[:8]:
-            desc = m.group(1).strip().rstrip(":-").strip()
-            value = m.group(2).replace(",", "")
-            add(f"{desc}: £{m.group(2)}", "estate", "assets", {"description": f"{desc} ({filename})", "value": value}, "append")
+        if CREDIT_HINT.search(flat):
+            for who, amount, side in credit_hits(text):
+                add(
+                    f"{who}: £{amount}",
+                    "estate",
+                    "assets",
+                    {"description": f"{who} (credit report)", "value": amount.replace(",", ""), "holder": who, "side": side},
+                    "append",
+                )
+        else:
+            for m in list(MONEY_RE.finditer(flat))[:8]:
+                desc = m.group(1).strip().rstrip(":-").strip()
+                value = m.group(2).replace(",", "")
+                add(f"{desc}: £{m.group(2)}", "estate", "assets", {"description": f"{desc} ({filename})", "value": value}, "append")
     return s
 
 

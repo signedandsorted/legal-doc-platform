@@ -3,7 +3,7 @@
 Each step is recorded in `schema_migrations` and never runs twice. Only additive changes."""
 from sqlalchemy import Index, inspect, text
 
-from .db import audit_log, capacity_statements, drafts, hmlr_spend, login_attempts, matter_uploads, matters, now, password_resets, schema_migrations, sessions, uploads, users
+from .db import audit_log, capacity_statements, draft_versions, drafts, firm_settings, hmlr_spend, login_attempts, matter_uploads, matters, now, password_resets, schema_migrations, sessions, uploads, users
 
 
 def _create(conn, *tables):
@@ -51,6 +51,30 @@ def m6_hmlr_spend(conn):
     _create(conn, hmlr_spend)
 
 
+def m7_firm_settings(conn):
+    """One row for the Actionstep connection. The token is not stored on a matter."""
+    _create(conn, firm_settings)
+
+
+def m8_draft_versions(conn):
+    """Each time a draft is kept or sent, the document at that moment is stored."""
+    _create(conn, draft_versions)
+
+
+def m9_user_retainer(conn):
+    """The client’s signed request to start work, covering every section."""
+    cols = {c["name"] for c in inspect(conn).get_columns("users")}
+    if "retainer" not in cols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN retainer JSON"))
+
+
+def m10_draft_payment(conn):
+    """Whether the client has paid to download this public document."""
+    cols = {c["name"] for c in inspect(conn).get_columns("drafts")}
+    if "payment" not in cols:
+        conn.execute(text("ALTER TABLE drafts ADD COLUMN payment JSON"))
+
+
 MIGRATIONS = [
     (1, "base drafts and uploads", m1_base),
     (2, "accounts, sessions, audit log, drafts.user_id", m2_accounts),
@@ -58,6 +82,10 @@ MIGRATIONS = [
     (4, "firm matters", m4_matters),
     (5, "firm matter uploads", m5_matter_uploads),
     (6, "hmlr spend ledger", m6_hmlr_spend),
+    (7, "firm settings for Actionstep", m7_firm_settings),
+    (8, "draft versions", m8_draft_versions),
+    (9, "user retainer", m9_user_retainer),
+    (10, "draft payment", m10_draft_payment),
 ]
 
 

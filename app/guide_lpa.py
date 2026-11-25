@@ -104,7 +104,7 @@ def lpa_service(kind: str) -> dict:
             "guidance": [
                 "Life-sustaining treatment is care or medicine needed to keep you alive, for example a ventilator or CPR.",
                 "Option A gives your attorneys authority to give or refuse consent on your behalf. Option B means they cannot; your doctors decide, taking your attorneys' views into account.",
-                "You sign this section in front of a witness at the same time as you sign section 9.",
+                "You sign section 5 in front of a witness before you sign section 9. The signing-order step sets out the full sequence. If that order is wrong, the Office of the Public Guardian will not register the LPA.",
                 "This choice stays in section 5. Do not put life-sustaining treatment instructions in section 7 (preferences and instructions). You can add other care preferences, such as food or everyday treatment, in section 7.",
             ],
             "sources": [GOV["lpa_forms"], GOV["lp12"]],
@@ -187,6 +187,21 @@ def lpa_service(kind: str) -> dict:
             ],
         },
         {
+            "id": "signing", "title": "The order of signing", "form_section": f"{form}: sign in this order or it cannot be registered", "video": "lpa_signing",
+            "guidance": [
+                "Everyone signs the same original paper form, in ink. A photocopy or a digital signature is not accepted. If they sign in the wrong order, the Office of the Public Guardian will not register the LPA, and the attorneys cannot use it. This is the order in LP12.",
+                "1. You, the donor, sign first." + ("" if prop else " On this health and welfare LPA, sign section 5 (life-sustaining treatment) before section 9.") + " If you used continuation sheet 1 or 2, sign that before section 9. Then sign section 9. A witness aged 18 or over watches you sign and signs straight afterwards. An attorney or a replacement attorney cannot be that witness. Your certificate provider can.",
+                "2. The certificate provider signs section 10 next. They must sign after you and before any attorney.",
+                "3. Each attorney and each replacement attorney then signs section 11. A witness watches each of them and signs straight afterwards. You cannot be that witness. Attorneys can witness each other. Nobody witnesses their own signature.",
+                "4. The person applying to register (section 12) signs section 15 last, and dates it after every section 11 has been signed. If the attorneys apply and they must act jointly, each of them signs section 15.",
+                "Then send form LP3 to each person to notify, and send the original form to the Office of the Public Guardian.",
+            ],
+            "sources": [GOV["lp12"], GOV["lpa_errors"], GOV["lpa_make"]],
+            "fields": [
+                {"name": "signing_order_read", "label": "I have read the signing order. I understand the LPA cannot be registered if it is signed in the wrong order.", "type": "checkbox", "required": True},
+            ],
+        },
+        {
             "id": "documents", "title": "Your documents", "video": "lpa_documents", "uploads": ["Existing LPA", "Enduring power of attorney (EPA)", "Other"],
             "guidance": [
                 "If you already have an LPA or an enduring power of attorney, upload it. We use it to suggest details and to check that nobody named in it is acting as your certificate provider.",
@@ -201,13 +216,13 @@ def lpa_service(kind: str) -> dict:
         "form": form,
         "title": "Lasting power of attorney: " + short,
         "short_title": "LPA: " + short,
-        "summary": f"Prepare an LPA for England and Wales that follows the official {form} form section by section. A solicitor checks it before you sign and register.",
+        "summary": f"Prepare an LPA for England and Wales that follows the official {form} form section by section. You can complete and register it yourself. A solicitor is optional.",
         "review_video": "lpa_review",
         "steps": steps,
         "next_steps": [
-            "A solicitor reviews your answers and contacts you with any questions.",
+            "You can complete and register this yourself. Copy the answers onto the official form, or use the GOV.UK service. A solicitor is optional.",
             f"Copy each answer into the matching section of the official {form} form (or the GOV.UK online service). Your pack lists them section by section.",
-            "Sign in this order: you sign sections 5 and 9 with a witness; then the certificate provider signs section 10; then each attorney and replacement signs section 11 with a witness; the applicant signs section 15 last. Attorneys cannot witness your signature but can witness each other's.",
+            "Follow the signing-order step. You sign first, then the certificate provider, then each attorney and replacement, and section 15 last. If that order is wrong, the Office of the Public Guardian will not register the LPA.",
             "Send form LP3 to each person to notify. They have 3 weeks to raise concerns.",
             f"Send the signed original form and the £{LPA_FEE} fee (or form LPA120) to the Office of the Public Guardian. Registration takes 8 to 10 weeks if there are no mistakes. If OPG finds a correctable mistake you can usually re-apply within 3 months for £{LPA_RETRY_FEE}.",
         ],

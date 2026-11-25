@@ -9,7 +9,7 @@ WILL = {
     "id": "will",
     "title": "Make a will",
     "short_title": "Will",
-    "summary": "A will for England and Wales with the clauses most online services leave out: trusts, guardians, digital assets, pets, charity gifts and more. A solicitor checks it before you sign.",
+    "summary": "A will for England and Wales with the clauses most online services leave out: trusts, guardians, digital assets, pets, charity gifts and more. You can make it yourself. A solicitor is optional.",
     "review_video": "will_review",
     "steps": [
         {
@@ -155,6 +155,27 @@ WILL = {
             ],
         },
         {
+            "id": "safeguards", "title": "Claims, capacity and couples", "video": "will_review",
+            "guidance": [
+                "The Inheritance (Provision for Family and Dependants) Act 1975 lets some people ask a court for reasonable financial provision if a will, or the intestacy rules, do not provide it. That can include a husband, wife or civil partner, a former spouse who has not formed a new marriage or civil partnership, a child, someone treated as a child of the family, someone who was being maintained, and a partner who lived with the person as husband, wife or civil partner for the whole of the two years before the death. A claim is normally made within six months of the grant. A spouse's claim is not limited to maintenance. Most other claims are. Recording the reasons, or sending a summary, does not stop a claim and does not make the firm immune from one.",
+                "The golden rule is practice, not a statute (Kenward v Adams). Where the person is elderly or seriously ill, or there is any other reason to doubt capacity, a doctor should examine them, apply the Banks v Goodfellow test, and make a written note. The will is not invalid only because this was not done (Hughes v Pritchard). The note is what a firm relies on if capacity is challenged. Do not delay the will so long that it is never signed. See the client alone. Take a full note of the assets, the family, and why someone is left out.",
+                "The SRA's wills guidance was updated on 25 November 2019. Paragraph 3.3 is competence. Paragraph 3.5 is taking account of the client's circumstances. Paragraph 6.1 is an own-interest conflict: if the will leaves something of significant value to the drafter, their family, or an employee, the client should take independent advice first, and the drafter usually stops if they refuse. A parent leaving the estate equally to their children, including a solicitor child, can be an exception. Do not tell a client that appointing a solicitor as executor is essential. None of these steps is a warranty against a claim.",
+                "Mirror wills are two separate wills in similar terms. The Society of Will Writers says each person can change or revoke their own, including after the other has died, unless they made a separate binding promise. Say that on the face of the will so it is not later called mutual. Mutual wills are different: the couple agree that neither will revoke. While both are alive either can still change their mind. After the first death, and once the survivor has taken the benefit, equity can enforce the promise by a constructive trust. A will still cannot be made irrevocable, and a later marriage can revoke it. Mutual wills are rarely what a couple wants. Do not call a pair of wills mutual unless a solicitor has advised both people.",
+                "If an earlier will is uploaded, the draft flags gifts and appointments in it that this new will does not repeat, mutual-will wording, crossings-out, and planning that should not be copied or deleted without a decision. The machine reading is not the will. A solicitor reads the original. Do not cross it out: the Institute of Professional Willwriters says that can make it invalid, so make a new will or a codicil. Do not destroy the old original. A new will does not cancel it until the new one is signed and witnessed. File protection is the attendance note and the earlier papers, kept so the file can be explained years later. It does not stop a claim.",
+            ],
+            "sources": [GOV["will_legal"], GOV["act1975"], GOV["sra_wills"], GOV["sww_mirror"], GOV["ipw_changes"], GOV["file_retention"], GOV["wills_act"]],
+            "fields": [
+                {"name": "act_read", "label": "I understand a person left out, or left less than they expected, may be able to claim under the 1975 Act, and that this form does not stop that claim", "type": "checkbox", "required": True},
+                {"name": "capacity", "label": "Is there any reason to ask a doctor about capacity?", "type": "select", "required": True, "options": ["No reason to doubt it", "Elderly or seriously ill", "Another reason to doubt it"]},
+                {"name": "doctor", "label": "Has a doctor been asked to examine and make a written note?", "type": "select", "required": True, "options": ["Not needed", "Yes", "Not yet"]},
+                {"name": "seen_alone", "label": "Were the instructions taken with the client alone, free of pressure?", "type": "select", "required": True, "options": ["Yes", "No, someone else was present or pressing", "Not sure"]},
+                {"name": "drafter_benefits", "label": "Does the will writer, a solicitor, their family, or an employee receive a gift under this will?", "type": "select", "required": True, "options": ["No", "Yes"]},
+                {"name": "independent_advice", "label": "Has the client taken independent advice on that gift?", "type": "select", "required": True, "show_if": {"field": "drafter_benefits", "in": ["Yes"]}, "options": ["Yes", "Not yet", "The client refuses"]},
+                {"name": "couple", "label": "Is this one of a pair of wills?", "type": "select", "required": True, "options": ["No, one will only", "Mirror wills: each of us can change our own", "Mutual wills: the survivor should not be able to change", "Not sure"]},
+                {"name": "couple_name", "label": "The other person's full name", "type": "text", "required": True, "show_if": {"field": "couple", "in": ["Mirror wills: each of us can change our own", "Mutual wills: the survivor should not be able to change"]}},
+            ],
+        },
+        {
             "id": "extras", "title": "Extra wishes", "video": "will_extras",
             "guidance": [
                 "These are optional but make life easier for your family. Say where your list of online accounts is kept; never write passwords in a will.",
@@ -178,15 +199,15 @@ WILL = {
         {
             "id": "documents", "title": "Your documents", "video": "will_documents", "uploads": ["Old will", "Codicil", "Other"],
             "guidance": [
-                "If you have an old will, codicils or other papers, upload them. A photo or scan is fine; we read text from PDFs and Word files and suggest names you can add with one tap.",
-                "Your new will revokes earlier wills once signed. Do not destroy the old original until the new one is signed and witnessed.",
+                "If you have an old will, codicils or other papers, upload them. A photo or scan is fine; we read text from PDFs and Word files and suggest names you can add with one tap. That reading is not a review of the will. Do not cross out or write on the old will. Make a new will, or a codicil for a small change.",
+                "Your new will revokes earlier wills once it is signed and witnessed. Do not destroy the old original until then. The firm keeps the original, or a copy if it is revoked, with the file.",
             ],
-            "sources": [GOV["will_update"]],
+            "sources": [GOV["will_update"], GOV["ipw_changes"], GOV["will_storage"]],
             "fields": [],
         },
     ],
     "next_steps": [
-        "A solicitor reviews your draft and contacts you with any questions.",
+        "You can finish this will yourself. It is valid only once you sign it in front of two adult witnesses who are both present. A witness must not be a beneficiary, or the husband, wife or civil partner of a beneficiary. A solicitor is optional.",
         "Sign the final will in front of 2 independent adult witnesses who are both present at the same time. They then sign in front of you.",
         "A witness must not be a beneficiary, or the husband, wife or civil partner of a beneficiary, or that person's gift can fail.",
         "Keep the signed original somewhere safe and tell your executors where it is. You can also store it with the Probate Service.",
