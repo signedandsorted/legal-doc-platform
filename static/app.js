@@ -223,7 +223,7 @@ async function mine() {
 async function adminPage(parts) {
   if (!ME || ME.role !== "admin") { $app.innerHTML = '<h1>Admins only</h1><p><a href="#/login?next=admin">Sign in with an admin account</a></p>'; return; }
   const tab = parts[0] || "drafts";
-  const tabs = '<nav class="tabs" aria-label="Admin sections">' + [["drafts", "Drafts"], ["users", "Clients"], ["uploads", "Uploads"], ["statements", "Statements"], ["audit", "Audit log"]].map(([k, t]) => '<a href="#/admin/' + k + '"' + (k === tab ? ' aria-current="page"' : "") + '>' + t + '</a>').join("") + '</nav>';
+  const tabs = '<nav class="tabs" aria-label="Admin sections">' + [["drafts", "Drafts"], ["users", "Clients"], ["uploads", "Uploads"], ["statements", "Statements"], ["hmlr", "HMLR spend"], ["audit", "Audit log"]].map(([k, t]) => '<a href="#/admin/' + k + '"' + (k === tab ? ' aria-current="page"' : "") + '>' + t + '</a>').join("") + '</nav>';
   const head = s => '<h1>Admin</h1><p class="muted small">' + s.clients + ' client' + (s.clients === 1 ? '' : 's') + ' · ' + s.drafts + ' draft' + (s.drafts === 1 ? '' : 's') + ' (' + s.submitted + ' sent for review) · ' + s.uploads + ' upload' + (s.uploads === 1 ? '' : 's') + ' · ' + (s.capacity_statements || 0) + ' statement' + ((s.capacity_statements || 0) === 1 ? '' : 's') + (s.unowned_drafts ? ' · ' + s.unowned_drafts + ' older drafts with no account' : "") + '</p>' + tabs;
   const s = await api("/api/admin/summary");
   const dl = u => '<a href="/api/admin/uploads/' + u.id + '/download">' + esc(u.filename) + '</a>';
@@ -251,6 +251,13 @@ async function adminPage(parts) {
     const html = table(["When", "Client", "Owner", "Document", "Current", "Fingerprint", ""], rows.map(st => statementAdminRow(st)).join(""));
     $app.innerHTML = head(s) + html;
     bind(); return;
+  }
+  if (tab === "hmlr") {
+    const l = await api("/api/probate/admin/hmlr-ledger");
+    $app.innerHTML = head(s) + '<h2>HMLR search spend</h2><p>Today (UTC ' + esc(l.today) + '): £' + l.spent_today.toFixed(2) + ' of the £' + l.daily_cap.toFixed(2) + ' daily cap.</p>'
+      + '<div class="table-wrap"><table class="tbl"><thead><tr><th>When</th><th>Search</th><th>Name</th><th>Fee</th><th>Provider</th><th>Reference</th></tr></thead><tbody>'
+      + (l.rows.map(r => '<tr><td class="nowrap">' + when(r.created_at) + '</td><td>' + esc(r.search_type) + '</td><td>' + esc(r.name) + '</td><td>£' + r.fee.toFixed(2) + '</td><td>' + esc(r.provider) + '</td><td>' + esc(r.reference) + '</td></tr>').join("") || '<tr><td colspan="6" class="muted">Nothing yet</td></tr>') + '</tbody></table></div>';
+    return;
   }
   const rows = await api("/api/admin/" + tab + (tab === "audit" ? "?limit=300" : "") + (tab === "drafts" && query().get("user") ? "?user_id=" + encodeURIComponent(query().get("user")) : ""));
   const table = (cols, body) => '<div class="table-wrap"><table class="tbl"><thead><tr>' + cols.map(c => '<th>' + c + '</th>').join("") + '</tr></thead><tbody>' + (body || '<tr><td colspan="' + cols.length + '" class="muted">Nothing yet</td></tr>') + '</tbody></table></div>';
@@ -801,12 +808,33 @@ async function mountStatementPanel(draftId) {
 // Read-only lookup tools shown above a step's questions. They search official lists only; the
 // family records what they found in the step's own questions. Nothing is filed or submitted.
 const TOOLS = {
-  async hmlr(box) {
+  async hmlr(box, draft) {
     try {
       const st = await api("/api/probate/hmlr/status");
-      box.innerHTML = '<div class="card"><h2>HM Land Registry searches</h2>' + (st.switched_on ? '<p>Choose a search on the next screen.</p>' : '<div class="alert info">' + esc(st.message) + '</div>')
-        + '<ul><li>K16 bankruptcy search: £' + esc(st.fees.K16.toFixed(2)) + ' per name (<a href="' + esc(st.fee_sources.K16) + '" target="_blank" rel="noopener">GOV.UK</a>)</li>'
-        + '<li>PN1 index of proprietors\' names: £' + esc(st.fees.PN1.toFixed(2)) + ' per name (<a href="' + esc(st.fee_sources.PN1) + '" target="_blank" rel="noopener">GOV.UK</a>)</li></ul><p class="small">Fees checked ' + esc(st.fees_checked) + '.</p></div>';
+      const fees = '<ul><li>K16 bankruptcy search: £' + esc(st.fees.K16.toFixed(2)) + ' per name (<a href="' + esc(st.fee_sources.K16) + '" target="_blank" rel="noopener">GOV.UK</a>)</li>'
+        + '<li>PN1 index of proprietors\' names: £' + esc(st.fees.PN1.toFixed(2)) + ' per name (<a href="' + esc(st.fee_sources.PN1) + '" target="_blank" rel="noopener">GOV.UK</a>)</li></ul><p class="small">Fees checked ' + esc(st.fees_checked) + '.</p>';
+      if (!st.switched_on) { box.innerHTML = '<div class="card"><h2>HM Land Registry searches</h2><div class="alert info">' + esc(st.message) + '</div>' + fees + '</div>'; return; }
+      const a = draft.answers || {};
+      const people = ((a.account || {}).people || []).map(p => p.full_name).filter(Boolean).join("\n");
+      box.innerHTML = '<div class="card"><h2>HM Land Registry searches</h2>' + fees + '<form id="hm"><div class="field"><label for="hm_t">Search</label><select id="hm_t"><option value="K16">K16 bankruptcy search (beneficiaries)</option><option value="PN1">PN1 index of proprietors\' names (the person who died)</option></select></div>'
+        + '<div class="field"><label for="hm_n">Names, one per line</label><textarea id="hm_n">' + esc(people) + '</textarea></div><p><button class="btn" type="submit">Check the fee</button></p></form><div id="hm_out" aria-live="polite"></div></div>';
+      const t = box.querySelector("#hm_t"), n = box.querySelector("#hm_n"), out = box.querySelector("#hm_out");
+      t.onchange = () => { n.value = t.value === "PN1" ? ((a.deceased || {}).full_name || "") : people; out.innerHTML = ""; };
+      const body = () => ({ search_type: t.value, names: n.value.split("\n").map(x => x.trim()).filter(Boolean) });
+      box.querySelector("#hm").onsubmit = async e => {
+        e.preventDefault();
+        try {
+          const q = await api("/api/probate/drafts/" + draft.id + "/hmlr/quote", { method: "POST", body: body() });
+          out.innerHTML = '<div class="alert ' + (q.within_cap ? "info" : "warning") + '"><b>Please confirm</b><ul><li>Search: ' + esc(q.label) + '</li><li>Names: ' + esc(q.names.join(", ")) + '</li><li>Fee: £' + q.fee_each.toFixed(2) + ' each, £' + q.total.toFixed(2) + ' in total (<a href="' + esc(q.fee_source) + '" target="_blank" rel="noopener">official fee</a>)</li><li>Spent today: £' + q.spent_today.toFixed(2) + ' of the £' + q.daily_cap.toFixed(2) + ' daily limit</li></ul>'
+            + (q.within_cap ? '<p><button class="btn" type="button" id="hm_ok">Confirm and order</button></p>' : '<p>This would pass today\'s limit.</p>') + '</div>';
+          const ok = box.querySelector("#hm_ok");
+          if (ok) ok.onclick = async () => {
+            ok.disabled = true;
+            try { const r = await api("/api/probate/drafts/" + draft.id + "/hmlr/order", { method: "POST", body: { ...body(), confirm: true } }); out.innerHTML = '<div class="alert ok"><b>Ordered</b><ul>' + r.results.map(x => '<li>' + esc(x.name) + ': ' + esc(x.result) + ' (ref ' + esc(x.reference) + ')</li>').join("") + '</ul></div>'; }
+            catch (err) { out.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+          };
+        } catch (err) { out.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+      };
     } catch (err) { box.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
   },
   async gazette_s27(box, draft) {
