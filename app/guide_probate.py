@@ -32,7 +32,7 @@ PROBATE = {
     "id": "probate",
     "title": "Probate helper",
     "short_title": "Probate",
-    "summary": "Work out whether you can apply for probate online or must use a paper form, which Inheritance Tax and PA forms you need, and the 5 estate values the application asks for.",
+    "summary": "A plain-English walk-through the family can start, then the firm continues on the same figures: what they owned, where else to look, the tax papers, a simple estate account, and what happens after the grant. England and Wales.",
     "review_video": "probate_review",
     "steps": [
         {
@@ -111,6 +111,25 @@ PROBATE = {
                 {"name": "funeral_costs", "label": "Funeral costs (£)", "type": "number"},
             ],
         },
+        # Companies House check step added for probate estate wiring
+        {
+            "id": "companies_house", "title": "Check Companies House", "video": "probate_estate",
+            "guidance": [
+                "Search the Companies House officer register for the deceased to confirm any directorships or appointments. This helps identify assets or liabilities linked to companies.",
+                "If the API key is not configured, a message will appear indicating the feature is not available.",
+                "Tick the boxes for any officers that match the deceased; these will be added to the estate asset checklist.",
+                "This helper prepares a pack for the family. It does not file or submit anything to Companies House or any government service.",
+            ],
+            "sources": [],
+            "fields": [
+                {"name": "officers", "label": "Companies House officers", "type": "list", "min": 0, "max": 20, "fields": [
+                    {"name": "name", "label": "Officer name", "type": "text", "required": True},
+                    {"name": "dob_month_year", "label": "Date of birth (month/year)", "type": "text"},
+                    {"name": "appointments", "label": "Appointments (company, role)", "type": "textarea"},
+                    {"name": "match", "label": "This is the deceased", "type": "checkbox"},
+                ]},
+            ],
+        },
         {
             "id": "tax", "title": "Inheritance Tax", "video": "probate_tax",
             "guidance": [
@@ -133,18 +152,53 @@ PROBATE = {
             "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Other"],
             "guidance": [
                 "Upload copies of the will, codicils, the death certificate, bank letters and valuations. Photos and scans are fine.",
-                "We read text from PDFs and Word files and suggest names, dates and values you can add with one tap. Keep the original will safe: it goes to the probate registry only when you apply.",
+                "We read text from PDFs and Word files, and we read photos and scans. When the papers are uploaded, use Fill in what these papers show. It writes the names, dates and amounts it can read, and leaves anything you have already typed. A blurry photo may still need to be typed. Check every step. Nothing is filed from here.",
             ],
             "sources": [GOV["probate_before"]],
             "fields": [],
         },
+        {
+            "id": "discovery", "title": "Where else to look", "video": "probate_estate",
+            "guidance": [
+                "People often miss an account. Work through this list before you decide the estate is complete.",
+                "My Lost Account is free and searches banks, building societies and NS&I: https://www.mylostaccount.org.uk/",
+                "The Pension Tracing Service finds workplace and personal pensions: https://www.gov.uk/find-pension-contact-details",
+                "Search the Land Registry if there may be a house or land: https://www.gov.uk/search-property-information-land-registry",
+                "Tell Us Once can notify government departments: https://www.gov.uk/tell-us-once",
+                "Also ask NS&I about Premium Bonds, the last employer, any insurer, and look at email for PayPal or other online balances. This is not a credit-file search. A firm that buys those still has to pay a data company. What you find here is added on the estate step and flows into the account.",
+            ],
+            "sources": [GOV["iht_value"]],
+            "fields": [
+                {"name": "looked_banks", "label": "We have asked the banks, or started a My Lost Account search", "type": "checkbox"},
+                {"name": "looked_pensions", "label": "We have looked for pensions", "type": "checkbox"},
+                {"name": "looked_property", "label": "We have checked for property", "type": "checkbox"},
+                {"name": "looked_rest", "label": "We have asked about Premium Bonds, the employer, insurance and online balances", "type": "checkbox"},
+            ],
+        },
+        {
+            "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",
+            "guidance": [
+                "You do not type the money again. This step turns the values you already entered into a simple estate account.",
+                "The account is what the grant covers: things in their name, minus debts and the funeral. A joint bank account or a house owned as joint tenants goes straight to the other owner. It is not in this account, and you do not collect it.",
+                "The order is always the same. Get the papers. Ask each bank for the value on the day they died. If the plan says so, post the tax form and wait for a code. Apply for the grant. When it arrives, collect the money and pay the bills. Share what is left only after that, and not in full until at least 6 months after the grant.",
+                "You can file the grant yourself, or ask the firm to file it for you. This website cannot sign in to HMCTS. If you ask the firm, a solicitor files it in the firm's MyHMCTS account, or by post where the online service will not take it. That happens only after the firm accepts the matter.",
+            ],
+            "sources": [GOV["iht_value"], GOV["probate"]],
+            "fields": [
+                {"name": "who_files", "label": "Who should file the grant?", "type": "select", "required": True, "options": ["I will file it myself", "I want the firm to file it for me"]},
+                {"name": "people", "label": "People to tell about their share (optional)", "type": "list", "min": 0, "max": 8, "fields": [
+                    {"name": "full_name", "label": "Name", "type": "text", "required": True},
+                    {"name": "relationship", "label": "Who they were to the person who died", "type": "text"},
+                ]},
+            ],
+        },
     ],
     "next_steps": [
-        "A solicitor reviews your plan and contacts you with any questions. We never file anything for you.",
-        "If full details are needed (form IHT400), send them to HMRC within 12 months of the death, start paying any tax, and wait for HMRC's letter with a code before applying for probate.",
-        "Apply online on GOV.UK if your plan says you can, or by post on the PA form listed. Send the original will with the application.",
-        "You will usually get probate within 12 weeks of applying. Then collect the assets, pay debts and taxes, and keep records.",
-        "Consider a deceased estates notice in The Gazette to protect against unknown creditors, and wait at least 6 months from the grant before distributing in full in case of claims under the Inheritance (Provision for Family and Dependants) Act 1975.",
-        "Prepare estate accounts and distribute the estate under the will or the intestacy rules.",
+        "Read the estate account in your plan. It uses the values you entered. A solicitor checks it before anyone is paid.",
+        "If the plan says full details are needed, print form IHT400, sign it, and post it to HMRC. Wait for their code. We cannot send the form.",
+        "Apply for the grant on GOV.UK if the plan says you can, or by post on the form it names. Send the original will. We cannot send the application.",
+        "When the grant arrives, collect each account and pay the debts and the funeral. Keep a note of money in and money out.",
+        "Place a notice in The London Gazette under section 27 of the Trustee Act 1925, and in a local newspaper if there is land. Give people at least two months to make a claim. Wait at least 6 months from the grant as well before paying everyone in full.",
+        "Share what is left as the will says, or as the law says if there is no will. The names you listed are people to keep informed. They are not a decision about who inherits.",
     ],
 }

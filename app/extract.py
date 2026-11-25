@@ -1,5 +1,5 @@
 """Read text from uploaded documents and suggest answers. Heuristic and local (no paid APIs).
-Suggestions are only offered to the user; nothing is filled in without them choosing it."""
+Photos and scans are read with OCR. Suggestions are only offered; nothing is filled until asked."""
 import io
 import re
 import zipfile
@@ -11,23 +11,83 @@ MONTHS = "January|February|March|April|May|June|July|August|September|October|No
 DATE_RE = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({MONTHS})\s+(\d{{4}})\b")
 MONEY_RE = re.compile(r"([A-Za-z][A-Za-z &'\-]{2,40}?)[\s:\-]*£\s?([\d,]+(?:\.\d{2})?)")
 STOP = {"The", "This", "My", "Will", "Testament", "Last", "Power", "Attorney", "Lasting", "Signed", "Dated", "Witness", "Executor", "Executors", "Trustees", "Trustee"}
+_ENGINE = None
+
+
+def _ocr_engine():
+    global _ENGINE
+    if _ENGINE is None:
+        from rapidocr_onnxruntime import RapidOCR
+        _ENGINE = RapidOCR()
+    return _ENGINE
+
+
+def ocr_image(data: bytes) -> str:
+    """Read a photo or scan. Empty string if nothing can be read."""
+    from PIL import Image
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    short = min(img.size)
+    if short < 900:
+        scale = 900 / short
+        img = img.resize((max(1, int(img.width * scale)), max(1, int(img.height * scale))), Image.Resampling.LANCZOS)
+    if max(img.size) > 2500:
+        scale = 2500 / max(img.size)
+        img = img.resize((max(1, int(img.width * scale)), max(1, int(img.height * scale))), Image.Resampling.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    result, _elapsed = _ocr_engine()(buf.getvalue())
+    if not result:
+        return ""
+    lines = [text for _box, text, score in result if text and score >= 0.5]
+    return "\n".join(lines)[:MAX_TEXT]
+
+
+def ocr_pdf(data: bytes) -> str:
+    import pypdfium2 as pdfium
+    pdf = pdfium.PdfDocument(data)
+    parts = []
+    try:
+        for i in range(min(len(pdf), 4)):
+            page = pdf[i]
+            pil = page.render(scale=2).to_pil()
+            raw = io.BytesIO()
+            pil.save(raw, format="PNG")
+            parts.append(ocr_image(raw.getvalue()))
+            page.close()
+    finally:
+        pdf.close()
+    return "\n".join(part for part in parts if part)[:MAX_TEXT]
 
 
 def extract_text(filename: str, content_type: str, data: bytes) -> tuple[str, str]:
-    """Returns (text, how). Images are stored but not OCR'd on the free plan."""
+    """Returns (text, how). how is pdf, docx, text, ocr, scanned-pdf, image or unreadable."""
     name = filename.lower()
     try:
         if name.endswith(".pdf") or content_type == "application/pdf":
             from pypdf import PdfReader
             text = "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(data)).pages[:60])
-            return text[:MAX_TEXT], "pdf" if text.strip() else "scanned-pdf"
+            if len(text.strip()) >= 40:
+                return text[:MAX_TEXT], "pdf"
+            try:
+                seen = ocr_pdf(data)
+            except Exception:
+                seen = ""
+            if len(seen.strip()) > len(text.strip()):
+                return seen[:MAX_TEXT], "ocr"
+            return (text[:MAX_TEXT], "pdf") if text.strip() else ("", "scanned-pdf")
         if name.endswith(".docx"):
             with zipfile.ZipFile(io.BytesIO(data)) as z:
                 root = ElementTree.fromstring(z.read("word/document.xml"))
             paras = ["".join(t.text or "" for t in p.iter() if t.tag.endswith("}t")) for p in root.iter() if p.tag.endswith("}p")]
             return "\n".join(paras)[:MAX_TEXT], "docx"
-        if name.endswith(".txt") or content_type.startswith("text/"):
+        if name.endswith(".txt") or (content_type or "").startswith("text/"):
             return data.decode("utf-8", "replace")[:MAX_TEXT], "text"
+        if name.endswith((".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif")) or (content_type or "").startswith("image/"):
+            try:
+                seen = ocr_image(data)
+            except Exception:
+                return "", "image"
+            return (seen[:MAX_TEXT], "ocr") if seen.strip() else ("", "image")
     except Exception:  # unreadable file: keep it for the solicitor
         return "", "unreadable"
     return "", "image"
@@ -45,6 +105,8 @@ def detect_kind(text: str) -> str | None:
         return "Old will"
     if "entry of death" in t or "death certificate" in t:
         return "Death certificate"
+    if "credit report" in t or "experian" in t or "equifax" in t or "transunion" in t:
+        return "Credit report"
     return None
 
 
@@ -119,3 +181,37 @@ def suggest(service_id: str, text: str, upload_id: str, filename: str) -> list[d
             value = m.group(2).replace(",", "")
             add(f"{desc}: £{m.group(2)}", "estate", "assets", {"description": f"{desc} ({filename})", "value": value}, "append")
     return s
+
+
+def _same(current: dict, value: dict) -> bool:
+    for key in ("full_name", "description"):
+        if value.get(key) and current.get(key) == value.get(key):
+            return True
+    return False
+
+
+def fill_from_papers(answers: dict, suggestions: list[dict]) -> tuple[dict, list[str], list[str]]:
+    """Copy readable names, dates and amounts into the draft. Never overwrites an answer already typed.
+    Returns (answers, filled labels, notes that were not copied)."""
+    answers = {k: dict(v) if isinstance(v, dict) else v for k, v in (answers or {}).items()}
+    filled, notes = [], []
+    for item in suggestions:
+        if item.get("mode") == "note" or not item.get("step") or not item.get("field"):
+            if item.get("label"):
+                notes.append(item["label"])
+            continue
+        section = dict(answers.get(item["step"]) or {})
+        if item.get("mode") == "append":
+            value = item.get("value") if isinstance(item.get("value"), dict) else {}
+            current = [x for x in (section.get(item["field"]) or []) if isinstance(x, dict) and any(x.values())]
+            if any(_same(x, value) for x in current):
+                continue
+            current.append(value)
+            section[item["field"]] = current
+        else:
+            if section.get(item["field"]) not in (None, ""):
+                continue
+            section[item["field"]] = item.get("value")
+        answers[item["step"]] = section
+        filled.append(item.get("label") or item["field"])
+    return answers, filled, notes

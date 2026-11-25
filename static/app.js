@@ -31,7 +31,7 @@ async function whoami() { ME = (await api("/api/auth/me")).user; nav(); }
 function nav() {
   const el = document.getElementById("acct");
   if (!el) return;
-  el.innerHTML = ME ? '<a href="#/mine">My documents</a>' + (ME.role === "admin" ? '<a href="#/admin">Admin</a>' : "") + '<button type="button" class="linkbtn" id="signout">Sign out</button>'
+  el.innerHTML = ME ? '<a href="#/mine">My documents</a>' + (ME.role === "admin" || ME.role === "staff" ? '<a href="/firm">Firm desk</a>' : "") + (ME.role === "admin" ? '<a href="#/admin">Admin</a>' : "") + '<button type="button" class="linkbtn" id="signout">Sign out</button>'
     : '<a href="#/login">Sign in</a><a href="#/register" class="btn small accent">Create account</a>';
   const so = document.getElementById("signout");
   if (so) so.onclick = async () => { await api("/api/auth/logout", { method: "POST" }); ME = null; nav(); location.hash = "#/"; };
@@ -94,7 +94,7 @@ function demoVideo(stem, title) {
     default_presenter: "female",
     presenters: [
       { id: "female", label: "Woman", src: "/static/videos/" + stem + ".mp4", poster: "/static/videos/" + stem + ".jpg", captions: "/static/videos/" + stem + ".vtt" },
-      { id: "male", label: "Man", src: "/static/videos/" + stem + "_male.mp4", poster: "/static/videos/" + stem + "_male.jpg", captions: "/static/videos/" + stem + ".vtt" }
+      { id: "male", label: "Man", src: "/static/videos/" + stem + "_male.mp4", poster: "/static/videos/" + stem + "_male.jpg", captions: "/static/videos/" + stem + "_male.vtt" }
     ]
   }, title);
 }
@@ -282,7 +282,9 @@ async function previewService(id) {
   const st = steps.find(x => x.video) || steps[0] || {};
   const vid = st.video || s.review_video;
   const list = steps.map((step, i) => '<li><b>' + (i + 1) + '. ' + esc(step.title) + '</b>' + (step.video ? ' · video' : '') + '</li>').join("");
+  const prepare = (s.prepare || []).map(stage => '<h3>' + esc(stage.title) + '</h3><ul>' + stage.items.map(it => '<li><b>' + esc(it.title) + '.</b> ' + esc(it.ask) + '</li>').join("") + '</ul>').join("");
   $app.innerHTML = '<div class="inner-page"><p class="eyebrow">' + steps.length + ' steps</p><h1>' + esc(s.title) + '</h1><p class="lead">' + esc(s.summary || "") + '</p>'
+    + (prepare ? '<section class="card"><h2>What to have ready</h2><p>You do not need all of this on the first day. A photo or scan is enough to start, unless a step asks for an original.</p>' + prepare + '</section>' : '')
     + (vid ? videoHtml(vid, st.title || s.title) : '<p class="muted">This document is questions and solicitor review. A presenter video is not on this step yet.</p>')
     + (vid ? '<p>Choose Woman or Man. That choice is kept for the rest of the steps. If the man clip is not on the site yet, the woman plays and your choice is saved.</p>' : '')
     + '<ol class="step-list">' + list + '</ol>'
@@ -402,7 +404,7 @@ function withBothPresenters(v) {
   if (!presenters.some(p => p.id === "female")) presenters.unshift(female);
   if (!presenters.some(p => p.id === "male")) {
     const src = (female.src || v.src || "").replace(/(_female)?\.mp4(\?.*)?$/, "_male.mp4");
-    presenters.push({ id: "male", label: "Man", src: src, poster: (female.poster || "").replace(/(_female)?\.jpg(\?.*)?$/, "_male.jpg"), captions: female.captions || v.captions || "" });
+    presenters.push({ id: "male", label: "Man", src: src, poster: (female.poster || "").replace(/(_female)?\.jpg(\?.*)?$/, "_male.jpg"), captions: (female.captions || v.captions || "").replace(/(_female)?\.vtt(\?.*)?$/, "_male.vtt") });
   }
   presenters.forEach(p => { if (p.id === "female") p.label = "Woman"; if (p.id === "male") p.label = "Man"; });
   return Object.assign({}, v, { presenters: presenters, default_presenter: v.default_presenter || "female" });
@@ -470,8 +472,9 @@ function uploadsHtml(st, draft) {
     + (draft.status === "draft" ? '<label class="drop" id="drop"><input type="file" id="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.heic,.webp"><b>Choose files</b> or drag them here<br><span class="muted small">PDF, Word, text or photos · up to 10 MB each</span></label>'
       + '<div class="field"><label for="kind">What is it?</label><select id="kind"><option value="">Work it out for me</option>' + st.uploads.map(k => '<option>' + esc(k) + '</option>').join("") + '</select></div>' : "")
     + '<div id="upmsg" aria-live="polite"></div>'
-    + (draft.uploads.length ? '<ul class="files">' + draft.uploads.map(u => '<li><span>📄 <a href="/api/drafts/' + draft.id + '/uploads/' + u.id + '">' + esc(u.filename) + '</a> <span class="muted">· ' + esc(u.kind) + ' · ' + ({ pdf: "text read", docx: "text read", text: "text read", image: "photo kept for your solicitor", "scanned-pdf": "scan kept for your solicitor", unreadable: "could not read, kept for your solicitor" })[u.read_as] + '</span></span>' + (draft.status === "draft" ? '<button type="button" class="btn ghost small" data-del="' + u.id + '">Delete</button>' : "") + '</li>').join("") + '</ul>' : "")
-    + (sugg.length ? '<div class="sugg"><h3>Suggestions from your documents</h3><ul>' + sugg.map(s => '<li><span>' + esc(s.label) + ' <span class="muted small">(' + esc(s.source) + ')</span></span>' + (s.mode !== "note" && draft.status === "draft" ? '<button type="button" class="btn small" data-sugg="' + esc(s.id) + '">Add</button>' : "") + '</li>').join("") + '</ul></div>' : "");
+    + (draft.uploads.length ? '<ul class="files">' + draft.uploads.map(u => '<li><span>📄 <a href="/api/drafts/' + draft.id + '/uploads/' + u.id + '">' + esc(u.filename) + '</a> <span class="muted">· ' + esc(u.kind) + ' · ' + ({ pdf: "text read", docx: "text read", text: "text read", ocr: "read from the photo or scan", image: "photo kept, nothing could be read", "scanned-pdf": "scan kept, nothing could be read", unreadable: "could not read, kept for your solicitor" })[u.read_as] + '</span></span>' + (draft.status === "draft" ? '<button type="button" class="btn ghost small" data-del="' + u.id + '">Delete</button>' : "") + '</li>').join("") + '</ul>' : "")
+    + (sugg.some(s => s.mode !== "note") && draft.status === "draft" ? '<p><button type="button" class="btn" id="fill-papers">Fill in what these papers show</button></p><p class="small">This is the point where the papers are written into the draft. It does not finish questions the papers do not answer, and it does not file anything.</p>' : "")
+    + (sugg.length ? '<div class="sugg"><h3>Read from your documents</h3><ul>' + sugg.map(s => '<li><span>' + esc(s.label) + ' <span class="muted small">(' + esc(s.source) + ')</span></span>' + (s.mode !== "note" && draft.status === "draft" ? '<button type="button" class="btn small" data-sugg="' + esc(s.id) + '">Add</button>' : "") + '</li>').join("") + '</ul></div>' : "");
 }
 
 async function step(id, index) {
@@ -518,6 +521,11 @@ async function step(id, index) {
       const name = key[key.length - 1]; node[name] = node[name] || [];
       if (t.dataset.add) node[name].push({}); else node[name].splice(Number(t.dataset.i), 1);
       rerender(); save();
+    }
+    if (t.id === "fill-papers") {
+      const d = await api("/api/drafts/" + id + "/fill", { method: "POST", body: {} });
+      document.getElementById("upmsg").innerHTML = '<div class="alert ok"><b>Filled from the papers</b><ul>' + (d.filled_from_papers || []).map(x => '<li>' + esc(x) + '</li>').join("") + '</ul><p>' + (d.missing.length ? d.missing.length + ' questions are still blank. Check each step.' : 'Check each step, then continue.') + '</p></div>';
+      return;
     }
     if (t.dataset.del) { await api("/api/drafts/" + id + "/uploads/" + t.dataset.del, { method: "DELETE" }); route(); }
     if (t.dataset.sugg) {

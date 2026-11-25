@@ -3,7 +3,7 @@
 Each step is recorded in `schema_migrations` and never runs twice. Only additive changes."""
 from sqlalchemy import Index, inspect, text
 
-from .db import audit_log, capacity_statements, drafts, login_attempts, now, password_resets, schema_migrations, sessions, uploads, users
+from .db import audit_log, capacity_statements, drafts, login_attempts, matter_uploads, matters, now, password_resets, schema_migrations, sessions, uploads, users
 
 
 def _create(conn, *tables):
@@ -36,10 +36,22 @@ def m3_capacity_statements(conn):
     _create(conn, capacity_statements)
 
 
+def m4_matters(conn):
+    """Firm desk: one row per client matter, with checklist progress in facts."""
+    _create(conn, matters)
+
+
+def m5_matter_uploads(conn):
+    """Papers kept on a firm matter: the will, the death certificate, bank letters."""
+    _create(conn, matter_uploads)
+
+
 MIGRATIONS = [
     (1, "base drafts and uploads", m1_base),
     (2, "accounts, sessions, audit log, drafts.user_id", m2_accounts),
     (3, "capacity video statements", m3_capacity_statements),
+    (4, "firm matters", m4_matters),
+    (5, "firm matter uploads", m5_matter_uploads),
 ]
 
 

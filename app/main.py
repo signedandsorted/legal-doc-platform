@@ -14,11 +14,13 @@ from sqlalchemy import delete, insert, select, text, update
 
 from .admin import router as admin_router
 from .capacity import router as capacity_router
-from .auth import require_user, router as auth_router, seed_admin, set_csrf_cookie
+from .auth import require_user, router as auth_router, seed_admin, seed_staff, set_csrf_cookie
+from .firm import public_probate_prepare, router as firm_router
 from .db import drafts, engine, init_db, new_id, now, uploads
 from .security import audit, client_ip, csrf_ok
 from .documents import build_document, find_issues, missing_fields
-from .extract import detect_kind, extract_text, suggest
+from .documents import save_uploaded_file
+from .extract import detect_kind, extract_text, fill_from_papers, suggest
 from .guides import SERVICES
 from .pdf import render_pdf
 
@@ -32,6 +34,7 @@ ALLOWED_EXT = {".pdf", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".heic", ".webp
 async def lifespan(_):
     init_db()
     seed_admin()
+    seed_staff()
     yield
 
 
@@ -75,6 +78,7 @@ async def csrf_and_headers(request: Request, call_next):
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(capacity_router)
+app.include_router(firm_router)
 
 
 class DraftIn(BaseModel):
@@ -106,9 +110,18 @@ def index():
     return app_shell()
 
 
+@app.get("/firm")
+def firm_page():
+    html = (STATIC / "firm.html").read_text(encoding="utf-8")
+    for name in ("firm.js", "firm.css", "styles.css"):
+        ver = hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
+        html = re.sub(rf"/static/{re.escape(name)}(?:\?v=[^\"']*)?", f"/static/{name}?v={ver}", html)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
+
+
 @app.get("/api/services")
 def services():
-    return [{"id": s["id"], "title": s["title"], "summary": s["summary"], "steps": len(s["steps"]), "category": s.get("category", "")} for s in SERVICES.values() if not s["id"].endswith("_ila")]
+    return [{"id": s["id"], "title": s["title"], "summary": s["summary"], "steps": len(s["steps"]), "category": s.get("category", "")} for s in SERVICES.values() if not s.get("hidden")]
 
 
 VIDEOS = STATIC / "videos"
@@ -121,7 +134,8 @@ def _asset(stem: str, ext: str) -> str | None:
         return None
     if ext == "mp4" and path.stat().st_size < MIN_VIDEO_BYTES:
         return None
-    return f"/static/videos/{stem}.{ext}"
+    stamp = int(path.stat().st_mtime)
+    return f"/static/videos/{stem}.{ext}?v={stamp}"
 
 
 def _presenter(video_id: str, presenter: str) -> dict | None:
@@ -167,6 +181,8 @@ def _public_service(spec: dict) -> dict:
         step["video"] = _video_obj(step.get("video"))
     if out.get("review_video"):
         out["review_video"] = _video_obj(out["review_video"])
+    if spec.get("id") == "probate":
+        out["prepare"] = public_probate_prepare()
     return out
 
 
@@ -313,6 +329,47 @@ async def upload(draft_id: str, request: Request, file: UploadFile = File(...), 
                                             size=len(data), data=data, text=text_, read_as=read_as, suggestions=sugg, created_at=now()))
     audit("upload_added", user, "upload", upload_id, {"draft_id": draft_id, "filename": filename, "size": len(data)}, client_ip(request))
     return [u for u in _uploads(draft_id) if u["id"] == upload_id][0]
+
+
+@app.post("/api/drafts/{draft_id}/fill")
+def fill_draft(draft_id: str, request: Request, user: dict = Depends(require_user)):
+    """The point where uploaded papers are written into the draft. Does not send or file anything."""
+    row = _editable(draft_id, user)
+    suggestions = [item for upload in _uploads(draft_id) for item in (upload.get("suggestions") or [])]
+    if not suggestions:
+        raise HTTPException(400, "Nothing on the uploaded papers could be read. A photo or a scan has to be typed in.")
+    answers, filled, notes = fill_from_papers(row["answers"], suggestions)
+    if not filled:
+        raise HTTPException(400, "The papers were read, but they did not add anything new. What is already typed has been left as it is.")
+    name, email = _client(answers)
+    with engine().begin() as conn:
+        conn.execute(update(drafts).where(drafts.c.id == draft_id).values(answers=answers, client_name=name or row["client_name"], client_email=email or row["client_email"], updated_at=now()))
+    audit("draft_filled", user, "draft", draft_id, {"filled": len(filled)}, client_ip(request))
+    out = _out(_row(draft_id, user))
+    out["filled_from_papers"] = filled
+    out["paper_notes"] = notes
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Generic upload endpoint (not tied to a draft). Allows a user to upload a file
+# and have it stored securely. Uses the same validation rules as the draft
+# upload endpoint.
+# ---------------------------------------------------------------------------
+@app.post("/upload")
+async def generic_upload(file: UploadFile = File(...), user_id: str = Form(...)):
+    # Validate file size and type using the same constants as the draft upload.
+    filename = re.sub(r"[^\w.\- ]", "_", Path(file.filename or "document").name)[:120] or "document"
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_EXT:
+        raise HTTPException(400, "Please upload a PDF, Word (.docx), text file or photo (JPG, PNG, HEIC)")
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(400, "That file is over 10 MB")
+    if not data:
+        raise HTTPException(400, "That file is empty")
+    saved_path = save_uploaded_file(user_id, filename, data)
+    return {"filename": filename, "saved_path": str(saved_path)}
 
 
 @app.get("/api/drafts/{draft_id}/uploads")

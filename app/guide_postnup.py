@@ -4,7 +4,7 @@ from .fields import GOV, PERSON, YES_NO
 POSTNUP = {
     "id": "postnup",
     "title": "Postnuptial agreement",
-    "short_title": "Postnup",
+    "short_title": "Postnup", "hidden": True,
     "summary": "A postnuptial agreement signed after marriage to set out how assets should be treated. A solicitor checks it before you sign.",
     "category": "Agreements",
     "review_video": "postnup_review",

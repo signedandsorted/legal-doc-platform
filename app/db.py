@@ -26,7 +26,7 @@ users = Table(
     Column("id", String(36), primary_key=True),
     Column("email", String(254), nullable=False, unique=True),
     Column("password_hash", Text, nullable=False),
-    Column("role", String(16), nullable=False, default="client"),  # client | admin
+    Column("role", String(16), nullable=False, default="client"),  # client | staff | admin
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("last_login_at", DateTime(timezone=True)),
 )
@@ -120,6 +120,43 @@ capacity_statements = Table(
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     Column("user_agent", Text),
     Column("ip", String(64)),
+)
+
+
+matters = Table(
+    "matters",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("kind", String(32), nullable=False),
+    Column("title", Text, nullable=False),
+    Column("status", String(32), nullable=False, default="open"),
+    Column("client_name", Text, nullable=False, default=""),
+    Column("client_email", Text, nullable=False, default=""),
+    Column("deceased_name", Text, nullable=False, default=""),
+    Column("date_of_death", String(10), nullable=False, default=""),
+    Column("grant_date", String(10), nullable=False, default=""),
+    Column("facts", JSON, nullable=False),
+    Column("draft_id", String(36)),
+    Column("opened_by", String(36), ForeignKey("users.id"), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+
+matter_uploads = Table(
+    "matter_uploads",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("matter_id", String(36), ForeignKey("matters.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("filename", Text, nullable=False),
+    Column("content_type", Text, nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("size", Integer, nullable=False),
+    Column("data", LargeBinary, nullable=False),
+    Column("text", Text, nullable=False, default=""),
+    Column("read_as", String(16), nullable=False),
+    Column("suggestions", JSON, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
 

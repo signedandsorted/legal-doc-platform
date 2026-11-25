@@ -14,3 +14,14 @@ pypdf==6.21.4
 python-multipart==0.0.34
 argon2-cffi==23.1.0
 cryptography==50.0.2
+rapidocr-onnxruntime==1.4.4
+pypdfium2==5.15.2
+onnxruntime==1.23.2
+opencv-python-headless==4.11.0.86
+numpy==2.2.6
+PyYAML==6.0.4
+six==1.17.0
+tqdm==4.70.1
+Shapely==2.1.2
+pyclipper==1.4.0
+

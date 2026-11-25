@@ -30,8 +30,8 @@ def test_services_include_ordinary_poa_with_sources():
         assert [s["id"] for s in svc["steps"]] == ["intro", "type", "donor", "attorneys", "authority"]
         assert all(s.get("sources") for s in svc["steps"])
         assert any("ukpga/1971/27/schedule/1" in src["url"] for st in svc["steps"] for src in st["sources"])
-        assert all(s.get("video") and s["video"]["src"].endswith(".mp4") for s in svc["steps"])
-        assert svc["review_video"]["src"].endswith("poa_review.mp4")
+        assert all(s.get("video") and s["video"]["src"].split("?")[0].endswith(".mp4") for s in svc["steps"])
+        assert svc["review_video"]["src"].split("?")[0].endswith("poa_review.mp4")
 
 
 def test_general_power_uses_section_10_schedule_1_form():

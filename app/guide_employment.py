@@ -4,7 +4,7 @@ from .fields import GOV, PERSON, YES_NO
 EMPLOYMENT_SETTLEMENT = {
     "id": "employment_settlement",
     "title": "Employment settlement agreement",
-    "short_title": "Settlement agreement",
+    "short_title": "Settlement agreement", "hidden": True,
     "summary": "A settlement agreement to end employment on agreed terms. A solicitor checks it before you sign.",
     "category": "Agreements",
     "review_video": "employment_review",

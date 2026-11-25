@@ -10,6 +10,7 @@ EMPLOYMENT_SETTLEMENT_ILA = {
     "short_title": "Employment settlement ILA",
     "summary": "Intake and booking for independent legal advice on an employment settlement agreement (no automated certificate).",
     "category": "Agreements",
+    "hidden": True,
     "review_video": "employment_ila_review",
     "steps": [
         {
