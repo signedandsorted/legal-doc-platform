@@ -21,6 +21,7 @@ def lpa(kind="lpa_property", **over):
         "preferences": {"preferences": "Stay at home"},
         "certificate_provider": {"full_name": "Dr Eve Five", "address": "Surgery", "basis": "Relevant professional skills (doctor, solicitor, social worker etc.)", **CP_OK},
         "registration": {"applicant": "Me (the donor)", "correspondent": "Me (the donor)", "fee_reduction": "No, I will pay the full fee"},
+        "signing": {"signing_order_read": True},
     }
     if kind == "lpa_property":
         a["when"] = {"when_used": "As soon as it is registered"}

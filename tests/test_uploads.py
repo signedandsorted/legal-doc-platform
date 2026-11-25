@@ -112,5 +112,9 @@ def test_lpa_upload_flags_certificate_provider_named_in_old_lpa():
 def test_no_uploads_after_submission():
     with user_client() as c:
         d = c.post("/api/drafts", json={"service": "lpa_property", "answers": lpa()}).json()
+        from sqlalchemy import update
+        from app.db import drafts, engine
+        with engine().begin() as conn:
+            conn.execute(update(drafts).where(drafts.c.id == d["id"]).values(payment={"status": "paid", "amount": 14900, "currency": "gbp"}))
         assert c.post(f"/api/drafts/{d['id']}/submit").status_code == 200
         assert c.post(f"/api/drafts/{d['id']}/uploads", files={"file": ("a.txt", b"hello", "text/plain")}).status_code == 409
