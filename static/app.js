@@ -815,7 +815,9 @@ const TOOLS = {
         + (p.details.missing.length ? '<div class="alert warning">Still needed: ' + esc(p.details.missing.join(", ")) + '.</div>' : "")
         + '<dl class="kv">' + p.details.rows.map(r => '<dt>' + esc(r.label) + '</dt><dd>' + esc(r.value || "—") + '</dd>').join("") + '</dl>'
         + '<h3>Free services</h3><ul>' + p.services.map(x => '<li><a href="' + esc(x.url) + '" target="_blank" rel="noopener"><b>' + esc(x.name) + '</b></a> · ' + esc(x.cost) + ' · <span class="pill">' + esc(x.status) + '</span><div class="small">' + esc(x.what) + '</div></li>').join("") + '</ul>'
-        + '<p class="small">' + esc(p.note) + ' Record where each one is up to in the questions below.</p></div>';
+        + '<p class="small">' + esc(p.note) + ' Record where each one is up to in the questions below.</p>'
+        + '<h3>Credit report request letters</h3><p>Pre-filled letters to Experian, Equifax and TransUnion asking for the credit report of the person who died. You sign and send them with the grant, your ID and two proofs of address.</p>'
+        + '<p><a class="btn ghost" href="/api/probate/drafts/' + esc(draft.id) + '/cra-letters.pdf">Download letters (PDF)</a> <a class="btn ghost" href="/api/probate/drafts/' + esc(draft.id) + '/cra-letters.docx">Word (.docx)</a> <a href="https://www.experian.co.uk/consumer/data-access/thirdparty.html" target="_blank" rel="noopener">Experian guidance</a></p></div>';
     } catch (err) { box.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
   },
   async estatesearch(box, draft) {
