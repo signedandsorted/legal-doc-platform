@@ -150,7 +150,7 @@ PROBATE = {
             ] + [{"name": k, "label": label, "type": "checkbox"} for k, label in FULL_DETAIL_TRIGGERS],
         },
         {
-            "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": ["Will", "Codicil", "Death certificate", "Grant of probate or letters of administration", "Bank or valuation letter", "Other"],
+            "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": ["Will", "Codicil", "Death certificate", "Grant of probate or letters of administration", "Signed engagement letter", "Bank or valuation letter", "Estatesearch report", "Other"],
             "guidance": [
                 "Upload copies of the will, codicils, the death certificate, bank letters and valuations. Photos and scans are fine.",
                 "We read text from PDFs and Word files, and we read photos and scans. When the papers are uploaded, use Fill in what these papers show. It writes the names, dates and amounts it can read, and leaves anything you have already typed. A blurry photo may still need to be typed. Check every step. Nothing is filed from here.",
@@ -242,10 +242,13 @@ PROBATE = {
                 "Estatesearch is a private company that runs paid searches for estates, such as a credit and liabilities search. These are optional. The free checks on the earlier steps come first.",
                 "Tick the packages you want. We show Estatesearch's published price for each, plus VAT at 20%, and the total, before you confirm.",
                 "You can order this yourself on Estatesearch's own website. Nothing is ordered, paid for or sent from this page.",
+                "To make the order pack you need the death certificate and proof of authority (the grant, the will, or a signed engagement letter) uploaded on the documents step. When the report comes back, upload it there as 'Estatesearch report'.",
             ],
             "sources": [GOV["estatesearch_prices"]],
             "fields": [{"name": "pkg_" + p["id"], "label": p["name"], "type": "checkbox"} for p in ESTATESEARCH_PACKAGES]
-            + [{"name": "confirmed", "label": "I have checked the packages and the total including VAT", "type": "checkbox"}],
+            + [{"name": "confirmed", "label": "I have checked the packages and the total including VAT", "type": "checkbox"},
+               {"name": "previous_addresses", "label": "Their other addresses in the last 6 years, one per line", "type": "textarea"},
+               {"name": "tracker", "label": "Where this is up to", "type": "select", "options": ["Not started", "Pack prepared", "Sent", "Report received"]}],
         },
         {
             "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",
