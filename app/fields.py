@@ -40,6 +40,7 @@ GOV = {
     "insolvency_register": src("GOV.UK: Search the bankruptcy and insolvency register", "https://www.gov.uk/search-bankruptcy-insolvency-register"),
     "land_charges_fees": src("GOV.UK: HM Land Registry Land Charges fees (K16 bankruptcy search)", "https://www.gov.uk/guidance/hm-land-registry-land-charges-fees"),
     "pn1_guide": src("GOV.UK: Practice guide 74, searches of the index of proprietors' names (PN1)", "https://www.gov.uk/government/publications/searches-of-the-index-of-proprietors-names/practice-guide-74-searches-of-the-index-of-proprietors-names"),
+    "estatesearch_prices": src("Estatesearch: Credit & Liabilities Search and Financial Profile prices", "https://www.estatesearch.co.uk/service/credit-liabilities-search/"),
     "probate_apply": src("GOV.UK: Apply for probate online or by post", "https://www.gov.uk/applying-for-probate/apply-for-probate"),
     "probate_forms": src("GOV.UK: Probate forms and guidance (PA forms)", "https://www.gov.uk/government/collections/probate-forms"),
     "pa1p": src("GOV.UK: Form PA1P (by post, there is a will)", "https://www.gov.uk/government/publications/form-pa1p-apply-for-probate-the-deceased-had-a-will"),

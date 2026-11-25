@@ -1,6 +1,7 @@
 """Probate helper for England and Wales, following GOV.UK 'Applying for probate' and
 'Value the estate for Inheritance Tax'. DRAFT: needs lawyer review before it goes live."""
 from .fields import GOV, YES_NO
+from .integrations.estatesearch_catalog import PACKAGES as ESTATESEARCH_PACKAGES
 
 PROBATE_FEE = 526          # GOV.UK probate fees page, checked 17 Nov 2026 (estates over £5,000)
 PROBATE_FEE_FREE_UNDER = 5000
@@ -234,6 +235,17 @@ PROBATE = {
             ],
             "sources": [GOV["land_charges_fees"], GOV["pn1_guide"]],
             "fields": [],
+        },
+        {
+            "id": "estatesearch", "title": "Estatesearch reports (optional, paid)", "video": "probate_estate", "tool": "estatesearch",
+            "guidance": [
+                "Estatesearch is a private company that runs paid searches for estates, such as a credit and liabilities search. These are optional. The free checks on the earlier steps come first.",
+                "Tick the packages you want. We show Estatesearch's published price for each, plus VAT at 20%, and the total, before you confirm.",
+                "You can order this yourself on Estatesearch's own website. Nothing is ordered, paid for or sent from this page.",
+            ],
+            "sources": [GOV["estatesearch_prices"]],
+            "fields": [{"name": "pkg_" + p["id"], "label": p["name"], "type": "checkbox"} for p in ESTATESEARCH_PACKAGES]
+            + [{"name": "confirmed", "label": "I have checked the packages and the total including VAT", "type": "checkbox"}],
         },
         {
             "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",
