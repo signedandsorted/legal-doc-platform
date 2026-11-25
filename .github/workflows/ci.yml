@@ -17,7 +17,8 @@ concurrency:
 jobs:
   test:
     name: pytest (Python 3.12)
-    runs-on: ubuntu-latest
+    # 24.04: actions/python-versions has no 3.12.7 build for ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
