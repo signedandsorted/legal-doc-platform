@@ -120,8 +120,9 @@ WILL = {
                 "Trusts protect what you leave. A life interest trust lets a partner live in your home (or have the income from your estate) for life, then passes it to your children: useful in second marriages and for care-fee planning.",
                 "A discretionary trust lets your trustees decide who benefits and when, guided by your letter of wishes. A vulnerable person's trust protects someone disabled or receiving means-tested benefits.",
                 "If none of these apply, leave them at 'No'. A solicitor checks every trust before you sign.",
+                "GOV.UK explains the main types of trust and how they are taxed. Some trusts set up by a will must be registered with HMRC's Trust Registration Service by the trustees after you die.",
             ],
-            "sources": [GOV["iht"]],
+            "sources": [GOV["iht"], GOV["trusts"], GOV["trust_types"], GOV["trust_register"]],
             "fields": [
                 {"name": "life_interest", "label": "Do you want a life interest trust?", "type": "select", "options": ["No", "Yes, over my share of my home", "Yes, over my whole residuary estate"]},
                 {"name": "life_tenant", "label": "Who benefits for life (usually your partner)?", "type": "text", "required": True, "show_if": {"field": "life_interest", "in": ["Yes, over my share of my home", "Yes, over my whole residuary estate"]}},

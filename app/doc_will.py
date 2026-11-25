@@ -3,7 +3,15 @@ solicitor before any client signs it. Not for use until a lawyer has reviewed th
 from datetime import date
 
 from .common import DRAFT_NOTICE, age_on, issue, norm, num, person
+from .fields import GOV
 from .guides import SERVICES
+
+
+TRUST_LINKS = ("trusts", "trust_types", "trust_register")
+
+
+def has_trust(tr: dict) -> bool:
+    return tr.get("life_interest", "No") != "No" or tr.get("discretionary") == "Yes" or bool(tr.get("vulnerable_beneficiary"))
 
 
 def _clause(clauses: list, text: str, note: str):
@@ -33,8 +41,8 @@ def will_issues(a: dict) -> list[dict]:
         out.append(issue("warning", "You are leaving someone out who may expect to inherit. A solicitor must review this; it can be challenged under the Inheritance (Provision for Family and Dependants) Act 1975."))
         if norm(ext.get("exclusion_name")) in exec_names:
             out.append(issue("warning", "The person you are leaving out is also an executor. Please check this is what you want."))
-    if tr.get("life_interest", "No") != "No" or tr.get("discretionary") == "Yes" or tr.get("vulnerable_beneficiary"):
-        out.append(issue("info", "Your will includes a trust. Your solicitor will check the trust wording and its tax effect with you."))
+    if has_trust(tr):
+        out.append(issue("info", "Your will includes a trust. Your solicitor will check the trust wording and its tax effect with you. GOV.UK guidance: " + GOV["trusts"]["url"]))
     biz = a.get("business") or {}
     owns = biz.get("owns_business") == "Yes" or tr.get("business_property") == "Yes"
     if owns:
@@ -172,6 +180,9 @@ def build_will(_, a: dict, uploads: list | None = None) -> dict:
         sections.append({"heading": "Statement of reasons (separate document, not part of the will)", "paragraphs": [
             f"I have decided not to provide for {ext.get('exclusion_name', '')} in my will for these reasons: {ext.get('exclusion_reason', '')}",
             f"Signed: ______________________   Date: {date.today().strftime('%d %B %Y')}"]})
+    if has_trust(tr):
+        sections.append({"heading": "Trust guidance from GOV.UK (not part of the will)", "paragraphs": [
+            f"{GOV[k]['title']}: {GOV[k]['url']}" for k in TRUST_LINKS]})
     if uploads:
         sections.append({"heading": "Documents you uploaded", "paragraphs": [f"{u['filename']} ({u['kind']})" for u in uploads]})
     s = SERVICES["will"]

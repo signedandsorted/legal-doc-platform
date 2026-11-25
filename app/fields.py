@@ -18,6 +18,10 @@ GOV = {
     "will_legal": src("GOV.UK: Make sure your will is legal", "https://www.gov.uk/make-will/make-sure-your-will-is-legal"),
     "will_update": src("GOV.UK: Updating your will", "https://www.gov.uk/make-will/updating-your-will"),
     "iht": src("GOV.UK: How Inheritance Tax works", "https://www.gov.uk/inheritance-tax"),
+    # Trust links checked 2026-11-24 (https://www.gov.uk/trusts and /make-a-trust return 404; these are the live pages).
+    "trusts": src("GOV.UK: Trusts and taxes", "https://www.gov.uk/trusts-taxes"),
+    "trust_types": src("GOV.UK: Types of trust", "https://www.gov.uk/trusts-taxes/types-of-trust"),
+    "trust_register": src("GOV.UK: Register a trust as a trustee (Trust Registration Service)", "https://www.gov.uk/guidance/register-a-trust-as-a-trustee"),
     "lpa": src("GOV.UK: Make, register or end a lasting power of attorney", "https://www.gov.uk/power-of-attorney"),
     "lpa_choose": src("GOV.UK: Choose your attorney", "https://www.gov.uk/power-of-attorney/choose"),
     "lpa_make": src("GOV.UK: Make a lasting power of attorney", "https://www.gov.uk/power-of-attorney/make-lasting-power"),
