@@ -463,6 +463,21 @@ document.addEventListener("error", e => {
 const sourcesHtml = list => list && list.length ? '<details class="sources"><summary>Official GOV.UK guidance for this step</summary><ul>' + list.map(s => '<li><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title) + '</a></li>').join("") + '</ul></details>' : "";
 const issuesHtml = issues => ["error", "warning", "info"].map(level => { const xs = (issues || []).filter(i => i.level === level); return xs.length ? '<div class="alert ' + level + '" role="' + (level === "error" ? "alert" : "status") + '"><b>' + ({ error: "Please change", warning: "Please check", info: "Good to know" })[level] + '</b><ul>' + xs.map(i => '<li>' + esc(i.message) + '</li>').join("") + '</ul></div>' : ""; }).join("");
 
+// Compact stepper shown at the top of every questionnaire step and on "Check and send".
+// One segment per step (plus the final check), so the person can see where they are
+// without scrolling past the full step list on a phone.
+function topStepHtml(s, draft, index) {
+  const total = s.steps.length;
+  const review = index < 0 || index >= total;
+  const label = review ? "Check and send" : "Step " + (index + 1) + " of " + total;
+  const title = review ? "" : s.steps[index].title;
+  const seg = (href, cls, name, current) => '<li class="' + cls + '"><a href="' + href + '"' + (current ? ' aria-current="step"' : "") + '><span class="sr-only">' + esc(name) + (cls.includes("done") ? " (answered)" : "") + '</span></a></li>';
+  return '<nav class="topstep" aria-label="Your progress">'
+    + '<p class="topstep-label"><b>' + label + '</b>' + (title ? '<span class="topstep-title"> · ' + esc(title) + '</span>' : "") + '</p>'
+    + '<ol class="topstep-bar">' + s.steps.map((x, i) => seg("#/d/" + draft.id + "/" + i, (i === index ? "on" : "") + (draft.answers[x.id] ? " done" : ""), x.title, i === index)).join("")
+    + seg("#/d/" + draft.id + "/review", review ? "on" : "", "Check and send", review) + '</ol></nav>';
+}
+
 function sideHtml(s, draft, index) {
   const done = s.steps.filter(x => draft.answers[x.id]).length;
   const pct = Math.round((done / s.steps.length) * 100);
@@ -493,8 +508,8 @@ async function step(id, index) {
   let cur = structuredClone(draft.answers[st.id] || {});
   const editable = draft.status === "draft";
   const last = index === s.steps.length - 1;
-  $app.innerHTML = '<div class="layout">' + sideHtml(s, draft, index) + '<section>'
-    + '<p class="eyebrow">Step ' + (index + 1) + ' of ' + s.steps.length + (st.form_section ? ' · <span class="pill">' + esc(st.form_section) + '</span>' : "") + '</p>'
+  $app.innerHTML = '<div class="layout">' + sideHtml(s, draft, index) + '<section>' + topStepHtml(s, draft, index)
+    + (st.form_section ? '<p class="eyebrow"><span class="pill">' + esc(st.form_section) + '</span></p>' : "")
     + '<h1>' + esc(st.title) + '</h1>' + videoHtml(st.video, st.title)
     + '<div class="guide">' + st.guidance.map(p => '<p>' + esc(p) + '</p>').join("") + '</div>' + sourcesHtml(st.sources)
     + (editable ? "" : '<div class="alert ok">This draft has been sent for solicitor review, so it can no longer be changed.</div>')
@@ -584,7 +599,7 @@ async function review(id) {
   remember(draft);
   const s = await service(draft.service);
   const stepOf = m => Math.max(0, s.steps.findIndex(st => m.startsWith(st.title)));
-  const head = '<div class="layout">' + sideHtml(s, draft, -1) + '<section><p class="eyebrow">Check and send</p>';
+  const head = '<div class="layout">' + sideHtml(s, draft, -1) + '<section>' + topStepHtml(s, draft, -1);
   const errors = draft.issues.filter(i => i.level === "error");
   if (draft.missing.length || errors.length) {
     $app.innerHTML = head + '<h1>Almost there</h1>' + videoHtml(s.review_video, "Check and send")
