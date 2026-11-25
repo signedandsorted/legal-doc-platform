@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-import httpx
 import pytest
 
 from app.guide_probate import PROBATE
@@ -19,11 +18,11 @@ def _clear():
     gazette.clear_cache()
 
 
-def _client(payload, calls):
-    def handler(req):
-        calls.append(req)
-        return httpx.Response(200, json=payload)
-    return httpx.Client(transport=httpx.MockTransport(handler))
+def _fetch(payload, calls):
+    def fetch(url, params):
+        calls.append((url, params))
+        return payload
+    return fetch
 
 
 def test_feed_fixture_parses_into_notices():
@@ -36,18 +35,17 @@ def test_feed_fixture_parses_into_notices():
 
 def test_empty_result_handled():
     calls = []
-    with _client({"title": "Search Result", "f:total": "0"}, calls) as c:
-        assert gazette.search("Zzqxvy Nobody", client=c) == []
+    assert gazette.search("Zzqxvy Nobody", fetch=_fetch({"title": "Search Result", "f:total": "0"}, calls)) == []
     assert gazette.parse_feed({}) == []
 
 
 def test_one_request_per_action_and_cached():
     calls = []
-    with _client(FEED, calls) as c:
-        gazette.search("Smith", client=c, now=1000)
-        gazette.search("smith", client=c, now=2000)
+    f = _fetch(FEED, calls)
+    gazette.search("Smith", fetch=f, now=1000)
+    gazette.search("smith", fetch=f, now=2000)
     assert len(calls) == 1
-    q = dict(calls[0].url.params)
+    q = calls[0][1]
     assert q["noticetype"] == "2903" and q["text"] == "Smith"
 
 

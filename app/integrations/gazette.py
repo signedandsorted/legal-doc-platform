@@ -15,12 +15,13 @@ never places, pays for or submits a notice.
 from __future__ import annotations
 
 import calendar
+import json
 import re
 import time
+import urllib.parse
+import urllib.request
 from datetime import date, timedelta
-from typing import Any
-
-import httpx
+from typing import Any, Callable
 
 FEED_URL = "https://www.thegazette.co.uk/wills-and-probate/notice/data.json"
 NOTICE_CODE = "2903"
@@ -75,7 +76,15 @@ def parse_feed(data: dict) -> list[dict]:
     return out
 
 
-def search(name: str, date_from: str = "", date_to: str = "", client: httpx.Client | None = None, now: float | None = None) -> list[dict]:
+def _urllib_fetch(url: str, params: dict) -> dict:
+    """Plain stdlib GET. The Gazette's CDN rejects httpx's client fingerprint with a 403
+    (seen 2026-11-24) but accepts a standard urllib request."""
+    req = urllib.request.Request(url + "?" + urllib.parse.urlencode(params), headers={"User-Agent": "legal-doc-platform/probate-gazette", "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:  # noqa: S310 - fixed https URL
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def search(name: str, date_from: str = "", date_to: str = "", fetch: Callable[[str, dict], dict] | None = None, now: float | None = None) -> list[dict]:
     """One feed request per call at most; repeated searches within a day come from the cache."""
     name = re.sub(r"\s+", " ", (name or "").strip())
     if len(name) < 2:
@@ -90,15 +99,7 @@ def search(name: str, date_from: str = "", date_to: str = "", client: httpx.Clie
         params["start-publish-date"] = date_from
     if date_to:
         params["end-publish-date"] = date_to
-    owns = client is None
-    client = client or httpx.Client(timeout=TIMEOUT_S, headers={"User-Agent": "legal-doc-platform/probate-gazette", "Accept": "application/json"})
-    try:
-        resp = client.get(FEED_URL, params=params)
-        resp.raise_for_status()
-        notices = parse_feed(resp.json())
-    finally:
-        if owns:
-            client.close()
+    notices = parse_feed((fetch or _urllib_fetch)(FEED_URL, params))
     _cache[key] = (now, notices)
     return notices
 
