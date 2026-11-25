@@ -12,7 +12,7 @@ from .auth import require_admin, require_user
 from sqlalchemy import select
 
 from .db import drafts, engine, uploads
-from .integrations import asset_trace, bona_vacantia, estatesearch_catalog, estatesearch_pack, gazette, hmlr
+from .integrations import asset_trace, bona_vacantia, cra_letters, estatesearch_catalog, estatesearch_pack, gazette, hmlr
 from .security import audit
 
 router = APIRouter(prefix="/api/probate", tags=["probate-tools"])
@@ -134,6 +134,29 @@ def find_notify(draft_id: str, user=Depends(require_user)):
     with engine().connect() as conn:
         row = _probate_draft(conn, draft_id, user)
     return asset_trace.pack(row["answers"] or {})
+
+
+def _answers(draft_id: str, user: dict) -> dict:
+    with engine().connect() as conn:
+        return _probate_draft(conn, draft_id, user)["answers"] or {}
+
+
+@router.get("/drafts/{draft_id}/cra-letters")
+def cra_letters_json(draft_id: str, user=Depends(require_user)):
+    return cra_letters.letters(_answers(draft_id, user))
+
+
+@router.get("/drafts/{draft_id}/cra-letters.pdf")
+def cra_letters_pdf(draft_id: str, user=Depends(require_user)):
+    from .pdf import render_pdf
+    pdf = render_pdf(cra_letters.pdf_document(cra_letters.letters(_answers(draft_id, user))))
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="credit-report-requests.pdf"'})
+
+
+@router.get("/drafts/{draft_id}/cra-letters.docx")
+def cra_letters_docx(draft_id: str, user=Depends(require_user)):
+    data = cra_letters.docx_bytes(cra_letters.letters(_answers(draft_id, user)))
+    return Response(data, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={"Content-Disposition": 'attachment; filename="credit-report-requests.docx"'})
 
 
 INSOLVENCY_SEARCH_URL = "https://www.gov.uk/search-bankruptcy-insolvency-register"  # checked 2026-11-24; no public API, never called from here
