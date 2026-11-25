@@ -13,6 +13,8 @@ uvicorn app.main:app --reload        # uses SQLite (local.db) unless DATABASE_UR
 pytest -q
 ```
 
+GitHub Actions (`.github/workflows/ci.yml`) runs the full `pytest` suite on Python 3.12 for every push and pull request to `main`. The 375 px layout check in `tests/test_ui_stepper.py` runs when Playwright and Chrome are installed (`pip install playwright`); otherwise it is skipped.
+
 ## Deploy
 
 `render.yaml` deploys one Python web service, `legal-doc-platform`, in Oregon. Its `DATABASE_URL` comes from the existing Render Postgres `legal-doc-db` (adopted, settings unchanged). On start the app runs its migrations (`app/migrations.py`, recorded in `schema_migrations`): they only add tables and the `drafts.user_id` column, so the existing data is kept.
