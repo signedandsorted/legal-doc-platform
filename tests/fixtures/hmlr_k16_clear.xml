@@ -1,0 +1,1 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><res:LandChargesBankruptcySearchResponse xmlns:res="urn:placeholder:hmlr:k16"><res:HMLRReference>K16-FIXTURE-0001</res:HMLRReference><res:Outcome>No subsisting entries</res:Outcome></res:LandChargesBankruptcySearchResponse></soap:Body></soap:Envelope>
