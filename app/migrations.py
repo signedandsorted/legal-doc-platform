@@ -3,7 +3,7 @@
 Each step is recorded in `schema_migrations` and never runs twice. Only additive changes."""
 from sqlalchemy import Index, inspect, text
 
-from .db import audit_log, capacity_statements, drafts, login_attempts, matter_uploads, matters, now, password_resets, schema_migrations, sessions, uploads, users
+from .db import audit_log, capacity_statements, drafts, hmlr_spend, login_attempts, matter_uploads, matters, now, password_resets, schema_migrations, sessions, uploads, users
 
 
 def _create(conn, *tables):
@@ -46,12 +46,18 @@ def m5_matter_uploads(conn):
     _create(conn, matter_uploads)
 
 
+def m6_hmlr_spend(conn):
+    """Wills-app HMLR search spend ledger (K16/PN1). Live calls stay off; the cap reads this."""
+    _create(conn, hmlr_spend)
+
+
 MIGRATIONS = [
     (1, "base drafts and uploads", m1_base),
     (2, "accounts, sessions, audit log, drafts.user_id", m2_accounts),
     (3, "capacity video statements", m3_capacity_statements),
     (4, "firm matters", m4_matters),
     (5, "firm matter uploads", m5_matter_uploads),
+    (6, "hmlr spend ledger", m6_hmlr_spend),
 ]
 
 

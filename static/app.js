@@ -801,6 +801,14 @@ async function mountStatementPanel(draftId) {
 // Read-only lookup tools shown above a step's questions. They search official lists only; the
 // family records what they found in the step's own questions. Nothing is filed or submitted.
 const TOOLS = {
+  async hmlr(box) {
+    try {
+      const st = await api("/api/probate/hmlr/status");
+      box.innerHTML = '<div class="card"><h2>HM Land Registry searches</h2>' + (st.switched_on ? '<p>Choose a search on the next screen.</p>' : '<div class="alert info">' + esc(st.message) + '</div>')
+        + '<ul><li>K16 bankruptcy search: £' + esc(st.fees.K16.toFixed(2)) + ' per name (<a href="' + esc(st.fee_sources.K16) + '" target="_blank" rel="noopener">GOV.UK</a>)</li>'
+        + '<li>PN1 index of proprietors\' names: £' + esc(st.fees.PN1.toFixed(2)) + ' per name (<a href="' + esc(st.fee_sources.PN1) + '" target="_blank" rel="noopener">GOV.UK</a>)</li></ul><p class="small">Fees checked ' + esc(st.fees_checked) + '.</p></div>';
+    } catch (err) { box.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+  },
   async gazette_s27(box, draft) {
     const dec = (draft.answers || {}).deceased || {};
     box.innerHTML = '<div class="card"><h2>Search The Gazette</h2><form id="gz"><div class="field"><label for="gz_n">Name</label><input id="gz_n" value="' + esc(dec.full_name || "") + '" minlength="2"></div>'

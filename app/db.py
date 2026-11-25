@@ -160,6 +160,22 @@ matter_uploads = Table(
 )
 
 
+
+hmlr_spend = Table(
+    "hmlr_spend",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("day", String(10), nullable=False, index=True),  # UTC date, YYYY-MM-DD
+    Column("search_type", String(8), nullable=False),  # K16 | PN1
+    Column("name", Text, nullable=False),
+    Column("fee_pence", Integer, nullable=False),
+    Column("draft_id", String(36), index=True),
+    Column("user_id", String(36)),
+    Column("provider", String(16), nullable=False),
+    Column("reference", Text, nullable=False, default=""),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
 def database_url() -> str:
     url = os.getenv("DATABASE_URL", "sqlite:///./local.db")
     if url.startswith("postgres://"):
