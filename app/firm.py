@@ -17,7 +17,7 @@ from .extract import detect_kind, extract_text, suggest
 from .firm_books import clean_books, compile_books, letter_text
 from .docx_out import render_docx
 from .mailer import send as send_mail
-from .firm_account import account_document, account_html, prepare_asset_search
+from .firm_account import account_document, account_html, account_xlsx, prepare_asset_search
 from .iht400_pdf import fill_iht400, refresh_official_form
 from .iht_schedules import schedule_files
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
@@ -928,6 +928,16 @@ def account_pdf(matter_id: str, _staff: dict = Depends(require_staff)):
     pdf = render_pdf(account_document(row, compiled["accounts"]))
     name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name} estate account.pdf"'})
+
+
+@router.get("/matters/{matter_id}/account.xlsx")
+def account_excel(matter_id: str, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    compiled = compile_books(row)
+    if not compiled.get("accounts"):
+        raise HTTPException(400, "The estate account is for a probate matter")
+    name = re.sub(r"[^\w.\- ]", "_", row["title"])[:80] or "estate"
+    return Response(account_xlsx(row, compiled["accounts"]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="{name} estate account.xlsx"'})
 
 
 @router.get("/matters/{matter_id}/iht400.pdf")

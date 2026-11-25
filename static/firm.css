@@ -1,33 +1,49 @@
 .firm-body { background: #f4f6f8; color: #14213d; }
-.firm-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 28px; background: #14213d; color: #fff; }
-.firm-brand { color: #fff; font-weight: 700; text-decoration: none; }
+.firm-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 24px; background: #14213d; color: #fff; }
+.firm-brand { color: #fff; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .firm-brand span { display: inline-block; margin-left: 8px; font-weight: 500; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: #f4c95d; }
-.firm-top a, .firm-top button.linkbtn { color: #fff; }
-#desk { max-width: 1080px; margin: 0 auto; padding: 28px 20px 64px; }
-.firm-card { background: #fff; border: 1px solid #e2e6ea; border-radius: 14px; padding: 22px; margin-bottom: 16px; }
-.firm-next { background: #14213d; color: #fff; border-radius: 14px; padding: 22px; margin-bottom: 16px; }
-.firm-next p { color: #d7dee8; }
-.firm-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; }
-.matter-row { display: grid; grid-template-columns: 1.4fr .7fr 1fr auto; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid #e8ecef; }
-.matter-row a { font-weight: 700; color: #14213d; text-decoration: none; }
-.stage { border-top: 1px solid #e8ecef; padding-top: 14px; margin-top: 14px; }
-.item { display: grid; grid-template-columns: 1fr 150px; gap: 12px; align-items: start; padding: 10px 0; }
-.item select, .firm-card input, .firm-card select, .firm-card textarea { width: 100%; }
+#firm-nav { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: flex-end; }
+#firm-nav a, .firm-top button.linkbtn { color: #fff; background: transparent; border: 0; font: inherit; cursor: pointer; }
+#desk { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
+#desk h1 { margin: 4px 0 6px; overflow-wrap: anywhere; }
+.firm-card { background: #fff; border: 1px solid #e2e6ea; border-radius: 14px; padding: 18px 18px 8px; margin-bottom: 16px; overflow: auto; }
+.firm-card h2, .firm-card h3 { margin: 0 0 8px; }
+.firm-card p, .firm-card li { overflow-wrap: anywhere; }
+.firm-card label { display: block; margin: 0 0 12px; font-size: 13px; font-weight: 650; color: #243044; }
+.firm-card label input, .firm-card label select, .firm-card label textarea,
+.firm-card input, .firm-card select, .firm-card textarea { display: block; width: 100%; margin-top: 4px; font-weight: 400; max-width: 100%; }
+.firm-next { background: #14213d; color: #fff; border-radius: 14px; padding: 18px 20px; margin-bottom: 16px; }
+.firm-next p { color: #d7dee8; margin: 6px 0 0; }
+.firm-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); gap: 16px; align-items: start; }
+.matter-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; margin-bottom: 12px; }
+.work { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 16px; align-items: start; }
+.steps { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 12px; }
+.steps button { width: 100%; text-align: left; justify-content: flex-start; }
+.matter-row { display: grid; grid-template-columns: minmax(0, 1.6fr) 140px minmax(0, 1fr) 64px; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #e8ecef; }
+.matter-row a { font-weight: 700; color: #14213d; text-decoration: none; overflow-wrap: anywhere; }
+.stage { border-top: 1px solid #e8ecef; padding-top: 12px; margin-top: 12px; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; align-items: start; padding: 10px 0; }
+.item b, .small, .muted { overflow-wrap: anywhere; }
 .who { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #5c6b7a; }
-.letter { white-space: pre-wrap; background: #f7f8fa; border-radius: 10px; padding: 14px; }
-@media (max-width: 800px) {
-  .firm-grid, .matter-row, .item { grid-template-columns: 1fr; }
-  .figure-strip { grid-template-columns: 1fr 1fr; }
-}
+.letter { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; border-radius: 10px; padding: 14px; }
 .firm-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
-.figure-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 12px 0; }
-.figure-strip div { background: #fff; border: 1px solid #e2e6ea; border-radius: 10px; padding: 10px 12px; }
-.figure-strip span { display: block; color: #5c6b7a; font-size: 12px; }
-.figure-strip b { font-size: 16px; }
-.line-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
-.line-form input, .line-form select { width: auto; min-width: 140px; }
-.check { display: flex; gap: 6px; align-items: center; font-size: 14px; width: auto; }
+.figure-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; margin: 0; min-width: min(100%, 520px); }
+.figure-strip div { background: #fff; border: 1px solid #e2e6ea; border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.figure-strip span { display: block; color: #5c6b7a; font-size: 12px; overflow-wrap: anywhere; }
+.figure-strip b { display: block; font-size: 16px; overflow-wrap: anywhere; }
+.line-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: end; margin-top: 12px; }
+.line-form input, .line-form select, .line-form button { width: 100%; min-width: 0; margin: 0; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px; font-weight: 500; }
+.check input { width: auto; margin: 0; }
+.tbl-wrap { overflow-x: auto; margin: 0 0 12px; }
 .tbl { width: 100%; border-collapse: collapse; }
-.tbl th, .tbl td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e8ecef; vertical-align: top; }
+.tbl th, .tbl td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e8ecef; vertical-align: top; overflow-wrap: anywhere; }
 .alert { background: #fff6e8; border-radius: 8px; padding: 8px 10px; }
-
+.note { color: #5c6b7a; font-size: 14px; }
+details.firm-card > summary { cursor: pointer; font-weight: 700; margin-bottom: 12px; }
+@media (max-width: 900px) {
+  .firm-top, .matter-head, .work, .firm-grid, .matter-row, .item { display: flex; flex-direction: column; align-items: stretch; }
+  .steps { position: static; flex-direction: row; overflow-x: auto; }
+  .steps button { width: auto; white-space: nowrap; }
+  .figure-strip { min-width: 0; }
+}

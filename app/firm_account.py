@@ -501,3 +501,110 @@ def estatesearch_letter(matter: dict, books: dict) -> dict:
         "If this does not reach you, your published desk is helpdesk@estatesearch.co.uk and 0330 900 1700.",
     ])
     return {"title": f"Email to Estatesearch — estate of {estate}", "body": body}
+
+
+def account_xlsx(matter: dict, accounts: dict) -> bytes:
+    """Excel workbook of the estate account. One sheet for each part."""
+    step = accounts["step"]
+    cap = step["capital_totals"]
+    cash = step["cash"]
+    estate = matter.get("deceased_name") or matter.get("title") or "Estate"
+    capital_rows = [["Item", "Holder", "At death", "Change", "Income", "Costs"]]
+    for row in step["capital"]:
+        capital_rows.append([row["name"], row.get("holder") or "", row["at_death"], row["movement"], row["income"], row["costs"]])
+    capital_rows += [
+        ["At death", "", cap["at_death"], "", "", ""],
+        ["Gains", "", cap["gains"], "", "", ""],
+        ["Losses", "", cap["losses"], "", "", ""],
+        ["Debts", "", cap["debts"], "", "", ""],
+        ["Funeral", "", cap["funeral"], "", "", ""],
+        ["Tax", "", cap["tax"], "", "", ""],
+        ["Specific gifts", "", cap["legacies"], "", "", ""],
+        ["Balance of capital", "", cap["balance"], "", "", ""],
+    ]
+    people = [["Person", "Entitled", "Paid", "Still due"]]
+    for person in step["distribution"]:
+        people.append([person["name"], person["entitlement"], person["paid"], person["due"]])
+    outside = [["Item", "Value", "Why"]] + [[row["name"], row["value"], row["why"]] for row in step["outside"]]
+    summary = [
+        ["Estate", estate],
+        ["Income received after death", step["income_total"]],
+        ["Cash in", cash["receipts"]],
+        ["Cash out", cash["payments"]],
+        ["Cash that should be in hand", cash["in_hand"]],
+        ["Left to share", accounts["totals"]["expected_net"]],
+    ]
+    return xlsx_bytes([("Summary", summary), ("Capital", capital_rows), ("Distribution", people), ("Outside the estate", outside)])
+
+
+def xlsx_bytes(sheets: list[tuple[str, list]]) -> bytes:
+    import io
+    import zipfile
+    from xml.sax.saxutils import escape
+
+    def col(n: int) -> str:
+        out = ""
+        while n:
+            n, rem = divmod(n - 1, 26)
+            out = chr(65 + rem) + out
+        return out
+
+    def cell(ref: str, value) -> str:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return f'<c r="{ref}"><v>{value}</v></c>'
+        text = "" if value is None else str(value)
+        return f'<c r="{ref}" t="inlineStr"><is><t>{escape(text)}</t></is></c>'
+
+    def sheet_xml(rows: list) -> str:
+        body = []
+        for r_i, row in enumerate(rows, 1):
+            bits = "".join(cell(f"{col(c)}{r_i}", value) for c, value in enumerate(row, 1))
+            body.append(f'<row r="{r_i}">{bits}</row>')
+        return (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            f'<sheetData>{"".join(body)}</sheetData></worksheet>'
+        )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as book:
+        book.writestr("[Content_Types].xml", (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            + "".join(
+                f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                for i in range(1, len(sheets) + 1)
+            ) + '</Types>'
+        ))
+        book.writestr("_rels/.rels", (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>'
+        ))
+        safe = []
+        banned = set(':\\/?*[]')
+        for i, (name, _rows) in enumerate(sheets, 1):
+            clean = "".join(ch for ch in name if ch not in banned)[:31] or f"Sheet{i}"
+            safe.append(clean)
+        book.writestr("xl/workbook.xml", (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+            + "".join(f'<sheet name="{escape(name)}" sheetId="{i}" r:id="rId{i}"/>' for i, name in enumerate(safe, 1))
+            + '</sheets></workbook>'
+        ))
+        book.writestr("xl/_rels/workbook.xml.rels", (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            + "".join(
+                f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i}.xml"/>'
+                for i in range(1, len(sheets) + 1)
+            ) + '</Relationships>'
+        ))
+        for i, (_name, rows) in enumerate(sheets, 1):
+            book.writestr(f"xl/worksheets/sheet{i}.xml", sheet_xml(rows))
+    return buf.getvalue()

@@ -35,7 +35,7 @@ function route() {
 function nav() {
   const el = document.getElementById("firm-nav");
   if (!ME) { el.innerHTML = '<a href="/">Public site</a>'; return; }
-  el.innerHTML = '<a href="/firm">Matters</a> <a href="/firm?view=accounts">Accounts</a> <a href="/#/law">Law updates</a> <a href="/firm?m=new">New matter</a> <a href="/">Public site</a> <button type="button" class="linkbtn" id="out">Sign out</button>';
+  el.innerHTML = '<a href="/firm">Matters</a><a href="/firm?view=accounts">Accounts</a><a href="/#/law">Law updates</a><a href="/firm?m=new">New matter</a><a href="/">Public site</a><button type="button" class="linkbtn" id="out">Sign out</button>';
   document.getElementById("out").onclick = async () => { await api("/api/auth/logout", { method: "POST" }); ME = null; location.href = "/firm"; };
 }
 
@@ -66,7 +66,7 @@ async function accounts() {
   const ledgers = (book.ledgers || []).map(row => '<tr><td>' + esc(row.title) + '</td><td>' + gbp(row.balance) + '</td></tr>').join("");
   const movements = (book.entries || []).map(row => '<tr><td>' + esc(row.on || "") + '</td><td>' + esc(row.kind === "in" ? "In" : row.kind === "out" ? "Out" : "To office") + '</td><td>' + esc(row.what) + '</td><td>' + gbp(row.amount) + '</td></tr>').join("");
   const verdict = book.agrees ? "The cash book, the client ledgers and the bank statement agree." : "They do not agree. Cash book " + gbp(book.cash_book) + ", ledgers " + gbp(book.ledger_total) + ", bank after adjustments " + gbp(book.adjusted_bank) + ".";
-  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Accounts</h1>'
+  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Accounts</h1><p><button type="button" class="btn ghost" id="accounts-excel">Excel</button></p>'
     + '<div class="firm-card"><h2>Office account</h2><p>Time, bills and money the firm has earned. This is not client money.</p>'
     + '<div class="figure-strip"><div><span>Not yet billed</span><b>' + gbp(t.unbilled) + '</b></div><div><span>Billed</span><b>' + gbp(t.billed) + '</b></div><div><span>Received</span><b>' + gbp(t.paid) + '</b></div><div><span>Still owed</span><b>' + gbp(t.outstanding) + '</b></div></div>'
     + '<table class="tbl"><thead><tr><th>Matter</th><th>Not yet billed</th><th>Billed</th><th>Still owed</th></tr></thead><tbody>'
@@ -88,6 +88,7 @@ async function accounts() {
     + '<p><button class="btn" type="submit">Reconcile</button></p></form>'
     + (ledgers ? '<table class="tbl"><thead><tr><th>Client ledger</th><th>Balance</th></tr></thead><tbody>' + ledgers + '</tbody></table>' : '<p class="small">No client money has been posted.</p>')
     + '</div>';
+  document.getElementById("accounts-excel").onclick = () => downloadSheet("firm-accounts.csv", [["Matter", "Not yet billed", "Billed", "Still owed"]].concat(data.matters.map(m => [m.title, m.bill.unbilled, m.bill.billed, m.bill.outstanding])));
   document.getElementById("client-entry").onsubmit = async (e) => {
     e.preventDefault();
     const body = Object.fromEntries(new FormData(e.target).entries());
@@ -113,16 +114,19 @@ async function list() {
     ? '<form id="outlook"><label>Access token<input name="access_token" type="password" autocomplete="off"></label><p><button class="btn" type="submit">Save the Outlook connection</button></p></form>'
     : '<p class="small">An admin connects Outlook. Staff can then file a message onto a matter.</p>';
   const matterOptions = rows.map(m => '<option value="' + esc(m.id) + '">' + esc(m.title) + '</option>').join("");
-  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Matters</h1><p>One file for the will, the lasting powers and the estate. The stage sits on the matter, and the draft is opened from that file. Actionstep can stay the case system: its name, reference and people are copied here.</p><p><a class="btn" href="/firm?m=new">New matter</a></p>'
-    + '<div class="firm-card"><h2>Actionstep</h2><p>' + (link.connected ? "Connected" + (link.api_endpoint ? " · " + esc(link.api_endpoint) : "") + "." : "Not connected.") + ' <a href="https://docs.actionstep.com/authentication/" target="_blank" rel="noopener">How a firm gets a token</a></p>'
+  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Matters</h1><p class="note">Open a file. The next step is on the matter, not on this list.</p><p><a class="btn" href="/firm?m=new">New matter</a> <button type="button" class="btn ghost" id="matters-excel">Excel</button></p>'
+    + '<div class="firm-card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Matter</th><th>Type</th><th>Next</th><th>Done</th></tr></thead><tbody>'
+    + (rows.length ? rows.map(m => '<tr><td><a href="/firm?m=' + esc(m.id) + '">' + esc(m.title) + '</a><div class="muted small">' + esc(m.client_name || "No client name") + (m.deceased_name ? " · estate of " + esc(m.deceased_name) : "") + (m.figures ? " · net " + gbp(m.figures.net_probate) : "") + '</div></td><td>' + esc(m.kind_label) + '</td><td>' + (m.next ? esc(m.next.title) : "Checklist complete") + '</td><td>' + m.progress.done + "/" + m.progress.total + '</td></tr>').join("") : '<tr><td colspan="4" class="muted">No matters yet.</td></tr>')
+    + '</tbody></table></div></div>'
+    + '<details class="firm-card"><summary>Actionstep and Outlook</summary>'
+    + '<h2>Actionstep</h2><p class="note">' + (link.connected ? "Connected" + (link.api_endpoint ? " · " + esc(link.api_endpoint) : "") + "." : "Not connected.") + ' <a href="https://docs.actionstep.com/authentication/" target="_blank" rel="noopener">How a firm gets a token</a></p>'
     + connect
     + (link.connected ? '<p><button class="btn" type="button" id="actionstep-load">Show matters in Actionstep</button></p><div id="actionstep-list"></div>' : "")
-    + '</div><div class="firm-card"><h2>Outlook</h2><p>' + (outlook.connected ? "Connected. Recent mail is read from this mailbox. A message is filed only after Outlook has returned it." : "Not connected.") + ' <a href="https://learn.microsoft.com/en-us/graph/auth/" target="_blank" rel="noopener">How a firm gets a Microsoft Graph token</a></p>'
+    + '<h2>Outlook</h2><p class="note">' + (outlook.connected ? "Connected. A message is filed only after Outlook has returned it." : "Not connected.") + ' <a href="https://learn.microsoft.com/en-us/graph/auth/" target="_blank" rel="noopener">How a firm gets a Microsoft Graph token</a></p>'
     + outlookForm
     + (outlook.connected ? '<p><button class="btn" type="button" id="outlook-load">Show Outlook mail</button></p><div id="outlook-list"></div>' : "")
-    + '</div><div class="firm-card">'
-    + (rows.length ? rows.map(m => '<div class="matter-row"><div><a href="/firm?m=' + esc(m.id) + '">' + esc(m.title) + '</a><div class="muted small">' + esc(m.client_name || "No client name") + (m.deceased_name ? " · estate of " + esc(m.deceased_name) : "") + (m.figures ? " · net " + gbp(m.figures.net_probate) : "") + '</div></div><div>' + esc(m.kind_label) + '</div><div class="small">' + (m.next ? esc(m.next.title) : "Checklist complete") + '</div><div class="small">' + m.progress.done + "/" + m.progress.total + "</div></div>").join("") : '<p class="muted">No matters yet.</p>')
-    + '</div>';
+    + '</details>';
+  document.getElementById("matters-excel").onclick = () => downloadSheet("matters.csv", [["Matter", "Client", "Type", "Next", "Done"]].concat(rows.map(m => [m.title, m.client_name || "", m.kind_label, m.next ? m.next.title : "Checklist complete", m.progress.done + "/" + m.progress.total])));
   const form = document.getElementById("actionstep");
   if (form) form.onsubmit = async (e) => {
     e.preventDefault();
@@ -197,6 +201,13 @@ async function newer() {
 }
 
 const gbp = n => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(Number(n) || 0);
+function downloadSheet(filename, rows) {
+  const csv = rows.map(r => r.map(c => '"' + String(c ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+  a.download = filename;
+  a.click();
+}
 let TAB = "next";
 let OPEN = "";
 
@@ -204,20 +215,18 @@ async function matter(id) {
   nav();
   const [m, staff] = await Promise.all([api("/api/firm/matters/" + id), api("/api/firm/colleagues")]);
   if (OPEN !== id) { OPEN = id; TAB = m.kind === "probate" ? "papers" : "file"; }
-  const tabs = [["file", "File protection"], ["papers", "1. Estate papers"], ["next", "Next"], ["money", "One set of figures"], ["accounts", "Estate account"], ["forms", "Official forms"], ["find", "Find accounts"], ["letters", "Letters"], ["bill", "Bill"]];
-  let showTabs = m.kind === "probate" ? tabs : [["file", "File protection"], ["next", "Next"], ["letters", "Letters"], ["bill", "Bill"]];
-  if (m.kind === "trust") showTabs = [["file", "File protection"], ["next", "Next"], ["trust", "Trust account"], ["bill", "Bill"], ["letters", "Letters"]];
-  if (m.kind === "deputyship") showTabs = [["file", "File protection"], ["next", "Next"], ["deputy", "The person's money"], ["bill", "Bill"], ["letters", "Letters"]];
-  showTabs.splice(1, 0, ["scheme", "Scheme"]);
+  const tabs = [["next", "1. Next"], ["papers", "2. Papers"], ["money", "3. Figures"], ["accounts", "4. Estate account"], ["forms", "5. Forms"], ["find", "6. Find accounts"], ["letters", "7. Letters"], ["file", "8. File"], ["scheme", "9. Legal checks"], ["bill", "10. Bill"]];
+  let showTabs = m.kind === "probate" ? tabs : [["next", "1. Next"], ["letters", "2. Letters"], ["file", "3. File"], ["scheme", "4. Legal checks"], ["bill", "5. Bill"]];
+  if (m.kind === "trust") showTabs = [["next", "1. Next"], ["trust", "2. Trust account"], ["letters", "3. Letters"], ["file", "4. File"], ["scheme", "5. Legal checks"], ["bill", "6. Bill"]];
+  if (m.kind === "deputyship") showTabs = [["next", "1. Next"], ["deputy", "2. The person's money"], ["letters", "3. Letters"], ["file", "4. File"], ["scheme", "5. Legal checks"], ["bill", "6. Bill"]];
   if (!showTabs.some(t => t[0] === TAB)) TAB = "next";
   const strip = m.figures ? '<div class="figure-strip">'
     + [["Probate gross", m.figures.gross_probate], ["Probate net", m.figures.net_probate], ["Tax estimate", m.figures.tax], ["Still to collect", m.accounts.totals.still_to_collect], ["Left to share", m.accounts.totals.expected_net]].map(([l, n]) => '<div><span>' + l + '</span><b>' + gbp(n) + '</b></div>').join("")
     + '<div><span>' + (m.figures.excepted ? "No full tax return" : "Full tax details") + '</span><b>' + esc(m.figures.route) + '</b></div></div>' : "";
-  $desk.innerHTML = '<p><a href="/firm">All matters</a></p><h1>' + esc(m.title) + '</h1>'
-    + '<p class="muted">' + esc(m.kind_label) + (m.deceased_name ? " · " + esc(m.deceased_name) : "") + " · " + esc(m.client_name || "No client yet") + '</p>'
-    + strip
-    + '<div class="firm-tabs">' + showTabs.map(([k, label]) => '<button type="button" class="btn ' + (TAB === k ? "" : "ghost") + '" data-tab="' + k + '">' + label + '</button>').join(" ") + '</div>'
-    + '<div id="panel"></div>';
+  $desk.innerHTML = '<div class="matter-head"><div><p><a href="/firm">All matters</a></p><h1>' + esc(m.title) + '</h1>'
+    + '<p class="muted">' + esc(m.kind_label) + (m.deceased_name ? " · " + esc(m.deceased_name) : "") + " · " + esc(m.client_name || "No client yet") + '</p></div>' + strip + '</div>'
+    + '<div class="work"><nav class="steps" aria-label="Matter steps">' + showTabs.map(([k, label]) => '<button type="button" class="btn ' + (TAB === k ? "" : "ghost") + '" data-tab="' + k + '">' + label + '</button>').join("") + '</nav>'
+    + '<div id="panel"></div></div>';
   $desk.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { TAB = b.dataset.tab; matter(id); });
   const panel = document.getElementById("panel");
   if (TAB === "money") panel.innerHTML = moneyPanel(m, staff);
@@ -346,7 +355,7 @@ function accountsPanel(m) {
     + (out ? '<h3>Not in this account</h3><ul>' + out + '</ul>' : "")
     + '<h3>Distribution account</h3><table class="tbl"><thead><tr><th>Person</th><th>Their share</th><th>Paid</th><th>Still due</th></tr></thead><tbody>' + (dist || '<tr><td colspan="4" class="muted">Add the people on the figures tab. Leave the shares blank to split the rest equally, or type a percentage.</td></tr>') + '</tbody></table>'
     + '<h3>Cash</h3><p>In ' + gbp((step.cash || {}).receipts) + '. Out ' + gbp((step.cash || {}).payments) + '. Should be in hand ' + gbp((step.cash || {}).in_hand) + '.</p>'
-    + '<p><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/account.pdf">Download the account</a> <a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/account.html">Download a copy you can edit</a></p>'
+    + '<p class="actions"><a class="btn" href="/api/firm/matters/' + esc(m.id) + '/account.xlsx">Excel</a> <a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/account.pdf">PDF</a> <a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/account.html">Copy you can edit</a></p>'
     + noticePanel(m) + '</div>';
 }
 function noticePanel(m) {

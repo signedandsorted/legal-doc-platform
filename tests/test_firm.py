@@ -36,6 +36,10 @@ def test_staff_run_a_probate_matter_and_the_public_list_matches():
         assert c.get(f"/api/drafts/{draft.json()['draft_id']}").status_code == 200
         again = c.post(f"/api/firm/matters/{matter['id']}/draft")
         assert again.json()["draft_id"] == draft.json()["draft_id"]
+        book = c.get(f"/api/firm/matters/{matter['id']}/account.xlsx")
+        assert book.status_code == 200, book.text
+        assert book.content[:2] == b"PK"
+        assert "estate account.xlsx" in book.headers["content-disposition"]
 
     with user_client() as c:
         probate = c.get("/api/services/probate").json()
