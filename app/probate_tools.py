@@ -5,13 +5,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from .auth import require_admin, require_user
 from sqlalchemy import select
 
 from .db import drafts, engine, uploads
-from .integrations import bona_vacantia, estatesearch_catalog, gazette, hmlr
+from .integrations import bona_vacantia, estatesearch_catalog, estatesearch_pack, gazette, hmlr
 from .security import audit
 
 router = APIRouter(prefix="/api/probate", tags=["probate-tools"])
@@ -104,6 +105,28 @@ def estatesearch_catalog_view(_user=Depends(require_user)):
 @router.get("/estatesearch/quote")
 def estatesearch_quote(ids: str = Query("", max_length=400), _user=Depends(require_user)):
     return estatesearch_catalog.quote([x for x in ids.split(",") if x])
+
+
+def _estatesearch_pack(draft_id: str, user: dict) -> dict:
+    with engine().connect() as conn:
+        row = _probate_draft(conn, draft_id, user)
+        ups = [dict(r) for r in conn.execute(select(uploads.c.filename, uploads.c.kind).where(uploads.c.draft_id == draft_id)).mappings()]
+    try:
+        return estatesearch_pack.build_pack(row["answers"] or {}, ups)
+    except estatesearch_pack.PackBlocked as exc:
+        raise HTTPException(400, {"message": str(exc), "missing": exc.missing})
+
+
+@router.get("/drafts/{draft_id}/estatesearch/pack")
+def estatesearch_pack_json(draft_id: str, user=Depends(require_user)):
+    return _estatesearch_pack(draft_id, user)
+
+
+@router.get("/drafts/{draft_id}/estatesearch/pack.pdf")
+def estatesearch_pack_pdf(draft_id: str, user=Depends(require_user)):
+    from .pdf import render_pdf
+    pdf = render_pdf(estatesearch_pack.pack_document(_estatesearch_pack(draft_id, user)))
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="estatesearch-order-pack.pdf"'})
 
 
 INSOLVENCY_SEARCH_URL = "https://www.gov.uk/search-bankruptcy-insolvency-register"  # checked 2026-11-24; no public API, never called from here

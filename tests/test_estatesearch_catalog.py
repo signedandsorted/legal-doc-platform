@@ -42,7 +42,7 @@ def test_no_firm_desk_wording_in_new_templates():
     step = next(s for s in PROBATE["steps"] if s["id"] == "estatesearch")
     text = " ".join(step["guidance"]) + Path("app/integrations/estatesearch_catalog.py").read_text()
     js = Path("static/app.js").read_text()
-    tool = js[js.index("async estatesearch(box)"):js.index("async hmlr(box")]
+    tool = js[js.index("async estatesearch(box"):js.index("async hmlr(box")]
     for t in (text, tool):
         assert not re.search(r"firm desk|busbys", t, re.I)
     assert any("order this yourself" in g for g in step["guidance"])

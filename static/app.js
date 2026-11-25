@@ -808,14 +808,19 @@ async function mountStatementPanel(draftId) {
 // Read-only lookup tools shown above a step's questions. They search official lists only; the
 // family records what they found in the step's own questions. Nothing is filed or submitted.
 const TOOLS = {
-  async estatesearch(box) {
+  async estatesearch(box, draft) {
     try {
       const c = await api("/api/probate/estatesearch/catalog");
       box.innerHTML = '<div class="card"><h2>Estatesearch packages</h2><div class="table-wrap"><table class="tbl"><thead><tr><th>Package</th><th>Price before VAT</th></tr></thead><tbody>'
         + c.packages.map(p => '<tr><td><a href="' + esc(p.source) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a></td><td>' + esc(p.price_prefix) + '£' + esc(p.ex_vat) + '</td></tr>').join("")
         + '</tbody></table></div><p class="small">Price on request: ' + esc(c.price_on_request.join(", ")) + ' (<a href="' + esc(c.service_list) + '" target="_blank" rel="noopener">full list</a>).</p>'
         + '<div id="es_total" aria-live="polite"></div>' + c.routes.map(r => r.url ? '<p><a class="btn ghost" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.label) + '</a></p>' : '<p><b>' + esc(r.label) + '</b></p>').join("")
-        + '<p class="small">' + esc(c.note) + '</p></div>';
+        + '<p class="small">' + esc(c.note) + '</p><h3>Order pack</h3><div id="es_pack"></div></div>';
+      const packBox = box.querySelector("#es_pack");
+      try {
+        const p = await api("/api/probate/drafts/" + draft.id + "/estatesearch/pack");
+        packBox.innerHTML = '<p>' + esc(p.routes.map(r => r.label + (r.status ? ": " + r.status : "")).join(" · ")) + '</p><p><a class="btn ghost" href="/api/probate/drafts/' + esc(draft.id) + '/estatesearch/pack.pdf">Download the order pack (PDF)</a> <a class="btn ghost" href="/api/probate/drafts/' + esc(draft.id) + '/estatesearch/pack" target="_blank" rel="noopener">JSON</a></p><p class="small">Tracker: ' + esc(p.tracker) + '. ' + esc(p.note) + '</p>';
+      } catch (err) { packBox.innerHTML = '<div class="alert warning">' + esc(err.message) + '</div>'; }
       const form = document.getElementById("f");
       const refresh = async () => {
         const ids = c.packages.filter(p => form && form.querySelector('[name="pkg_' + p.id + '"]')?.checked).map(p => p.id);
