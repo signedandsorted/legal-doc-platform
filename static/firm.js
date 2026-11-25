@@ -490,19 +490,45 @@ function formsPanel(m) {
     + '<p><a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/export">Download the file for the case system</a></p></div>';
 }
 function lexcelPanel(m) {
-  const x = m.lexcel || { items: [], cannot: [], links: [], notice: "" };
+  const x = m.lexcel || { items: [], cannot: [], links: [], notice: "", quote: {} };
+  const q = x.quote || {};
+  const field = (name, label, value) => '<label>' + label + '<input name="' + name + '" value="' + esc(value || "") + '"></label>';
   let section = "";
   const rows = (x.items || []).map(item => {
     const head = item.section !== section ? (section = item.section, '<h3>' + esc(section) + '</h3>') : "";
     return head + '<article class="stage"><p><b>' + esc(item.clause) + '.</b> ' + esc(item.requirement) + '</p>'
-      + '<p class="note">On this desk: ' + esc(item.desk) + '</p>'
+      + '<p class="note">' + esc(item.desk) + '</p>'
       + '<label class="check"><input type="checkbox" name="done" value="' + esc(item.id) + '"' + (item.done ? " checked" : "") + '> On the file</label></article>';
   }).join("");
+  const saved = ((m.books || {}).letters || []).filter(letter => /client-care|costs estimate|progress report|change of person|complaint|file review|undertaking|conflict search/i.test(letter.title || ""));
+  const savedHtml = saved.length ? '<ul>' + saved.slice().reverse().map(letter => '<li>' + esc(letter.title) + ' · <a href="/api/firm/matters/' + esc(m.id) + '/letters/' + esc(letter.id) + '.pdf">PDF</a> · <a href="/api/firm/matters/' + esc(m.id) + '/letters/' + esc(letter.id) + '.docx">Word</a></li>').join("") + '</ul>' : '<p class="note">No Lexcel letter has been kept on this file yet.</p>';
   return '<div class="firm-card"><h2>Lexcel v6.1</h2><p>' + esc(x.notice || "") + '</p>'
     + (x.cannot || []).map(line => '<p class="note">' + esc(line) + '</p>').join("")
-    + '<p>' + (x.links || []).map(link => '<a href="' + esc(link.url) + '" target="_blank" rel="noopener">' + esc(link.title) + '</a>').join(" · ") + '</p>'
-    + '<form id="lexcel">' + rows + '<p><button class="btn" type="submit">Save the Lexcel record</button></p></form>'
-    + '<p class="small">' + (x.open || 0) + ' requirements are still open on this file. The assessor uses the Law Society’s own case-management checklist, not this screen.</p></div>';
+    + '<p>' + (x.links || []).map(link => '<a href="' + esc(link.url) + '" target="_blank" rel="noopener">' + esc(link.title) + '</a>').join(" · ") + '</p></div>'
+    + '<div class="firm-card"><h2>Conflict search</h2><p class="note">Lexcel 5.8. This looks through the matters already on this desk. It is not a search of other firms, and it is not an identity check.</p>'
+    + '<form id="conflict-search" class="line-form"><input name="q" value="' + esc(x.conflict_q || m.client_name || "") + '" placeholder="Name, or several names separated by commas"><button class="btn" type="submit">Search</button></form>'
+    + '<div id="conflict-hits"></div><p><button type="button" class="btn ghost" data-letter="lex_conflict">Write the conflict note</button></p></div>'
+    + '<div class="firm-card"><h2>Quote and client-care letter</h2><p class="note">Lexcel 6.2 and 6.4. Save the figures, then draft the letter. The letter is kept on the file. It is not sent from here.</p>'
+    + '<form id="lexcel-quote">'
+    + field("objectives", "What the client wants", q.objectives)
+    + field("next_steps", "What we will do next", q.next_steps)
+    + field("will_not", "What we will not do", q.will_not)
+    + field("timescale", "Timescale", q.timescale)
+    + field("funding", "How it is paid for", q.funding)
+    + field("fee", "Our fee (£)", q.fee)
+    + field("disbursements", "Payments to other people", q.disbursements)
+    + field("extras", "Costs that can still arise", q.extras)
+    + field("fee_earner", "Person doing the work", q.fee_earner)
+    + field("fee_earner_status", "Their status", q.fee_earner_status)
+    + field("supervisor", "Supervisor", q.supervisor)
+    + field("supervisor_status", "Supervisor’s status", q.supervisor_status)
+    + field("data_officer", "Data-protection contact", q.data_officer)
+    + '<p><button class="btn" type="submit">Save the quote</button></p></form>'
+    + '<p><button type="button" class="btn" data-letter="lex_care">Client-care letter</button> <button type="button" class="btn ghost" data-letter="lex_quote">Costs estimate</button> <button type="button" class="btn ghost" data-letter="lex_progress">Progress report</button></p>'
+    + '<p><button type="button" class="btn ghost" data-letter="lex_change">Change of person</button> <button type="button" class="btn ghost" data-letter="lex_complaint">Complaint acknowledgement</button> <button type="button" class="btn ghost" data-letter="lex_review">File-review note</button> <button type="button" class="btn ghost" data-letter="lex_undertaking">Undertaking record</button></p>'
+    + savedHtml + '<div id="preview"></div></div>'
+    + '<form id="lexcel" class="firm-card"><h2>Requirements still to mark</h2>' + rows + '<p><button class="btn" type="submit">Save what is on the file</button></p>'
+    + '<p class="small">' + (x.open || 0) + ' requirements are still open. A tick is not the letter.</p></form>';
 }
 
 function schemePanel(m) {
@@ -629,6 +655,24 @@ function bind(id, m) {
     e.preventDefault();
     await api("/api/firm/matters/" + id + "/lexcel", { method: "POST", body: { done: new FormData(e.target).getAll("done") } });
     reload();
+  };
+  const quote = document.getElementById("lexcel-quote");
+  if (quote) quote.onsubmit = async (e) => {
+    e.preventDefault();
+    await api("/api/firm/matters/" + id + "/lexcel", { method: "POST", body: { quote: Object.fromEntries(new FormData(e.target).entries()) } });
+    reload();
+  };
+  const conflict = document.getElementById("conflict-search");
+  if (conflict) conflict.onsubmit = async (e) => {
+    e.preventDefault();
+    const q = new FormData(e.target).get("q") || "";
+    await api("/api/firm/matters/" + id + "/lexcel", { method: "POST", body: { conflict_q: q } });
+    const found = await api("/api/firm/matters/" + id + "/conflicts?q=" + encodeURIComponent(q));
+    const hits = document.getElementById("conflict-hits");
+    const rows = found.matches || [];
+    hits.innerHTML = rows.length
+      ? '<ul>' + rows.map(hit => '<li><a href="/firm?m=' + esc(hit.id) + '">' + esc(hit.title) + '</a> · ' + esc(hit.client_name || "") + (hit.deceased_name ? " · " + esc(hit.deceased_name) : "") + '</li>').join("") + '</ul>'
+      : '<p class="note">No other matter on this desk uses these names.</p>';
   };
   const retainer = document.getElementById("retainer");
   if (retainer) retainer.onsubmit = async (e) => {

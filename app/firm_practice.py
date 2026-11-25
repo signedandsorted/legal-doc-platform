@@ -56,3 +56,24 @@ def conflicts(matter: dict, others: list[dict]) -> list[dict]:
                 "deceased_name": other.get("deceased_name") or "",
             })
     return found[:20]
+
+
+def search_names(query: str, matter: dict, others: list[dict]) -> list[dict]:
+    """Matters on this desk whose title, client or person who died contains the words typed."""
+    parts = [part.strip() for part in query.replace(";", ",").split(",") if len(part.strip()) >= 3]
+    if not parts:
+        return conflicts(matter, others)
+    found = []
+    for other in others:
+        if other["id"] == matter["id"]:
+            continue
+        hay = " ".join([other.get("title") or "", other.get("client_name") or "", other.get("deceased_name") or ""]).casefold()
+        if any(part.casefold() in hay for part in parts):
+            found.append({
+                "id": other["id"],
+                "title": other.get("title") or "",
+                "kind": other.get("kind") or "",
+                "client_name": other.get("client_name") or "",
+                "deceased_name": other.get("deceased_name") or "",
+            })
+    return found[:20]

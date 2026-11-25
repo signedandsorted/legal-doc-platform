@@ -21,7 +21,7 @@ from .firm_account import account_document, account_html, account_xlsx, prepare_
 from .iht400_pdf import fill_iht400, refresh_official_form
 from .iht_schedules import schedule_files
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
-from .firm_practice import clean_practice, conflicts as name_conflicts
+from .firm_practice import clean_practice, conflicts as name_conflicts, search_names
 from .firm_accounts import bill_summary, clean_bill
 from .firm_client import clean_client_account, post_entry, reconcile, set_statement
 from .outlook import fetch_mailbox, fetch_message, merge_outlook, public_outlook
@@ -519,11 +519,13 @@ def get_matter(matter_id: str, _staff: dict = Depends(require_staff)):
 
 
 @router.get("/matters/{matter_id}/conflicts")
-def matter_conflicts(matter_id: str, _staff: dict = Depends(require_staff)):
+def matter_conflicts(matter_id: str, q: str = "", _staff: dict = Depends(require_staff)):
     row = _load(matter_id)
     with engine().connect() as conn:
         others = conn.execute(select(matters.c.id, matters.c.title, matters.c.kind, matters.c.client_name, matters.c.deceased_name)).mappings().all()
-    return {"matches": name_conflicts(row, [dict(other) for other in others])}
+    people = [dict(other) for other in others]
+    matches = search_names(q, row, people) if q.strip() else name_conflicts(row, people)
+    return {"matches": matches, "q": q}
 
 
 @router.patch("/matters/{matter_id}")
@@ -636,11 +638,17 @@ def save_scheme(matter_id: str, body: SchemeIn, request: Request, staff: dict = 
     return {"matter": _public(_load(matter_id), full=True)}
 
 
+class LexcelIn(BaseModel):
+    done: list[str] | None = None
+    quote: dict | None = None
+    conflict_q: str | None = None
+
+
 @router.post("/matters/{matter_id}/lexcel")
-def save_lexcel(matter_id: str, body: SchemeIn, request: Request, staff: dict = Depends(require_staff)):
+def save_lexcel(matter_id: str, body: LexcelIn, request: Request, staff: dict = Depends(require_staff)):
     row = _load(matter_id)
     facts = dict(row["facts"] or {})
-    facts["lexcel"] = clean_lexcel(body.done)
+    facts["lexcel"] = clean_lexcel(body.done, body.quote, facts.get("lexcel"), body.conflict_q)
     with engine().begin() as conn:
         conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
     audit("lexcel", staff, "matter", matter_id, {"done": len(facts["lexcel"]["done"])}, client_ip(request))
@@ -687,9 +695,14 @@ def source_check(_staff: dict = Depends(require_staff)):
 @router.post("/matters/{matter_id}/letters")
 def keep_letter(matter_id: str, body: LetterIn, request: Request, staff: dict = Depends(require_staff)):
     row = _load(matter_id)
-    if body.kind not in ("bank", "beneficiary", "grant", "notice", "credit", "estatesearch", "will_ipw", "will_sww", "will_probate", "will_local", "pension", "act1975", "golden", "couple", "file_summary", "old_will", "retainer"):
+    if body.kind not in ("bank", "beneficiary", "grant", "notice", "credit", "estatesearch", "will_ipw", "will_sww", "will_probate", "will_local", "pension", "act1975", "golden", "couple", "file_summary", "old_will", "retainer", "lex_care", "lex_quote", "lex_progress", "lex_change", "lex_complaint", "lex_review", "lex_undertaking", "lex_conflict"):
         raise HTTPException(400, "Unknown letter")
     compiled = compile_books(row)
+    if body.kind == "lex_conflict":
+        saved = (row.get("facts") or {}).get("lexcel") or {}
+        with engine().connect() as conn:
+            others = conn.execute(select(matters.c.id, matters.c.title, matters.c.kind, matters.c.client_name, matters.c.deceased_name)).mappings().all()
+        row = {**row, "_conflict_matches": search_names(saved.get("conflict_q") or row.get("client_name") or "", row, [dict(other) for other in others])}
     letter = letter_text(body.kind, row, compiled)
     if not letter:
         raise HTTPException(400, "That letter needs a probate matter")

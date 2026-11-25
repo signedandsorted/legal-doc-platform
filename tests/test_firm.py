@@ -276,5 +276,16 @@ def test_lexcel_requirements_are_on_the_file():
         assert saved.status_code == 200
         again = {item["id"]: item["done"] for item in saved.json()["matter"]["lexcel"]["items"]}
         assert again["letter"] is True and again["strategy"] is False
+        other = c.post("/api/firm/matters", json={"kind": "probate", "client_name": "Someone Else", "deceased_name": "Pat Client", "title": "Estate of Pat Client"})
+        assert other.status_code == 200
+        found = c.get(f"/api/firm/matters/{matter['id']}/conflicts", params={"q": "Pat Client"})
+        assert found.status_code == 200
+        assert any(hit["id"] == other.json()["id"] for hit in found.json()["matches"])
+        quoted = c.post(f"/api/firm/matters/{matter['id']}/lexcel", json={"quote": {"fee": "450", "fee_earner": "Ada Stone", "fee_earner_status": "Solicitor"}})
+        kept = {item["id"]: item["done"] for item in quoted.json()["matter"]["lexcel"]["items"]}
+        assert kept["letter"] is True and quoted.json()["matter"]["lexcel"]["quote"]["fee"] == "450"
+        letter = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "lex_quote"})
+        assert letter.status_code == 200, letter.text
+        assert "450" in letter.json()["letter"]["body"] and "Costs estimate" in letter.json()["letter"]["title"]
 
 

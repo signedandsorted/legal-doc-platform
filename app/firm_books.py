@@ -365,6 +365,9 @@ def compile_books(matter: dict, books: dict | None = None) -> dict:
 
 
 def letter_text(kind: str, matter: dict, compiled: dict) -> dict | None:
+    if kind.startswith("lex_"):
+        from .lexcel import letter as lexcel_letter
+        return lexcel_letter(kind, matter, matter.get("_conflict_matches"))
     if kind in ("act1975", "golden", "couple", "file_summary", "old_will", "retainer"):
         return protection_letter(kind, matter)
     books = compiled["books"]
