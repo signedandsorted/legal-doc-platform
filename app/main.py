@@ -16,7 +16,7 @@ from .admin import router as admin_router
 from .capacity import router as capacity_router
 from .auth import require_user, router as auth_router, seed_admin, seed_staff, set_csrf_cookie
 from .firm import public_probate_prepare, router as firm_router
-from .probate_tools import router as probate_tools_router
+from .probate_tools import router as probate_tools_router, stamp_insolvency_checks
 from .db import drafts, engine, init_db, new_id, now, uploads
 from .security import audit, client_ip, csrf_ok
 from .documents import build_document, find_issues, missing_fields
@@ -262,9 +262,10 @@ def save_draft(draft_id: str, body: AnswersIn, user: dict = Depends(require_user
     row = _row(draft_id, user)
     if row["status"] != "draft":
         raise HTTPException(409, "This draft has been sent for review and can no longer be changed")
-    name, email = _client(body.answers)
+    answers = stamp_insolvency_checks(row["answers"], body.answers) if row["service"] == "probate" else body.answers
+    name, email = _client(answers)
     with engine().begin() as conn:
-        conn.execute(update(drafts).where(drafts.c.id == draft_id).values(answers=body.answers, client_name=name, client_email=email, updated_at=now()))
+        conn.execute(update(drafts).where(drafts.c.id == draft_id).values(answers=answers, client_name=name, client_email=email, updated_at=now()))
     return _out(_row(draft_id, user))
 
 

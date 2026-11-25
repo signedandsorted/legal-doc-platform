@@ -145,6 +145,9 @@ def lookup_issues(a: dict) -> list[dict]:
     if bv.get("result") == "Possible match found":
         ref = (bv.get("bv_reference") or "").strip()
         out.append(issue("info", "The unclaimed estates list may show this estate%s. Follow the GOV.UK guidance to make a claim to the Bona Vacantia Division yourself; this helper does not file or submit the claim." % (" (BV reference " + ref + ")" if ref else "")))
+    for c in (a.get("insolvency") or {}).get("checks") or []:
+        if c.get("result") == "Possible match found":
+            out.append(issue("warning", "The insolvency register may show an entry for %s. Do not pay their share until a solicitor has checked it; a bankrupt beneficiary's share may go to their trustee in bankruptcy." % (c.get("name") or "a person you checked")))
     return out
 
 
