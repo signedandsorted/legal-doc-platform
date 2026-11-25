@@ -30,6 +30,8 @@ from .firm_work import FIRM_KINDS, ITEM_STATUS, MATTER_STATUS, assist, checklist
 from .guides import SERVICES
 from .pdf import render_pdf
 from .retainer import clean_retainer, document as retainer_document, effect as retainer_effect
+from .lexcel import clean_saved as clean_lexcel
+from .lexcel import for_matter as lexcel_for_matter
 from .scheme import clean_saved, for_matter
 from .source_watch import public_watch, run_check
 from .security import audit, client_ip, hash_password, normalise_email, check_password_rules
@@ -148,6 +150,7 @@ def _public(row: dict, full: bool = False) -> dict:
             out["filing"] = position(row, compiled, papers)
         out["practice"] = clean_practice(facts.get("practice"))
         out["scheme"] = for_matter(kind, facts.get("wiqs"))
+        out["lexcel"] = lexcel_for_matter(facts.get("lexcel"))
         record = clean_retainer(facts.get("retainer"))
         out["retainer"] = {**record, "effect": retainer_effect(record, kind if kind in record["sections"] else "will")}
         out["watch"] = public_watch()
@@ -630,6 +633,17 @@ def save_scheme(matter_id: str, body: SchemeIn, request: Request, staff: dict = 
     with engine().begin() as conn:
         conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
     audit("scheme", staff, "matter", matter_id, {"done": len(facts["wiqs"]["done"])}, client_ip(request))
+    return {"matter": _public(_load(matter_id), full=True)}
+
+
+@router.post("/matters/{matter_id}/lexcel")
+def save_lexcel(matter_id: str, body: SchemeIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    facts = dict(row["facts"] or {})
+    facts["lexcel"] = clean_lexcel(body.done)
+    with engine().begin() as conn:
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
+    audit("lexcel", staff, "matter", matter_id, {"done": len(facts["lexcel"]["done"])}, client_ip(request))
     return {"matter": _public(_load(matter_id), full=True)}
 
 

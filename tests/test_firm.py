@@ -263,3 +263,18 @@ def test_firm_accounts_a_trust_and_a_deputyship_stay_separate():
         assert accounts["totals"]["paid"] == 200
 
 
+def test_lexcel_requirements_are_on_the_file():
+    with admin_client() as c:
+        opened = c.post("/api/firm/matters", json={"kind": "will", "client_name": "Pat Client", "title": "Will of Pat Client"})
+        assert opened.status_code == 200, opened.text
+        matter = opened.json()
+        clauses = {item["clause"]: item for item in matter["lexcel"]["items"]}
+        assert "6.2" in clauses and "client-care letter" in clauses["6.2"]["desk"]
+        assert "7.1" in clauses and "5.11" in clauses
+        assert matter["lexcel"]["open"] == len(clauses)
+        saved = c.post(f"/api/firm/matters/{matter['id']}/lexcel", json={"done": ["letter", "no-such"]})
+        assert saved.status_code == 200
+        again = {item["id"]: item["done"] for item in saved.json()["matter"]["lexcel"]["items"]}
+        assert again["letter"] is True and again["strategy"] is False
+
+

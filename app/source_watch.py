@@ -23,6 +23,8 @@ _LOCK = threading.Lock()
 _RUNNING = False
 
 PAGES = [
+    {"id": "lexcel", "title": "Law Society: Lexcel", "url": "https://www.lawsociety.org.uk/topics/firm-accreditations/lexcel"},
+    {"id": "lexcel-apply", "title": "Law Society: how to apply for Lexcel v6.1", "url": "https://www.lawsociety.org.uk/topics/firm-accreditations/lexcel/how-to-apply-for-lexcel-england-and-wales-v6-1"},
     {"id": "wiqs", "title": "Law Society: Wills and Inheritance Quality Scheme", "url": "https://www.lawsociety.org.uk/topics/firm-accreditations/wills-and-inheritance-quality-scheme"},
     {"id": "wiqs-apply", "title": "Law Society: how to apply for the scheme", "url": "https://www.lawsociety.org.uk/topics/firm-accreditations/wills-and-inheritance-quality-scheme/how-to-apply"},
     {"id": "wiqs-training", "title": "Law Society: scheme training", "url": "https://www.lawsociety.org.uk/topics/firm-accreditations/wills-and-inheritance-quality-scheme/training"},

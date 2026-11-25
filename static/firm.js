@@ -114,7 +114,7 @@ async function list() {
     ? '<form id="outlook"><label>Access token<input name="access_token" type="password" autocomplete="off"></label><p><button class="btn" type="submit">Save the Outlook connection</button></p></form>'
     : '<p class="small">An admin connects Outlook. Staff can then file a message onto a matter.</p>';
   const matterOptions = rows.map(m => '<option value="' + esc(m.id) + '">' + esc(m.title) + '</option>').join("");
-  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Matters</h1><p class="note">Open a file. The next step is on the matter, not on this list.</p><p><a class="btn" href="/firm?m=new">New matter</a> <button type="button" class="btn ghost" id="matters-excel">Excel</button></p>'
+  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Matters</h1><p class="note">Open a file. Step 2 on every file is Lexcel v6.1: the Law Society’s requirements for the file, and what this desk does not do for you.</p><p><a class="btn" href="/firm?m=new">New matter</a> <button type="button" class="btn ghost" id="matters-excel">Excel</button></p>'
     + '<div class="firm-card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Matter</th><th>Type</th><th>Next</th><th>Done</th></tr></thead><tbody>'
     + (rows.length ? rows.map(m => '<tr><td><a href="/firm?m=' + esc(m.id) + '">' + esc(m.title) + '</a><div class="muted small">' + esc(m.client_name || "No client name") + (m.deceased_name ? " · estate of " + esc(m.deceased_name) : "") + (m.figures ? " · net " + gbp(m.figures.net_probate) : "") + '</div></td><td>' + esc(m.kind_label) + '</td><td>' + (m.next ? esc(m.next.title) : "Checklist complete") + '</td><td>' + m.progress.done + "/" + m.progress.total + '</td></tr>').join("") : '<tr><td colspan="4" class="muted">No matters yet.</td></tr>')
     + '</tbody></table></div></div>'
@@ -215,10 +215,10 @@ async function matter(id) {
   nav();
   const [m, staff] = await Promise.all([api("/api/firm/matters/" + id), api("/api/firm/colleagues")]);
   if (OPEN !== id) { OPEN = id; TAB = m.kind === "probate" ? "papers" : "file"; }
-  const tabs = [["next", "1. Next"], ["papers", "2. Papers"], ["money", "3. Figures"], ["accounts", "4. Estate account"], ["forms", "5. Forms"], ["find", "6. Find accounts"], ["letters", "7. Letters"], ["file", "8. File"], ["scheme", "9. Legal checks"], ["bill", "10. Bill"]];
-  let showTabs = m.kind === "probate" ? tabs : [["next", "1. Next"], ["letters", "2. Letters"], ["file", "3. File"], ["scheme", "4. Legal checks"], ["bill", "5. Bill"]];
-  if (m.kind === "trust") showTabs = [["next", "1. Next"], ["trust", "2. Trust account"], ["letters", "3. Letters"], ["file", "4. File"], ["scheme", "5. Legal checks"], ["bill", "6. Bill"]];
-  if (m.kind === "deputyship") showTabs = [["next", "1. Next"], ["deputy", "2. The person's money"], ["letters", "3. Letters"], ["file", "4. File"], ["scheme", "5. Legal checks"], ["bill", "6. Bill"]];
+  const tabs = [["next", "1. Next"], ["lexcel", "2. Lexcel"], ["papers", "3. Papers"], ["money", "4. Figures"], ["accounts", "5. Estate account"], ["forms", "6. Forms"], ["find", "7. Find accounts"], ["letters", "8. Letters"], ["file", "9. File"], ["scheme", "10. WIQS"], ["bill", "11. Bill"]];
+  let showTabs = m.kind === "probate" ? tabs : [["next", "1. Next"], ["lexcel", "2. Lexcel"], ["letters", "3. Letters"], ["file", "4. File"], ["scheme", "5. WIQS"], ["bill", "6. Bill"]];
+  if (m.kind === "trust") showTabs = [["next", "1. Next"], ["lexcel", "2. Lexcel"], ["trust", "3. Trust account"], ["letters", "4. Letters"], ["file", "5. File"], ["scheme", "6. WIQS"], ["bill", "7. Bill"]];
+  if (m.kind === "deputyship") showTabs = [["next", "1. Next"], ["lexcel", "2. Lexcel"], ["deputy", "3. The person's money"], ["letters", "4. Letters"], ["file", "5. File"], ["scheme", "6. WIQS"], ["bill", "7. Bill"]];
   if (!showTabs.some(t => t[0] === TAB)) TAB = "next";
   const strip = m.figures ? '<div class="figure-strip">'
     + [["Probate gross", m.figures.gross_probate], ["Probate net", m.figures.net_probate], ["Tax estimate", m.figures.tax], ["Still to collect", m.accounts.totals.still_to_collect], ["Left to share", m.accounts.totals.expected_net]].map(([l, n]) => '<div><span>' + l + '</span><b>' + gbp(n) + '</b></div>').join("")
@@ -236,6 +236,7 @@ async function matter(id) {
   else if (TAB === "papers") panel.innerHTML = papersPanel(m);
   else if (TAB === "file") panel.innerHTML = filePanel(m);
   else if (TAB === "scheme") panel.innerHTML = schemePanel(m);
+  else if (TAB === "lexcel") panel.innerHTML = lexcelPanel(m);
   else if (TAB === "letters") panel.innerHTML = lettersPanel(m);
   else if (TAB === "bill") panel.innerHTML = billPanel(m);
   else if (TAB === "trust") panel.innerHTML = trustPanel(m);
@@ -247,7 +248,7 @@ async function matter(id) {
 function billPanel(m) {
   const b = m.bill || {};
   const rows = (m.bill_entries || []).map(e => '<tr><td>' + esc(e.on || "") + '</td><td>' + esc(e.kind) + '</td><td>' + esc(e.what) + '</td><td>' + gbp(e.amount) + '</td></tr>').join("");
-  return '<div class="firm-card"><h2>Bill</h2><p>Time and costs sit here until you raise a bill. A bill is what you ask the client to pay. Money received is recorded when it arrives. Nothing is collected on this website.</p>'
+  return '<div class="firm-card"><h2>Bill</h2><p class="note">Lexcel 6.4 and 7.4: the client still needs a written costs estimate at the start, and a further note before that estimate is exceeded. This list is the firm’s record. It is not that letter.</p>'
     + '<div class="figure-strip"><div><span>Not yet billed</span><b>' + gbp(b.unbilled) + '</b></div><div><span>Billed</span><b>' + gbp(b.billed) + '</b></div><div><span>Received</span><b>' + gbp(b.paid) + '</b></div><div><span>Still owed</span><b>' + gbp(b.outstanding) + '</b></div></div>'
     + (rows ? '<table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>What</th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>' : '')
     + '<form id="bill"><label>Type<select name="kind"><option value="time">Time</option><option value="cost">Cost paid for the client</option><option value="bill">Bill</option><option value="paid">Money received</option></select></label>'
@@ -293,7 +294,8 @@ function practiceForm(m) {
 function nextPanel(m, staff) {
   const deadlines = (m.deadlines || []).map(d => '<li><b>' + esc(d.label) + '</b>' + (d.date ? " · " + esc(d.date) : "") + '<div class="small">' + esc(d.note) + '</div></li>').join("");
   return '<div class="firm-next"><p class="eyebrow">Do this next</p><h2>' + esc(m.next ? m.next.title : "Checklist complete") + '</h2>'
-    + (m.next ? '<p>' + esc(m.next.ask) + '</p><p class="small">' + esc(m.next.stage) + '</p>' : '<p>Every item is received, done, or not needed.</p>') + '</div>'
+    + (m.next ? '<p>' + esc(m.next.ask) + '</p><p class="small">' + esc(m.next.stage) + '</p>' : '<p>Every item is received, done, or not needed.</p>')
+    + '<p class="small">Lexcel 7.1: this next step is the strategy on the file. Lexcel 5.7: the dates below must also sit in the firm’s own diary.</p></div>'
     + '<div class="firm-grid"><div class="firm-card"><form id="meta"><label>Status<select name="status">' + MATTER.map(([v, l]) => '<option value="' + v + '"' + (m.status === v ? " selected" : "") + '>' + l + '</option>').join("") + '</select></label>'
     + '<label>Worked by<select name="assigned_to"><option value="">Anyone</option>' + staff.map(s => '<option' + (m.assigned_to === s.email ? " selected" : "") + '>' + esc(s.email) + '</option>').join("") + '</select></label>'
     + '<label>Client<input name="client_name" value="' + esc(m.client_name) + '"></label><label>Email<input name="client_email" value="' + esc(m.client_email) + '"></label>'
@@ -487,6 +489,22 @@ function formsPanel(m) {
     + '<p><a href="https://www.gov.uk/government/publications/inheritance-tax-inheritance-tax-account-iht400" target="_blank" rel="noopener">Open the official IHT400</a></p>'
     + '<p><a class="btn ghost" href="/api/firm/matters/' + esc(m.id) + '/export">Download the file for the case system</a></p></div>';
 }
+function lexcelPanel(m) {
+  const x = m.lexcel || { items: [], cannot: [], links: [], notice: "" };
+  let section = "";
+  const rows = (x.items || []).map(item => {
+    const head = item.section !== section ? (section = item.section, '<h3>' + esc(section) + '</h3>') : "";
+    return head + '<article class="stage"><p><b>' + esc(item.clause) + '.</b> ' + esc(item.requirement) + '</p>'
+      + '<p class="note">On this desk: ' + esc(item.desk) + '</p>'
+      + '<label class="check"><input type="checkbox" name="done" value="' + esc(item.id) + '"' + (item.done ? " checked" : "") + '> On the file</label></article>';
+  }).join("");
+  return '<div class="firm-card"><h2>Lexcel v6.1</h2><p>' + esc(x.notice || "") + '</p>'
+    + (x.cannot || []).map(line => '<p class="note">' + esc(line) + '</p>').join("")
+    + '<p>' + (x.links || []).map(link => '<a href="' + esc(link.url) + '" target="_blank" rel="noopener">' + esc(link.title) + '</a>').join(" · ") + '</p>'
+    + '<form id="lexcel">' + rows + '<p><button class="btn" type="submit">Save the Lexcel record</button></p></form>'
+    + '<p class="small">' + (x.open || 0) + ' requirements are still open on this file. The assessor uses the Law Society’s own case-management checklist, not this screen.</p></div>';
+}
+
 function schemePanel(m) {
   const s = m.scheme || { items: [], cannot: [], links: [], notice: "", last_report: "" };
   const groups = {};
@@ -604,6 +622,12 @@ function bind(id, m) {
     e.preventDefault();
     const fd = new FormData(e.target);
     await api("/api/firm/matters/" + id + "/scheme", { method: "POST", body: { done: fd.getAll("done"), last_report: fd.get("last_report") || "" } });
+    reload();
+  };
+  const lexcel = document.getElementById("lexcel");
+  if (lexcel) lexcel.onsubmit = async (e) => {
+    e.preventDefault();
+    await api("/api/firm/matters/" + id + "/lexcel", { method: "POST", body: { done: new FormData(e.target).getAll("done") } });
     reload();
   };
   const retainer = document.getElementById("retainer");
