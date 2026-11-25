@@ -808,6 +808,24 @@ async function mountStatementPanel(draftId) {
 // Read-only lookup tools shown above a step's questions. They search official lists only; the
 // family records what they found in the step's own questions. Nothing is filed or submitted.
 const TOOLS = {
+  async estatesearch(box) {
+    try {
+      const c = await api("/api/probate/estatesearch/catalog");
+      box.innerHTML = '<div class="card"><h2>Estatesearch packages</h2><div class="table-wrap"><table class="tbl"><thead><tr><th>Package</th><th>Price before VAT</th></tr></thead><tbody>'
+        + c.packages.map(p => '<tr><td><a href="' + esc(p.source) + '" target="_blank" rel="noopener">' + esc(p.name) + '</a></td><td>' + esc(p.price_prefix) + '£' + esc(p.ex_vat) + '</td></tr>').join("")
+        + '</tbody></table></div><p class="small">Price on request: ' + esc(c.price_on_request.join(", ")) + ' (<a href="' + esc(c.service_list) + '" target="_blank" rel="noopener">full list</a>).</p>'
+        + '<div id="es_total" aria-live="polite"></div>' + c.routes.map(r => r.url ? '<p><a class="btn ghost" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.label) + '</a></p>' : '<p><b>' + esc(r.label) + '</b></p>').join("")
+        + '<p class="small">' + esc(c.note) + '</p></div>';
+      const form = document.getElementById("f");
+      const refresh = async () => {
+        const ids = c.packages.filter(p => form && form.querySelector('[name="pkg_' + p.id + '"]')?.checked).map(p => p.id);
+        const q = await api("/api/probate/estatesearch/quote?ids=" + encodeURIComponent(ids.join(",")));
+        box.querySelector("#es_total").innerHTML = ids.length ? '<p><b>Total: £' + esc(q.total) + '</b> (£' + esc(q.subtotal) + ' + VAT £' + esc(q.vat) + ')' + (q.from_prices ? ' · some prices are "from" prices' : "") + '</p>' : '<p class="muted">Tick packages below to see the total.</p>';
+      };
+      if (form) form.addEventListener("change", refresh);
+      setTimeout(refresh, 0);
+    } catch (err) { box.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+  },
   async hmlr(box, draft) {
     try {
       const st = await api("/api/probate/hmlr/status");

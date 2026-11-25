@@ -11,7 +11,7 @@ from .auth import require_admin, require_user
 from sqlalchemy import select
 
 from .db import drafts, engine, uploads
-from .integrations import bona_vacantia, gazette, hmlr
+from .integrations import bona_vacantia, estatesearch_catalog, gazette, hmlr
 from .security import audit
 
 router = APIRouter(prefix="/api/probate", tags=["probate-tools"])
@@ -94,6 +94,16 @@ def hmlr_ledger(_admin=Depends(require_admin)):
     with engine().connect() as conn:
         day = hmlr.today_utc()
         return {"today": day, "spent_today": hmlr.spent_today_pence(conn, day) / 100, "daily_cap": hmlr.Settings.from_env().daily_cap_pence / 100, "rows": hmlr.ledger(conn)}
+
+
+@router.get("/estatesearch/catalog")
+def estatesearch_catalog_view(_user=Depends(require_user)):
+    return estatesearch_catalog.catalog()
+
+
+@router.get("/estatesearch/quote")
+def estatesearch_quote(ids: str = Query("", max_length=400), _user=Depends(require_user)):
+    return estatesearch_catalog.quote([x for x in ids.split(",") if x])
 
 
 INSOLVENCY_SEARCH_URL = "https://www.gov.uk/search-bankruptcy-insolvency-register"  # checked 2026-11-24; no public API, never called from here
