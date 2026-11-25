@@ -7,6 +7,7 @@ import calendar
 from datetime import date
 
 from .guides import SERVICES
+from .integrations.gazette import claim_deadline
 
 ITEM_STATUS = ("needed", "asked", "received", "done", "na")
 MATTER_STATUS = ("open", "waiting", "working", "ready", "closed")
@@ -198,9 +199,9 @@ def deadlines(matter: dict) -> list[dict]:
     if wait:
         out.append({"label": "Do not distribute in full before", "date": wait, "note": "At least 6 months from the grant, in case of a family claim. This is separate from the section 27 notice."})
     notice = ((matter.get("facts") or {}).get("books") or {}).get("notice") or {}
-    expires = add_months(notice.get("placed_on") or "", 2)
+    expires = claim_deadline(notice.get("placed_on") or "")
     if expires:
-        out.append({"label": "Section 27 notice: last day for claims", "date": expires, "note": "Two months from the date the notice was placed. Do not pay everyone before this day. Claims the firm already knows about are not shut out."})
+        out.append({"label": "Section 27 notice: last day for claims", "date": expires, "note": "Two months and one day from the date the notice was placed. Do not pay everyone before this day. Claims the firm already knows about are not shut out."})
     else:
         out.append({"label": "Section 27 notice", "date": "", "note": "Not placed yet. The firm places it in The London Gazette, and in a local newspaper if there is land."})
     return out

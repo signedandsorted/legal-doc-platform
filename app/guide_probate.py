@@ -209,6 +209,22 @@ PROBATE = {
             ],
         },
         {
+            "id": "notice_s27", "title": "Notice to creditors (section 27)", "video": "probate_estate", "tool": "gazette_s27",
+            "guidance": [
+                "First, search The Gazette for deceased estates notices already published for this person, for example by another relative.",
+                "A notice under section 27 of the Trustee Act 1925 protects the executor against claims they do not know about. Place it in The Gazette, and also in a newspaper local to any land in the estate. Claimants must have at least two months from publication.",
+                "We fill in the notice details from earlier steps and work out the earliest claim deadline. The Gazette's published fees are shown with the date we checked them.",
+                "You place and pay for the notice yourself. This helper does not file, place or submit anything to The Gazette.",
+            ],
+            "sources": [GOV["gazette_place"], GOV["gazette_pricing"]],
+            "fields": [
+                {"name": "claims_to", "label": "Name and address where claims should be sent", "type": "textarea"},
+                {"name": "has_land", "label": "Does the estate include land or a house?", "type": "select", "options": YES_NO},
+                {"name": "publication_date", "label": "Date the notice will be (or was) published", "type": "date"},
+                {"name": "gazette_ref", "label": "Gazette notice ID once published (optional)", "type": "text"},
+            ],
+        },
+        {
             "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",
             "guidance": [
                 "You do not type the money again. This step turns the values you already entered into a simple estate account.",

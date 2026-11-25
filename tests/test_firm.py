@@ -107,7 +107,7 @@ def test_one_ledger_feeds_the_accounts_the_forms_and_the_draft():
         noted = c.patch(f"/api/firm/matters/{matter['id']}", json={"books": books})
         assert noted.status_code == 200, noted.text
         dates = {d["label"]: d["date"] for d in noted.json()["deadlines"]}
-        assert dates["Section 27 notice: last day for claims"] == "2026-03-15"
+        assert dates["Section 27 notice: last day for claims"] == "2026-03-16"  # two months + one day
         notice = c.post(f"/api/firm/matters/{matter['id']}/letters", json={"kind": "notice"})
         assert "Trustee Act 1925" in notice.json()["letter"]["body"]
         assert "John Executor" in notice.json()["letter"]["body"]
