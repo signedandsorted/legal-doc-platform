@@ -35,6 +35,8 @@ GOV = {
     "probate_fees": src("GOV.UK: Probate fees", "https://www.gov.uk/applying-for-probate/fees"),
     "bona_vacantia_list": src("GOV.UK: Unclaimed estates list (Bona Vacantia)", "https://www.gov.uk/government/statistical-data-sets/unclaimed-estates-list"),
     "bona_vacantia_claim": src("GOV.UK: Make a claim to a deceased person's estate", "https://www.gov.uk/guidance/make-a-claim-to-a-deceased-persons-estate"),
+    "insolvency_register": src("GOV.UK: Search the bankruptcy and insolvency register", "https://www.gov.uk/search-bankruptcy-insolvency-register"),
+    "land_charges_fees": src("GOV.UK: HM Land Registry Land Charges fees (K16 bankruptcy search)", "https://www.gov.uk/guidance/hm-land-registry-land-charges-fees"),
     "probate_apply": src("GOV.UK: Apply for probate online or by post", "https://www.gov.uk/applying-for-probate/apply-for-probate"),
     "probate_forms": src("GOV.UK: Probate forms and guidance (PA forms)", "https://www.gov.uk/government/collections/probate-forms"),
     "pa1p": src("GOV.UK: Form PA1P (by post, there is a will)", "https://www.gov.uk/government/publications/form-pa1p-apply-for-probate-the-deceased-had-a-will"),

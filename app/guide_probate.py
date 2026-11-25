@@ -191,6 +191,24 @@ PROBATE = {
             ],
         },
         {
+            "id": "insolvency", "title": "Bankruptcy and insolvency check", "video": "probate_estate", "tool": "insolvency",
+            "guidance": [
+                "Before you pay anyone their share, check the Individual Insolvency Register for each beneficiary, and for the person who died. If a beneficiary is bankrupt, their share may have to go to their trustee in bankruptcy instead of to them.",
+                "The register is free to search on GOV.UK. There is no automatic link, so we do not search it for you: open the GOV.UK search, type the name shown here, and record what you found. We save the date and time you recorded each result.",
+                "The formal search is the HM Land Registry Land Charges K16 bankruptcy search (GOV.UK lists it at £6 per name online, £7 by post, checked 24 Nov 2026). That is a separate step.",
+                "This helper does not file or submit anything, and it does not decide whether a beneficiary can be paid. A solicitor checks any match before money is paid.",
+            ],
+            "sources": [GOV["insolvency_register"], GOV["land_charges_fees"]],
+            "fields": [
+                {"name": "checks", "label": "People checked", "type": "list", "min": 0, "max": 12, "fields": [
+                    {"name": "name", "label": "Full name searched", "type": "text", "required": True},
+                    {"name": "role", "label": "Who they are", "type": "select", "options": ["The person who died", "Beneficiary", "Executor or administrator"]},
+                    {"name": "result", "label": "Result", "type": "select", "options": ["Not checked yet", "Clear: no entry found", "Possible match found"]},
+                    {"name": "note", "label": "Note (optional)", "type": "text"},
+                ]},
+            ],
+        },
+        {
             "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",
             "guidance": [
                 "You do not type the money again. This step turns the values you already entered into a simple estate account.",

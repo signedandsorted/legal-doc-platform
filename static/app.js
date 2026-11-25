@@ -801,6 +801,17 @@ async function mountStatementPanel(draftId) {
 // Read-only lookup tools shown above a step's questions. They search official lists only; the
 // family records what they found in the step's own questions. Nothing is filed or submitted.
 const TOOLS = {
+  insolvency(box, draft) {
+    const a = draft.answers || {}, names = [];
+    const add = (n, role) => { n = String(n || "").trim(); if (n && !names.some(x => x.n === n)) names.push({ n, role }); };
+    add((a.deceased || {}).full_name, "The person who died");
+    ((a.account || {}).people || []).forEach(p => add(p.full_name, "Beneficiary"));
+    const recs = ((a.insolvency || {}).checks || []).filter(c => c.recorded_at);
+    box.innerHTML = '<div class="card"><h2>Search the register on GOV.UK</h2><p>Open the free GOV.UK search in a new tab and type each name. We do not search it for you. Then add the result below.</p>'
+      + (names.length ? '<ul>' + names.map(x => '<li><b>' + esc(x.n) + '</b> <span class="muted">(' + esc(x.role) + ')</span></li>').join("") + '</ul>' : '<p class="muted">Names from earlier steps will appear here.</p>')
+      + '<p><a class="btn" href="https://www.gov.uk/search-bankruptcy-insolvency-register" target="_blank" rel="noopener">Open the GOV.UK insolvency register search</a></p>'
+      + (recs.length ? '<p class="small">Recorded: ' + recs.map(c => esc(c.name) + ' · ' + esc(c.result) + ' · ' + esc(c.recorded_at) + ' UTC').join("; ") + '</p>' : "") + '</div>';
+  },
   bona_vacantia(box, draft) {
     const dec = (draft.answers || {}).deceased || {};
     const parts = String(dec.full_name || "").trim().split(/\s+/);
