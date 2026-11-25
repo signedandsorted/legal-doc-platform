@@ -491,10 +491,12 @@ async function step(id, index) {
     + '<h1>' + esc(st.title) + '</h1>' + videoHtml(st.video, st.title)
     + '<div class="guide">' + st.guidance.map(p => '<p>' + esc(p) + '</p>').join("") + '</div>' + sourcesHtml(st.sources)
     + (editable ? "" : '<div class="alert ok">This draft has been sent for solicitor review, so it can no longer be changed.</div>')
+    + (st.tool ? '<div id="tool" class="tool"></div>' : "")
     + '<form id="f" novalidate><div id="fields">' + st.fields.map(f => fieldHtml(f, cur[f.name], [f.name], cur)).join("") + '</div>' + uploadsHtml(st, draft)
     + '<div id="msg" aria-live="assertive"></div><div class="actions">' + (index ? '<a class="btn ghost" href="#/d/' + id + '/' + (index - 1) + '">← Back</a>' : '<a class="btn ghost" href="#/">Home</a>')
     + '<span class="saved" id="saved" aria-live="polite"></span><button class="btn" type="submit">' + (last ? "Check my draft →" : "Save and continue →") + '</button></div></form></section></div>';
   const form = document.getElementById("f"), fields = document.getElementById("fields"), saved = document.getElementById("saved");
+  if (st.tool && TOOLS[st.tool]) TOOLS[st.tool](document.getElementById("tool"), draft);
   if (!editable) form.querySelectorAll("input,select,textarea").forEach(el => el.disabled = true);
   const rerender = () => { fields.innerHTML = st.fields.map(f => fieldHtml(f, cur[f.name], [f.name], cur)).join(""); };
   let timer;
@@ -795,3 +797,28 @@ async function mountStatementPanel(draftId) {
 
   render("idle");
 }
+
+// Read-only lookup tools shown above a step's questions. They search official lists only; the
+// family records what they found in the step's own questions. Nothing is filed or submitted.
+const TOOLS = {
+  bona_vacantia(box, draft) {
+    const dec = (draft.answers || {}).deceased || {};
+    const parts = String(dec.full_name || "").trim().split(/\s+/);
+    const sur = parts.length > 1 ? parts[parts.length - 1] : (parts[0] || ""), fore = parts.length > 1 ? parts[0] : "";
+    box.innerHTML = '<div class="card"><h2>Search the unclaimed estates list</h2><form id="bv"><div class="field"><label for="bv_s">Surname</label><input id="bv_s" value="' + esc(sur) + '" required minlength="2"></div>'
+      + '<div class="field"><label for="bv_f">First name (optional)</label><input id="bv_f" value="' + esc(fore) + '"></div><p><button class="btn" type="submit">Search the list</button></p></form><div id="bv_out" aria-live="polite"></div></div>';
+    box.querySelector("#bv").onsubmit = async e => {
+      e.preventDefault();
+      const out = box.querySelector("#bv_out"), s = box.querySelector("#bv_s").value.trim(), f = box.querySelector("#bv_f").value.trim();
+      if (s.length < 2) { out.innerHTML = '<div class="alert error">Type at least 2 letters of the surname.</div>'; return; }
+      out.innerHTML = '<p class="muted">Searching…</p>';
+      try {
+        const r = await api("/api/probate/bona-vacantia?surname=" + encodeURIComponent(s) + "&forename=" + encodeURIComponent(f));
+        const rows = r.matches.map(m => '<tr><td>' + esc(m.bv_reference) + '</td><td>' + esc(m.forename + " " + m.surname) + '</td><td>' + esc(m.date_of_death) + '</td><td>' + esc(m.place_of_death) + '</td></tr>').join("");
+        out.innerHTML = (r.note ? '<div class="alert warning">' + esc(r.note) + '</div>' : "")
+          + (rows ? '<table class="table"><thead><tr><th>BV reference</th><th>Name</th><th>Date of death</th><th>Place of death</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<div class="alert info">No match for that name on the list.</div>')
+          + '<p class="small">List fetched ' + esc(r.fetched_at || "") + ' (UTC) from <a href="' + esc(r.page_url) + '" target="_blank" rel="noopener">GOV.UK</a>. ' + esc(r.licence) + ' To claim, follow <a href="' + esc(r.claim_url) + '" target="_blank" rel="noopener">the GOV.UK claim guidance</a>. You make the claim yourself.</p>';
+      } catch (err) { out.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+    };
+  },
+};

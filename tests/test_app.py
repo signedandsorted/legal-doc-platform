@@ -23,7 +23,9 @@ WILL = {
 def test_services_and_health():
     with user_client() as client:
         assert client.get("/healthz").json()["ok"] is True
-        assert {s["id"] for s in client.get("/api/services").json()} == {"will", "lpa_property", "lpa_health", "poa_ordinary", "probate", "prenup", "postnup", "cohabitation", "employment_settlement", "nuptial"}
+        public = {s["id"] for s in client.get("/api/services").json()}
+        assert {"will", "lpa_property", "lpa_health", "poa_ordinary", "probate", "nuptial"} <= public
+        assert not public & {"prenup", "postnup", "cohabitation", "employment_settlement"}  # hidden from the public list
         assert client.get("/").status_code == 200
         svc = client.get("/api/services/will").json()
         assert [s["id"] for s in svc["steps"]] == ["intro", "about_you", "family", "executors", "gifts", "residue", "trusts", "business", "extras", "documents"]

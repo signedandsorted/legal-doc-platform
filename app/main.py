@@ -16,6 +16,7 @@ from .admin import router as admin_router
 from .capacity import router as capacity_router
 from .auth import require_user, router as auth_router, seed_admin, seed_staff, set_csrf_cookie
 from .firm import public_probate_prepare, router as firm_router
+from .probate_tools import router as probate_tools_router
 from .db import drafts, engine, init_db, new_id, now, uploads
 from .security import audit, client_ip, csrf_ok
 from .documents import build_document, find_issues, missing_fields
@@ -79,6 +80,7 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(capacity_router)
 app.include_router(firm_router)
+app.include_router(probate_tools_router)
 
 
 class DraftIn(BaseModel):
