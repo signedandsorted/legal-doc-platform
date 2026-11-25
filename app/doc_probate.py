@@ -135,7 +135,17 @@ def plan(a: dict) -> dict:
 
 def probate_issues(a: dict) -> list[dict]:
     p = plan(a)
-    return [issue("error", b) for b in p["blockers"]] + p["issues"] + ([issue("warning", "Inheritance Tax looks likely to be due. You normally pay some before probate is granted, and by the end of the sixth month after the death to avoid interest.")] if p["tax"]["tax"] > 0 else [])
+    return [issue("error", b) for b in p["blockers"]] + p["issues"] + ([issue("warning", "Inheritance Tax looks likely to be due. You normally pay some before probate is granted, and by the end of the sixth month after the death to avoid interest.")] if p["tax"]["tax"] > 0 else []) + lookup_issues(a)
+
+
+def lookup_issues(a: dict) -> list[dict]:
+    """Notes from the official-list lookups. They never file or submit anything."""
+    out = []
+    bv = a.get("bona_vacantia") or {}
+    if bv.get("result") == "Possible match found":
+        ref = (bv.get("bv_reference") or "").strip()
+        out.append(issue("info", "The unclaimed estates list may show this estate%s. Follow the GOV.UK guidance to make a claim to the Bona Vacantia Division yourself; this helper does not file or submit the claim." % (" (BV reference " + ref + ")" if ref else "")))
+    return out
 
 
 def _deadline(dod: str) -> str:

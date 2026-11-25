@@ -29,6 +29,8 @@ GOV = {
     "probate_no_will": src("GOV.UK: Applying for probate if there's not a will", "https://www.gov.uk/applying-for-probate/if-theres-not-a-will"),
     "probate_before": src("GOV.UK: Before you apply for probate (the 5 estate values)", "https://www.gov.uk/applying-for-probate/before-you-apply"),
     "probate_fees": src("GOV.UK: Probate fees", "https://www.gov.uk/applying-for-probate/fees"),
+    "bona_vacantia_list": src("GOV.UK: Unclaimed estates list (Bona Vacantia)", "https://www.gov.uk/government/statistical-data-sets/unclaimed-estates-list"),
+    "bona_vacantia_claim": src("GOV.UK: Make a claim to a deceased person's estate", "https://www.gov.uk/guidance/make-a-claim-to-a-deceased-persons-estate"),
     "probate_apply": src("GOV.UK: Apply for probate online or by post", "https://www.gov.uk/applying-for-probate/apply-for-probate"),
     "probate_forms": src("GOV.UK: Probate forms and guidance (PA forms)", "https://www.gov.uk/government/collections/probate-forms"),
     "pa1p": src("GOV.UK: Form PA1P (by post, there is a will)", "https://www.gov.uk/government/publications/form-pa1p-apply-for-probate-the-deceased-had-a-will"),

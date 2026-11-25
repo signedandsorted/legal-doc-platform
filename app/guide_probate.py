@@ -176,6 +176,21 @@ PROBATE = {
             ],
         },
         {
+            "id": "bona_vacantia", "title": "Unclaimed estates list", "video": "probate_estate", "tool": "bona_vacantia",
+            "guidance": [
+                "If nobody claimed the estate, it may have been referred to the Crown (the Bona Vacantia Division). GOV.UK publishes a list of those estates that are not yet claimed.",
+                "Search by surname, and add a first name to narrow it down. Each match shows the BV reference, the date and place of death. We download the list from GOV.UK at most once a day.",
+                "If you find the person, follow the GOV.UK claim guidance and quote the BV reference. You make the claim yourself. This helper does not file or submit anything to the Bona Vacantia Division.",
+            ],
+            "sources": [GOV["bona_vacantia_list"], GOV["bona_vacantia_claim"]],
+            "fields": [
+                {"name": "result", "label": "What did the search show?", "type": "select", "options": ["Not checked yet", "No match on the list", "Possible match found"]},
+                {"name": "bv_reference", "label": "BV reference of the match", "type": "text", "show_if": {"field": "result", "in": ["Possible match found"]}},
+                {"name": "checked_on", "label": "Date you checked", "type": "date"},
+                {"name": "note", "label": "Notes (optional)", "type": "textarea"},
+            ],
+        },
+        {
             "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",
             "guidance": [
                 "You do not type the money again. This step turns the values you already entered into a simple estate account.",
