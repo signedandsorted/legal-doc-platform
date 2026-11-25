@@ -801,6 +801,32 @@ async function mountStatementPanel(draftId) {
 // Read-only lookup tools shown above a step's questions. They search official lists only; the
 // family records what they found in the step's own questions. Nothing is filed or submitted.
 const TOOLS = {
+  async gazette_s27(box, draft) {
+    const dec = (draft.answers || {}).deceased || {};
+    box.innerHTML = '<div class="card"><h2>Search The Gazette</h2><form id="gz"><div class="field"><label for="gz_n">Name</label><input id="gz_n" value="' + esc(dec.full_name || "") + '" minlength="2"></div>'
+      + '<p><button class="btn" type="submit">Search deceased estates notices</button></p></form><div id="gz_out" aria-live="polite"></div></div><div class="card" id="s27"></div>';
+    box.querySelector("#gz").onsubmit = async e => {
+      e.preventDefault();
+      const out = box.querySelector("#gz_out"), n = box.querySelector("#gz_n").value.trim();
+      if (n.length < 2) { out.innerHTML = '<div class="alert error">Type a name.</div>'; return; }
+      out.innerHTML = '<p class="muted">Searching…</p>';
+      try {
+        const r = await api("/api/probate/gazette?name=" + encodeURIComponent(n));
+        out.innerHTML = r.notices.length ? '<ul>' + r.notices.map(x => '<li><a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a> · published ' + esc(x.published) + '</li>').join("") + '</ul>' : '<div class="alert info">No deceased estates notices found for that name.</div>';
+      } catch (err) { out.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+    };
+    try {
+      const p = await api("/api/probate/drafts/" + draft.id + "/s27-pack");
+      const f = p.fields;
+      box.querySelector("#s27").innerHTML = '<h2>Your section 27 notice details</h2>'
+        + (p.missing.length ? '<div class="alert warning">Still needed: ' + esc(p.missing.join(", ")) + '. Saved answers fill these in.</div>' : "")
+        + '<dl class="kv">' + [["Name", f.deceased_name], ["Other names", f.other_names], ["Last address", f.last_address], ["Date of death", f.date_of_death], ["Executor", f.executor_name], ["Claims to", f.claims_address], ["Publication date", f.publication_date], ["Claim deadline (earliest)", f.claim_deadline]].map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v || "—") + '</dd>').join("") + '</dl>'
+        + '<h3>Checklist</h3><ol>' + p.checklist.map(x => '<li>' + esc(x) + '</li>').join("") + '</ol>'
+        + '<h3>Gazette fees</h3><ul>' + p.fees.map(x => '<li>' + esc(x.item) + ': £' + esc(x.ex_vat) + ' + VAT</li>').join("") + '</ul><p class="small">From <a href="' + esc(p.fees_source) + '" target="_blank" rel="noopener">The Gazette price list</a>, checked ' + esc(p.fees_checked) + '.</p>'
+        + '<p><a class="btn ghost" href="' + esc(p.place_url) + '" target="_blank" rel="noopener">Place the notice on The Gazette</a> <button class="btn ghost" type="button" id="s27print">Print this checklist</button></p><p class="small">' + esc(p.note) + '</p>';
+      box.querySelector("#s27print").onclick = () => window.print();
+    } catch (err) { box.querySelector("#s27").innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+  },
   insolvency(box, draft) {
     const a = draft.answers || {}, names = [];
     const add = (n, role) => { n = String(n || "").trim(); if (n && !names.some(x => x.n === n)) names.push({ n, role }); };

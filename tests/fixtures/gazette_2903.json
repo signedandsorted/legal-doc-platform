@@ -1,0 +1,210 @@
+{
+ "id": "https://www.thegazette.co.uk/wills-and-probate/notice/data.feed?noticetype=2903&text=Smith&results-page-size=2&results-page=1",
+ "link": [
+  {
+   "@href": "https://www.thegazette.co.uk/wills-and-probate/notice/data.feed?noticetype=2903&text=Smith&results-page-size=2&results-page=1",
+   "@rel": "alternate",
+   "@type": "application/atom+xml",
+   "@title": "ATOM"
+  },
+  {
+   "@href": "https://www.thegazette.co.uk/wills-and-probate/notice/data.json?noticetype=2903&text=Smith&results-page=1",
+   "@rel": "first",
+   "@type": "application/json"
+  },
+  {
+   "@href": "https://www.thegazette.co.uk/wills-and-probate/notice/data.json?noticetype=2903&text=Smith&results-page=2",
+   "@rel": "next",
+   "@type": "application/json"
+  },
+  {
+   "@href": "https://www.thegazette.co.uk/wills-and-probate/notice/data.json?noticetype=2903&text=Smith&results-page=15457",
+   "@rel": "last",
+   "@type": "application/json"
+  },
+  {
+   "@href": "https://www.thegazette.co.uk/wills-and-probate/notice/data.htm?noticetype=2903&text=Smith&results-page-size=2&results-page=1",
+   "@rel": "alternate",
+   "@title": "HTML",
+   "@type": "application/xhtml+xml"
+  },
+  {
+   "@href": "https://www.thegazette.co.uk/wills-and-probate/notice/data.json?noticetype=2903&text=Smith&results-page-size=2&results-page=1",
+   "@rel": "self",
+   "@type": "application/json"
+  }
+ ],
+ "title": "Search Result",
+ "updated": "2026-11-25T01:32:38.234637Z",
+ "openSearch:Query": {
+  "@role": "request",
+  "@searchTerms": "Smith"
+ },
+ "f:page-number": "1",
+ "f:page-size": "2",
+ "f:page-start": "1",
+ "f:page-stop": "2",
+ "f:total": "30913",
+ "f:total-errors": "6",
+ "f:facets": null,
+ "entry": [
+  {
+   "id": "https://www.thegazette.co.uk/id/notice/L-56160-334",
+   "f:status": "published",
+   "f:notice-code": "2903",
+   "f:name": "User",
+   "f:familyName": "Migration",
+   "title": "Eileen PANTON-SMITH",
+   "link": [
+    {
+     "@href": "https://www.thegazette.co.uk/id/notice/L-56160-334",
+     "@rel": "self"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.ttl",
+     "@rel": "alternate",
+     "@title": "TURTLE",
+     "@type": "text/turtle"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.jsonld",
+     "@rel": "alternate",
+     "@title": "JSON-LD",
+     "@type": "application/json"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.rdf",
+     "@rel": "alternate",
+     "@title": "RDF/XML",
+     "@type": "application/rdf+xml"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.ttl?view=linked-data",
+     "@rel": "alternate",
+     "@title": "TURTLE",
+     "@type": "text/turtle"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.json?view=linked-data",
+     "@rel": "alternate",
+     "@title": "JSON-SIMPLE",
+     "@type": "application/json"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.rdfjson?view=linked-data",
+     "@rel": "alternate",
+     "@title": "JSON-RDF",
+     "@type": "application/rdf+json"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.rdf?view=linked-data",
+     "@rel": "alternate",
+     "@title": "RDF/XML",
+     "@type": "application/rdf+xml"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.xml?view=linked-data",
+     "@rel": "alternate",
+     "@title": "XML",
+     "@type": "application/xml"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-56160-334/data.html?view=linked-data",
+     "@rel": "alternate",
+     "@title": "HTML",
+     "@type": "application/html"
+    }
+   ],
+   "author": {
+    "name": "tso"
+   },
+   "updated": "2014-04-26T16:30:48+01:00",
+   "published": "2001-03-28T00:00:00",
+   "category": {
+    "@term": ""
+   }
+  },
+  {
+   "id": "https://www.thegazette.co.uk/id/notice/L-55626-015",
+   "f:status": "published",
+   "f:notice-code": "2903",
+   "f:name": "User",
+   "f:familyName": "Migration",
+   "title": "William SMITH",
+   "link": [
+    {
+     "@href": "https://www.thegazette.co.uk/id/notice/L-55626-015",
+     "@rel": "self"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.ttl",
+     "@rel": "alternate",
+     "@title": "TURTLE",
+     "@type": "text/turtle"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.jsonld",
+     "@rel": "alternate",
+     "@title": "JSON-LD",
+     "@type": "application/json"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.rdf",
+     "@rel": "alternate",
+     "@title": "RDF/XML",
+     "@type": "application/rdf+xml"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.ttl?view=linked-data",
+     "@rel": "alternate",
+     "@title": "TURTLE",
+     "@type": "text/turtle"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.json?view=linked-data",
+     "@rel": "alternate",
+     "@title": "JSON-SIMPLE",
+     "@type": "application/json"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.rdfjson?view=linked-data",
+     "@rel": "alternate",
+     "@title": "JSON-RDF",
+     "@type": "application/rdf+json"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.rdf?view=linked-data",
+     "@rel": "alternate",
+     "@title": "RDF/XML",
+     "@type": "application/rdf+xml"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.xml?view=linked-data",
+     "@rel": "alternate",
+     "@title": "XML",
+     "@type": "application/xml"
+    },
+    {
+     "@href": "https://www.thegazette.co.uk/notice/L-55626-015/data.html?view=linked-data",
+     "@rel": "alternate",
+     "@title": "HTML",
+     "@type": "application/html"
+    }
+   ],
+   "author": {
+    "name": "tso"
+   },
+   "updated": "2014-04-26T16:22:00+01:00",
+   "published": "1999-10-04T00:00:00",
+   "category": {
+    "@term": ""
+   }
+  }
+ ]
+}

@@ -7,7 +7,10 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .auth import require_user
-from .integrations import bona_vacantia
+from sqlalchemy import select
+
+from .db import drafts, engine
+from .integrations import bona_vacantia, gazette
 
 router = APIRouter(prefix="/api/probate", tags=["probate-tools"])
 
@@ -18,6 +21,27 @@ def bona_vacantia_search(surname: str = Query(..., min_length=2, max_length=80),
         return bona_vacantia.lookup(surname, forename)
     except bona_vacantia.BonaVacantiaUnavailable as exc:
         raise HTTPException(503, str(exc))
+
+
+@router.get("/gazette")
+def gazette_search(name: str = Query(..., min_length=2, max_length=120), date_from: str = Query("", max_length=10), date_to: str = Query("", max_length=10), _user=Depends(require_user)):
+    for d in (date_from, date_to):
+        if d and not (len(d) == 10 and d[4] == "-" and d[7] == "-"):
+            raise HTTPException(400, "Dates must look like 2026-01-31")
+    try:
+        notices = gazette.search(name, date_from, date_to)
+    except Exception:
+        raise HTTPException(503, "The Gazette could not be reached just now. Please try again later.")
+    return {"notices": notices, "source": gazette.FEED_URL, "note": "Deceased estates notices (code 2903) from The Gazette's public feed."}
+
+
+@router.get("/drafts/{draft_id}/s27-pack")
+def s27_pack(draft_id: str, user=Depends(require_user)):
+    with engine().connect() as conn:
+        row = conn.execute(select(drafts).where(drafts.c.id == draft_id)).mappings().first()
+    if not row or row["user_id"] != user["id"] or row["service"] != "probate":
+        raise HTTPException(404, "Draft not found")
+    return gazette.s27_pack(row["answers"] or {})
 
 
 INSOLVENCY_SEARCH_URL = "https://www.gov.uk/search-bankruptcy-insolvency-register"  # checked 2026-11-24; no public API, never called from here
