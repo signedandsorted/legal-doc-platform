@@ -12,7 +12,7 @@ from .auth import require_admin, require_user
 from sqlalchemy import select
 
 from .db import drafts, engine, uploads
-from .integrations import bona_vacantia, estatesearch_catalog, estatesearch_pack, gazette, hmlr
+from .integrations import asset_trace, bona_vacantia, estatesearch_catalog, estatesearch_pack, gazette, hmlr
 from .security import audit
 
 router = APIRouter(prefix="/api/probate", tags=["probate-tools"])
@@ -127,6 +127,13 @@ def estatesearch_pack_pdf(draft_id: str, user=Depends(require_user)):
     from .pdf import render_pdf
     pdf = render_pdf(estatesearch_pack.pack_document(_estatesearch_pack(draft_id, user)))
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="estatesearch-order-pack.pdf"'})
+
+
+@router.get("/drafts/{draft_id}/find-notify")
+def find_notify(draft_id: str, user=Depends(require_user)):
+    with engine().connect() as conn:
+        row = _probate_draft(conn, draft_id, user)
+    return asset_trace.pack(row["answers"] or {})
 
 
 INSOLVENCY_SEARCH_URL = "https://www.gov.uk/search-bankruptcy-insolvency-register"  # checked 2026-11-24; no public API, never called from here

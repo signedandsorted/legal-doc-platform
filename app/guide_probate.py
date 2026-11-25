@@ -1,6 +1,7 @@
 """Probate helper for England and Wales, following GOV.UK 'Applying for probate' and
 'Value the estate for Inheritance Tax'. DRAFT: needs lawyer review before it goes live."""
 from .fields import GOV, YES_NO
+from .integrations.asset_trace import SERVICES as TRACE_SERVICES, STATUSES as TRACE_STATUSES
 from .integrations.estatesearch_catalog import PACKAGES as ESTATESEARCH_PACKAGES
 
 PROBATE_FEE = 526          # GOV.UK probate fees page, checked 17 Nov 2026 (estates over £5,000)
@@ -159,7 +160,7 @@ PROBATE = {
             "fields": [],
         },
         {
-            "id": "discovery", "title": "Where else to look", "video": "probate_estate",
+            "id": "discovery", "title": "Where else to look", "video": "probate_estate", "tool": "find_notify",
             "guidance": [
                 "People often miss an account. Work through this list before you decide the estate is complete.",
                 "My Lost Account is free and searches banks, building societies and NS&I: https://www.mylostaccount.org.uk/",
@@ -174,7 +175,8 @@ PROBATE = {
                 {"name": "looked_pensions", "label": "We have looked for pensions", "type": "checkbox"},
                 {"name": "looked_property", "label": "We have checked for property", "type": "checkbox"},
                 {"name": "looked_rest", "label": "We have asked about Premium Bonds, the employer, insurance and online balances", "type": "checkbox"},
-            ],
+                {"name": "previous_addresses", "label": "Their other addresses in the last 6 years, one per line (most services ask for these)", "type": "textarea"},
+            ] + [{"name": "trace_" + t["id"], "label": t["name"] + ": where this is up to", "type": "select", "options": TRACE_STATUSES} for t in TRACE_SERVICES],
         },
         {
             "id": "bona_vacantia", "title": "Unclaimed estates list", "video": "probate_estate", "tool": "bona_vacantia",

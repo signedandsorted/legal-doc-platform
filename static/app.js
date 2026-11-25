@@ -808,6 +808,16 @@ async function mountStatementPanel(draftId) {
 // Read-only lookup tools shown above a step's questions. They search official lists only; the
 // family records what they found in the step's own questions. Nothing is filed or submitted.
 const TOOLS = {
+  async find_notify(box, draft) {
+    try {
+      const p = await api("/api/probate/drafts/" + draft.id + "/find-notify");
+      box.innerHTML = '<div class="card"><h2>Find and notify</h2><h3>Details sheet to copy from</h3>'
+        + (p.details.missing.length ? '<div class="alert warning">Still needed: ' + esc(p.details.missing.join(", ")) + '.</div>' : "")
+        + '<dl class="kv">' + p.details.rows.map(r => '<dt>' + esc(r.label) + '</dt><dd>' + esc(r.value || "—") + '</dd>').join("") + '</dl>'
+        + '<h3>Free services</h3><ul>' + p.services.map(x => '<li><a href="' + esc(x.url) + '" target="_blank" rel="noopener"><b>' + esc(x.name) + '</b></a> · ' + esc(x.cost) + ' · <span class="pill">' + esc(x.status) + '</span><div class="small">' + esc(x.what) + '</div></li>').join("") + '</ul>'
+        + '<p class="small">' + esc(p.note) + ' Record where each one is up to in the questions below.</p></div>';
+    } catch (err) { box.innerHTML = '<div class="alert error">' + esc(err.message) + '</div>'; }
+  },
   async estatesearch(box, draft) {
     try {
       const c = await api("/api/probate/estatesearch/catalog");
