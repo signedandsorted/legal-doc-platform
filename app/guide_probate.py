@@ -149,7 +149,7 @@ PROBATE = {
             ] + [{"name": k, "label": label, "type": "checkbox"} for k, label in FULL_DETAIL_TRIGGERS],
         },
         {
-            "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": ["Will", "Codicil", "Death certificate", "Bank or valuation letter", "Other"],
+            "id": "documents", "title": "Your documents", "video": "probate_documents", "uploads": ["Will", "Codicil", "Death certificate", "Grant of probate or letters of administration", "Bank or valuation letter", "Other"],
             "guidance": [
                 "Upload copies of the will, codicils, the death certificate, bank letters and valuations. Photos and scans are fine.",
                 "We read text from PDFs and Word files, and we read photos and scans. When the papers are uploaded, use Fill in what these papers show. It writes the names, dates and amounts it can read, and leaves anything you have already typed. A blurry photo may still need to be typed. Check every step. Nothing is filed from here.",
@@ -223,6 +223,17 @@ PROBATE = {
                 {"name": "publication_date", "label": "Date the notice will be (or was) published", "type": "date"},
                 {"name": "gazette_ref", "label": "Gazette notice ID once published (optional)", "type": "text"},
             ],
+        },
+        {
+            "id": "hmlr", "title": "Land Registry searches", "video": "probate_estate", "tool": "hmlr",
+            "guidance": [
+                "Two HM Land Registry searches can help. A Land Charges K16 bankruptcy search checks each beneficiary before they are paid (GOV.UK: £6 per name). A PN1 search of the index of proprietors' names looks for land or property registered in the deceased's name (GOV.UK: £15 per name).",
+                "A PN1 search needs the grant of probate or letters of administration, so upload it on the documents step first.",
+                "Before any search you see the search type, the names, the exact fee, what has been spent today and the daily limit, and you confirm each one.",
+                "These searches are not switched on yet. When they are, Titlefront Limited orders them on its HM Land Registry account. This helper does not file or submit anything for you.",
+            ],
+            "sources": [GOV["land_charges_fees"], GOV["pn1_guide"]],
+            "fields": [],
         },
         {
             "id": "account", "title": "What is left, and what you do next", "video": "probate_estate",

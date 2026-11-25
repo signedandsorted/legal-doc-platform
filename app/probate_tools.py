@@ -5,12 +5,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
-from .auth import require_user
+from .auth import require_admin, require_user
 from sqlalchemy import select
 
-from .db import drafts, engine
-from .integrations import bona_vacantia, gazette
+from .db import drafts, engine, uploads
+from .integrations import bona_vacantia, gazette, hmlr
+from .security import audit
 
 router = APIRouter(prefix="/api/probate", tags=["probate-tools"])
 
@@ -42,6 +44,56 @@ def s27_pack(draft_id: str, user=Depends(require_user)):
     if not row or row["user_id"] != user["id"] or row["service"] != "probate":
         raise HTTPException(404, "Draft not found")
     return gazette.s27_pack(row["answers"] or {})
+
+
+def _probate_draft(conn, draft_id: str, user: dict):
+    row = conn.execute(select(drafts).where(drafts.c.id == draft_id)).mappings().first()
+    if not row or row["user_id"] != user["id"] or row["service"] != "probate":
+        raise HTTPException(404, "Draft not found")
+    return row
+
+
+class HmlrIn(BaseModel):
+    search_type: str
+    names: list[str] = []
+    confirm: bool = False
+
+
+@router.get("/hmlr/status")
+def hmlr_status(_user=Depends(require_user)):
+    st = hmlr.Settings.from_env()
+    return {"switched_on": st.switched_on, "message": "" if st.switched_on else hmlr.NOT_ON,
+            "fees": {k: v / 100 for k, v in hmlr.FEES_PENCE.items()}, "fee_sources": hmlr.FEE_SOURCES, "fees_checked": hmlr.FEES_CHECKED}
+
+
+@router.post("/drafts/{draft_id}/hmlr/quote")
+def hmlr_quote(draft_id: str, body: HmlrIn, user=Depends(require_user)):
+    with engine().connect() as conn:
+        _probate_draft(conn, draft_id, user)
+        try:
+            return hmlr.quote(conn, body.search_type, body.names)
+        except hmlr.HmlrError as exc:
+            raise HTTPException(exc.status, str(exc))
+
+
+@router.post("/drafts/{draft_id}/hmlr/order")
+def hmlr_order(draft_id: str, body: HmlrIn, user=Depends(require_user)):
+    with engine().begin() as conn:
+        _probate_draft(conn, draft_id, user)
+        ups = [dict(r) for r in conn.execute(select(uploads.c.kind).where(uploads.c.draft_id == draft_id)).mappings()]
+        try:
+            results = hmlr.order(conn, body.search_type, body.names, confirm=body.confirm, uploads=ups, draft_id=draft_id, user_id=user["id"])
+        except hmlr.HmlrError as exc:
+            raise HTTPException(exc.status, str(exc))
+    audit("hmlr_search_ordered", user, "draft", draft_id, {"type": body.search_type, "names": len(results)}, None)
+    return {"results": results}
+
+
+@router.get("/admin/hmlr-ledger")
+def hmlr_ledger(_admin=Depends(require_admin)):
+    with engine().connect() as conn:
+        day = hmlr.today_utc()
+        return {"today": day, "spent_today": hmlr.spent_today_pence(conn, day) / 100, "daily_cap": hmlr.Settings.from_env().daily_cap_pence / 100, "rows": hmlr.ledger(conn)}
 
 
 INSOLVENCY_SEARCH_URL = "https://www.gov.uk/search-bankruptcy-insolvency-register"  # checked 2026-11-24; no public API, never called from here
