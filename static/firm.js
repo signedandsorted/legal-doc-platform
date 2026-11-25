@@ -771,6 +771,20 @@ function bind(id, m) {
     TAB = "bill";
     reload();
   };
+  ["trust", "deputy"].forEach(key => {
+    const form = document.getElementById(key);
+    if (!form) return;
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const book = { ...(m[key] || {}), lines: ((m[key] || {}).lines || []).concat([{ name: fd.get("name"), pot: fd.get("pot"), out: fd.get("out") || "", amount: fd.get("amount") }]) };
+      const body = {};
+      body[key] = book;
+      await api("/api/firm/matters/" + id, { method: "PATCH", body });
+      TAB = key;
+      reload();
+    };
+  });
   for (const key of ["trust", "deputy"]) {
     const form = document.getElementById(key);
     if (!form) continue;
@@ -987,10 +1001,17 @@ function bind(id, m) {
     reload();
   });
   $desk.querySelectorAll("[data-letter]").forEach(b => b.onclick = async () => {
-    const r = await api("/api/firm/matters/" + id + "/letters", { method: "POST", body: { kind: b.dataset.letter } });
     const preview = document.getElementById("preview");
-    if (preview) preview.innerHTML = '<h3>' + esc(r.letter.title) + '</h3><div class="letter">' + esc(r.letter.body) + '</div>';
-    m.books = r.matter.books;
+    try {
+      const r = await api("/api/firm/matters/" + id + "/letters", { method: "POST", body: { kind: b.dataset.letter } });
+      const last = ((r.matter.books || {}).letters || []).slice(-1)[0];
+      const files = last ? '<p><a class="btn" href="/api/firm/matters/' + id + '/letters/' + esc(last.id) + '.pdf">PDF</a> <a class="btn ghost" href="/api/firm/matters/' + id + '/letters/' + esc(last.id) + '.docx">Word</a></p>' : "";
+      if (preview) preview.innerHTML = '<h3>' + esc(r.letter.title) + '</h3><div class="letter">' + esc(r.letter.body) + '</div>' + files;
+      m.books = r.matter.books;
+    } catch (err) {
+      if (preview) preview.innerHTML = '<div class="alert">' + esc(err.message) + '</div>';
+      else alert(err.message);
+    }
   });
   const versions = document.getElementById("versions");
   if (versions && m.draft_id) {
