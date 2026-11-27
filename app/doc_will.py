@@ -340,4 +340,7 @@ def build_will(_, a: dict, uploads: list | None = None) -> dict:
     if uploads:
         sections.append({"heading": "Documents you uploaded", "paragraphs": [f"{u['filename']} ({u['kind']})" for u in uploads]})
     s = SERVICES["will"]
-    return {"title": "Will: " + me.get("full_name", ""), "notice": DRAFT_NOTICE, "sections": sections, "next_steps": s["next_steps"], "sources": [x for st in s["steps"] for x in st.get("sources", [])]}
+    steps = list(s["next_steps"])
+    if (tr.get("life_interest") or "No") != "No" or tr.get("discretionary") == "Yes" or tr.get("vulnerable_beneficiary"):
+        steps.append("This will creates a trust. It is not registered while you are alive. After the death, the trustees use Register a trust on this site and then HMRC's Trust Registration Service, unless the trust only holds estate assets and ends within two years.")
+    return {"title": "Will: " + me.get("full_name", ""), "notice": DRAFT_NOTICE, "sections": sections, "next_steps": steps, "sources": [x for st in s["steps"] for x in st.get("sources", [])]}

@@ -4,12 +4,14 @@ from .doc_poa import build_poa, poa_issues
 from .doc_probate import build_probate, probate_issues
 from .doc_will import build_will, will_issues
 from .doc_agreement import AGREEMENTS, agreement_issues, build_agreement
+from .doc_trust import build_trust, trust_issues
 from .doc_us import build_us, us_issues
 from .guides import SERVICES
 
 BUILDERS = {"will": build_will, "lpa_property": build_lpa, "lpa_health": build_lpa, "poa_ordinary": build_poa, "probate": build_probate,
             **{sid: build_agreement for sid in AGREEMENTS},
-            **{sid: build_us for sid in ("us_will", "us_trust", "us_poa", "us_health", "us_probate")}}
+            **{sid: build_us for sid in ("us_will", "us_trust", "us_poa", "us_health", "us_probate")},
+            "trust_register": build_trust}
 
 
 def missing_fields(service_id: str, answers: dict) -> list[str]:
@@ -32,6 +34,8 @@ def find_issues(service_id: str, answers: dict, uploads_text: str = "") -> list[
         return probate_issues(answers)
     if service_id in AGREEMENTS:
         return agreement_issues(service_id, answers)
+    if service_id == "trust_register":
+        return trust_issues(answers, uploads_text)
     return will_issues(answers, uploads_text)
 
 
@@ -100,6 +104,8 @@ def _limits(service_id: str) -> list[str]:
         lines.append("An ordinary power of attorney ends if the donor loses capacity. It is not a lasting power of attorney.")
     if service_id == "probate":
         lines.append("Nothing here is filed with HMCTS or HMRC. The firm still sends the application. Unused pension funds count for Inheritance Tax only for deaths on or after 6 April 2027, and only once the scheme has given the figures.")
+    if service_id == "trust_register":
+        lines.append("It does not register the trust with HMRC. The lead trustee does that on the Trust Registration Service. Until HMRC gives a reference, it is not registered.")
     if service_id in AGREEMENTS:
         lines.append("A nuptial or cohabitation agreement is not automatically binding. An employment settlement that waives claims needs the employee's own independent advice.")
     return lines

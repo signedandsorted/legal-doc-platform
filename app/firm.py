@@ -1175,6 +1175,30 @@ def matter_draft(matter_id: str, request: Request, staff: dict = Depends(require
     return {"draft_id": did}
 
 
+@router.post("/matters/{matter_id}/trust-register")
+def matter_trust_register(matter_id: str, request: Request, staff: dict = Depends(require_staff)):
+    """Start the UK registration pack from a trust file. It does not send anything to HMRC."""
+    row = _load(matter_id)
+    if row["kind"] != "trust":
+        raise HTTPException(400, "Registration is started from a trust file")
+    if row["draft_id"]:
+        with engine().connect() as conn:
+            existing = conn.execute(select(drafts.c.id, drafts.c.service).where(drafts.c.id == row["draft_id"])).mappings().first()
+        if existing and existing["service"] == "trust_register":
+            return {"draft_id": row["draft_id"]}
+    did = new_id()
+    stamp = now()
+    with engine().begin() as conn:
+        conn.execute(insert(drafts).values(
+            id=did, service="trust_register", client_name=row["client_name"] or "Trustees",
+            client_email=row["client_email"] or None, answers={}, status="draft",
+            created_at=stamp, updated_at=stamp, user_id=staff["id"],
+        ))
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(draft_id=did, updated_at=stamp))
+    audit("trust_register", staff, "matter", matter_id, {"draft_id": did}, client_ip(request))
+    return {"draft_id": did}
+
+
 @router.get("/colleagues")
 def colleagues(_staff: dict = Depends(require_staff)):
     with engine().connect() as conn:

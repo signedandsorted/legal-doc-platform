@@ -9,6 +9,7 @@ from .guide_employment import EMPLOYMENT_SETTLEMENT
 from .guide_employment_ila import EMPLOYMENT_SETTLEMENT_ILA
 from .guide_cohabitation import COHABITATION
 from .guide_nuptial import NUPTIAL
+from .guide_trust import TRUST
 from .guide_us import US_SERVICES
 
 # Home page grouping. Order here is the order of the cards.
@@ -18,6 +19,7 @@ for _svc, _cat in (
     (LPA_HEALTH, "Lasting powers of attorney"),
     (POA_ORDINARY, "Ordinary and general powers of attorney"),
     (PROBATE, "Probate"),
+    (TRUST, "Trusts"),
     (PRENUP, "Agreements"),
     (POSTNUP, "Agreements"),
     (EMPLOYMENT_SETTLEMENT, "Agreements"),
@@ -26,7 +28,7 @@ for _svc, _cat in (
 ):
     _svc.setdefault("category", _cat)
 
-SERVICES = {s["id"]: s for s in (WILL, LPA_PROPERTY, LPA_HEALTH, POA_ORDINARY, PROBATE, PRENUP, POSTNUP, EMPLOYMENT_SETTLEMENT, EMPLOYMENT_SETTLEMENT_ILA, COHABITATION, NUPTIAL, *US_SERVICES)}
+SERVICES = {s["id"]: s for s in (WILL, LPA_PROPERTY, LPA_HEALTH, POA_ORDINARY, PROBATE, TRUST, PRENUP, POSTNUP, EMPLOYMENT_SETTLEMENT, EMPLOYMENT_SETTLEMENT_ILA, COHABITATION, NUPTIAL, *US_SERVICES)}
 # Define a stand‑alone document upload descriptor (not added to SERVICES to keep API stable).
 DOCUMENT_UPLOAD = {
     "id": "document_upload",

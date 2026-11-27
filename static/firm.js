@@ -305,7 +305,8 @@ function potPanel(m, key, title, note, pots) {
     + '<p><button class="btn" type="submit">Add</button></p></form></div>';
 }
 function trustPanel(m) {
-  return potPanel(m, "trust", "Trust account", "Capital and income are kept apart. A solicitor approves the account before it goes to a beneficiary. Nothing is paid from this screen.", [["capital", "Capital"], ["income", "Income"]]);
+  return potPanel(m, "trust", "Trust account", "Capital and income are kept apart. A solicitor approves the account before it goes to a beneficiary. Nothing is paid from this screen.", [["capital", "Capital"], ["income", "Income"]])
+    + '<div class="firm-card"><h2>Register the trust</h2><p>If this is a trust in England and Wales, the lead trustee registers it on HMRC’s Trust Registration Service unless an exclusion applies. A trust that exists only in a will is not registered while the person is alive. This desk prepares the particulars. It does not send them.</p><p><button type="button" class="btn" id="trust-register">Prepare the registration pack</button></p></div>';
 }
 function deputyPanel(m) {
   return potPanel(m, "deputy", "The person's money", "This is the deputy's record. It is not mixed with the firm's money. The Office of the Public Guardian is not sent anything from here.", [["money", "Balance"]])
@@ -841,6 +842,11 @@ function bind(id, m) {
       reload();
     };
   });
+  const trustRegister = document.getElementById("trust-register");
+  if (trustRegister) trustRegister.onclick = async () => {
+    const r = await api("/api/firm/matters/" + id + "/trust-register", { method: "POST", body: {} });
+    location.href = "/#/d/" + r.draft_id + "/0";
+  };
   for (const key of ["trust", "deputy"]) {
     const form = document.getElementById(key);
     if (!form) continue;

@@ -39,7 +39,8 @@ PAGES = [
     {"id": "lpa", "title": "GOV.UK: Lasting power of attorney", "url": "https://www.gov.uk/power-of-attorney"},
     {"id": "lp12", "title": "GOV.UK: LP12", "url": "https://www.gov.uk/government/publications/lasting-power-of-attorney-forms/lp12-make-and-register-your-lasting-power-of-attorney-a-guide-web-version"},
     {"id": "sra-wills", "title": "SRA: Drafting and preparation of wills", "url": "https://www.sra.org.uk/solicitors/guidance/drafting-preparation-wills/"},
-    {"id": "consumer", "title": "Consumer Contracts Regulations 2013", "url": "https://www.legislation.gov.uk/uksi/2013/3134/contents"},
+    {"id": "trust-register", "title": "GOV.UK: Register a trust as a trustee", "url": "https://www.gov.uk/guidance/register-a-trust-as-a-trustee"},
+    {"id": "trust-check", "title": "GOV.UK: check if you need to register a trust", "url": "https://www.gov.uk/guidance/check-if-you-need-to-register-a-trust"},
 ]
 
 

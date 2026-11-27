@@ -19,6 +19,7 @@ PRICES = {
     "lpa_health": (14900, "Health and welfare lasting power of attorney"),
     "poa_ordinary": (9900, "Ordinary power of attorney"),
     "probate": (39900, "Probate pack"),
+    "trust_register": (7900, "Trust registration pack"),
     "prenup": (34900, "Prenuptial agreement"),
     "postnup": (34900, "Postnuptial agreement"),
     "nuptial": (34900, "Nuptial agreement"),

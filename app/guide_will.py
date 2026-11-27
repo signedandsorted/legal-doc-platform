@@ -120,7 +120,7 @@ WILL = {
                 "Trusts protect what you leave. A life interest trust lets a partner live in your home (or have the income from your estate) for life, then passes it to your children: useful in second marriages and for care-fee planning.",
                 "A discretionary trust lets your trustees decide who benefits and when, guided by your letter of wishes. A vulnerable person's trust protects someone disabled or receiving means-tested benefits.",
                 "If none of these apply, leave them at 'No'. A solicitor checks every trust before you sign.",
-                "GOV.UK explains the main types of trust and how they are taxed. Some trusts set up by a will must be registered with HMRC's Trust Registration Service by the trustees after you die.",
+                "GOV.UK explains the main types of trust and how they are taxed. A trust in this will is not registered while you are alive. After the death, the trustees use Register a trust on this site, then HMRC's Trust Registration Service, unless an exclusion applies.",
             ],
             "sources": [GOV["iht"], GOV["trusts"], GOV["trust_types"], GOV["trust_register"]],
             "fields": [
@@ -212,5 +212,6 @@ WILL = {
         "A witness must not be a beneficiary, or the husband, wife or civil partner of a beneficiary, or that person's gift can fail.",
         "Keep the signed original somewhere safe and tell your executors where it is. You can also store it with the Probate Service.",
         "Review your will after marriage, divorce, children, a house move or a big change in your finances. Marriage or civil partnership usually cancels it.",
+        "If this will creates a trust, it is not registered while you are alive. After the death, the trustees use Register a trust and then HMRC's own service.",
     ],
 }
