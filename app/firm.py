@@ -23,7 +23,8 @@ from .iht_schedules import schedule_files
 from .firm_file import PAPER_KINDS, apply_suggestions, filing_record, pack_document, position
 from .firm_practice import clean_practice, conflicts as name_conflicts, search_names
 from .firm_accounts import bill_summary, clean_bill
-from .firm_client import clean_client_account, post_entry, reconcile, set_statement
+from .firm_client import clean_client_account, post_entry, reconcile, record_breach, residuals, set_statement, sign_off
+from .firm_today import add_appointment, add_task, clean_work, find as find_desk, set_task, today as practice_today
 from .outlook import fetch_mailbox, fetch_message, merge_outlook, public_outlook
 from .firm_trust import clean_deputy, clean_trust
 from .firm_work import FIRM_KINDS, ITEM_STATUS, MATTER_STATUS, assist, checklist, client_prepare, deadlines, next_item, progress
@@ -132,6 +133,7 @@ def _public(row: dict, full: bool = False) -> dict:
         "deadlines": deadlines(row),
         "figures": figures,
         "bill": bill_summary(clean_bill(facts.get("bill"))),
+        "work": clean_work(facts.get("work")),
         "updated_at": _iso(row["updated_at"]),
     }
     if full:
@@ -296,6 +298,109 @@ def client_statement(body: ClientStatementIn, request: Request, staff: dict = De
     _save_client_book(book)
     audit("client_statement", staff, "firm", "client_account", {"balance": book["statement"]["balance"]}, client_ip(request))
     return reconcile(book, _matter_titles())
+
+
+class NoteIn(BaseModel):
+    note: str = ""
+
+
+@router.post("/client-account/sign-off")
+def client_sign_off(body: NoteIn, request: Request, staff: dict = Depends(require_staff)):
+    titles = _matter_titles()
+    try:
+        book = sign_off(_client_book(), titles, staff["email"], now().isoformat(), body.note)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _save_client_book(book)
+    audit("client_signoff", staff, "firm", "client_account", {}, client_ip(request))
+    return reconcile(book, titles)
+
+
+@router.post("/client-account/breach")
+def client_breach(body: NoteIn, request: Request, staff: dict = Depends(require_staff)):
+    titles = _matter_titles()
+    try:
+        book = record_breach(_client_book(), titles, staff["email"], now().isoformat(), body.note)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _save_client_book(book)
+    audit("client_breach", staff, "firm", "client_account", {}, client_ip(request))
+    return reconcile(book, titles)
+
+
+def _rows():
+    with engine().connect() as conn:
+        rows = conn.execute(select(matters).order_by(matters.c.updated_at.desc())).mappings().all()
+    return [_public(dict(row)) for row in rows]
+
+
+@router.get("/today")
+def firm_today(_staff: dict = Depends(require_staff)):
+    rows = _rows()
+    titles = {row["id"]: row["title"] for row in rows}
+    client = reconcile(_client_book(), titles)
+    left = residuals(client["ledgers"], {row["id"]: row["status"] for row in rows})
+    return practice_today(rows, client, left)
+
+
+@router.get("/find")
+def firm_find(q: str = "", _staff: dict = Depends(require_staff)):
+    return {"hits": find_desk(q, _rows())}
+
+
+class TaskIn(BaseModel):
+    title: str = ""
+    due: str = ""
+    who: str = ""
+    done: bool = False
+
+
+class AppointmentIn(BaseModel):
+    title: str
+    on: str = ""
+    time: str = ""
+    where: str = ""
+
+
+def _save_work(matter_id: str, work: dict) -> dict:
+    row = _load(matter_id)
+    facts = dict(row["facts"] or {})
+    facts["work"] = work
+    with engine().begin() as conn:
+        conn.execute(update(matters).where(matters.c.id == matter_id).values(facts=facts, updated_at=now()))
+    return _public(_load(matter_id), full=True)
+
+
+@router.post("/matters/{matter_id}/tasks")
+def matter_task(matter_id: str, body: TaskIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    try:
+        work = add_task((row["facts"] or {}).get("work"), body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    audit("task", staff, "matter", matter_id, {"title": body.title[:80]}, client_ip(request))
+    return {"matter": _save_work(matter_id, work)}
+
+
+@router.post("/matters/{matter_id}/tasks/{task_id}")
+def matter_task_done(matter_id: str, task_id: str, body: TaskIn, _staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    try:
+        work = set_task((row["facts"] or {}).get("work"), task_id, body.done)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"matter": _save_work(matter_id, work)}
+
+
+@router.post("/matters/{matter_id}/appointments")
+def matter_appointment(matter_id: str, body: AppointmentIn, request: Request, staff: dict = Depends(require_staff)):
+    row = _load(matter_id)
+    try:
+        work = add_appointment((row["facts"] or {}).get("work"), body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    audit("appointment", staff, "matter", matter_id, {"title": body.title[:80]}, client_ip(request))
+    return {"matter": _save_work(matter_id, work)}
 
 
 @router.get("/outlook")

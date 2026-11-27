@@ -54,7 +54,26 @@ def clean_client_account(raw) -> dict:
             "unpresented": _num(statement.get("unpresented")),
             "outstanding": _num(statement.get("outstanding")),
         },
+        "signoffs": _history(raw.get("signoffs")),
+        "breaches": _history(raw.get("breaches")),
     }
+
+
+def _history(rows) -> list[dict]:
+    kept = []
+    for item in (rows or [])[:200]:
+        if not isinstance(item, dict) or not item.get("at") or not item.get("by"):
+            continue
+        kept.append({
+            "at": str(item.get("at"))[:40],
+            "by": str(item.get("by"))[:120],
+            "cash_book": _num(item.get("cash_book")),
+            "ledger_total": _num(item.get("ledger_total")),
+            "adjusted_bank": _num(item.get("adjusted_bank")),
+            "statement_on": _date(item.get("statement_on")),
+            "note": str(item.get("note") or "")[:400],
+        })
+    return kept
 
 
 def matter_balance(book: dict, matter_id: str) -> float:
@@ -132,4 +151,46 @@ def reconcile(book: dict, titles: dict[str, str]) -> dict:
         "agrees": abs(cash - ledger_total) < 0.01 and abs(adjusted - cash) < 0.01,
         "ledgers": ledgers,
         "entries": list(reversed(book["entries"][-40:])),
+        "signoffs": book.get("signoffs") or [],
+        "breaches": book.get("breaches") or [],
     }
+
+
+def _stamp(view: dict, by: str, at: str, note: str) -> dict:
+    return {
+        "at": str(at)[:40],
+        "by": str(by)[:120],
+        "cash_book": view["cash_book"],
+        "ledger_total": view["ledger_total"],
+        "adjusted_bank": view["adjusted_bank"],
+        "statement_on": view["statement_on"],
+        "note": str(note or "").strip()[:400],
+    }
+
+
+def sign_off(book: dict, titles: dict[str, str], by: str, at: str, note: str) -> dict:
+    book = clean_client_account(book)
+    view = reconcile(book, titles)
+    if not view["agrees"]:
+        raise ValueError("The cash book, the client ledgers and the bank statement do not agree, so this cannot be signed off")
+    book["signoffs"].append(_stamp(view, by, at, note))
+    return book
+
+
+def record_breach(book: dict, titles: dict[str, str], by: str, at: str, note: str) -> dict:
+    book = clean_client_account(book)
+    text = str(note or "").strip()
+    if len(text) < 3:
+        raise ValueError("Say what went wrong")
+    view = reconcile(book, titles)
+    book["breaches"].append(_stamp(view, by, at, text))
+    return book
+
+
+def residuals(ledgers: list[dict], status_by_id: dict[str, str]) -> list[dict]:
+    """Client money still held on a matter the firm has closed."""
+    found = []
+    for row in ledgers:
+        if status_by_id.get(row["matter_id"]) == "closed" and abs(row["balance"]) >= 0.01:
+            found.append(row)
+    return found

@@ -35,7 +35,7 @@ function route() {
 function nav() {
   const el = document.getElementById("firm-nav");
   if (!ME) { el.innerHTML = '<a href="/">Public site</a>'; return; }
-  el.innerHTML = '<a href="/firm">Matters</a><a href="/firm?view=accounts">Accounts</a><a href="/#/law">Law updates</a><a href="/firm?m=new">New matter</a><a href="/">Public site</a><button type="button" class="linkbtn" id="out">Sign out</button>';
+  el.innerHTML = '<a href="/firm">Today</a><a href="/firm?view=accounts">Accounts</a><a href="/#/law">Law updates</a><a href="/firm?m=new">New matter</a><a href="/">Public site</a><button type="button" class="linkbtn" id="out">Sign out</button>';
   document.getElementById("out").onclick = async () => { await api("/api/auth/logout", { method: "POST" }); ME = null; location.href = "/firm"; };
 }
 
@@ -87,6 +87,10 @@ async function accounts() {
     + '<label>Paid in, not yet on the statement (£)<input name="outstanding" type="number" min="0" step="0.01" value="' + Number(book.outstanding || 0) + '"></label>'
     + '<p><button class="btn" type="submit">Reconcile</button></p></form>'
     + (ledgers ? '<table class="tbl"><thead><tr><th>Client ledger</th><th>Balance</th></tr></thead><tbody>' + ledgers + '</tbody></table>' : '<p class="small">No client money has been posted.</p>')
+    + '<p><button type="button" class="btn" id="sign-off">Sign off this reconciliation</button> <button type="button" class="btn ghost" id="breach">Record a breach</button></p>'
+    + '<p class="note">Sign-off is kept, and it is refused while the three figures do not agree. The bank figure is the one typed from the statement. This desk is not connected to the bank.</p>'
+    + (book.signoffs && book.signoffs.length ? '<p class="small">Last signed off by ' + esc(book.signoffs[book.signoffs.length - 1].by) + ' on ' + esc((book.signoffs[book.signoffs.length - 1].at || "").slice(0, 10)) + '.</p>' : '')
+    + ((book.breaches || []).length ? '<ul>' + book.breaches.slice().reverse().map(row => '<li>' + esc((row.at || "").slice(0, 10)) + ' · ' + esc(row.by) + ' · ' + esc(row.note) + '</li>').join("") + '</ul>' : '')
     + '</div>';
   document.getElementById("accounts-excel").onclick = () => downloadSheet("firm-accounts.csv", [["Matter", "Not yet billed", "Billed", "Still owed"]].concat(data.matters.map(m => [m.title, m.bill.unbilled, m.bill.billed, m.bill.outstanding])));
   document.getElementById("client-entry").onsubmit = async (e) => {
@@ -103,10 +107,21 @@ async function accounts() {
     try { await api("/api/firm/client-account/statement", { method: "PUT", body }); accounts(); }
     catch (err) { alert(err.message); }
   };
+  document.getElementById("sign-off").onclick = async () => {
+    const note = prompt("Note for the sign-off, if you want one") || "";
+    try { await api("/api/firm/client-account/sign-off", { method: "POST", body: { note } }); accounts(); }
+    catch (err) { alert(err.message); }
+  };
+  document.getElementById("breach").onclick = async () => {
+    const note = prompt("What went wrong?");
+    if (!note) return;
+    try { await api("/api/firm/client-account/breach", { method: "POST", body: { note } }); accounts(); }
+    catch (err) { alert(err.message); }
+  };
 }
 async function list() {
   nav();
-  const [rows, link, outlook] = await Promise.all([api("/api/firm/matters"), api("/api/firm/actionstep"), api("/api/firm/outlook")]);
+  const [rows, link, outlook, day] = await Promise.all([api("/api/firm/matters"), api("/api/firm/actionstep"), api("/api/firm/outlook"), api("/api/firm/today")]);
   const connect = ME && ME.role === "admin"
     ? '<form id="actionstep"><p class="small">An admin pastes the access token and the API address from Actionstep’s token response. The token is stored for the firm. It is not shown again.</p><label>API address<input name="api_endpoint" placeholder="' + esc(link.api_endpoint || "https://….actionstep.com/api/") + '"></label><label>Access token<input name="access_token" type="password" autocomplete="off"></label><label>Refresh token<input name="refresh_token" type="password" autocomplete="off"></label><label>Client id<input name="client_id" autocomplete="off"></label><label>Client secret<input name="client_secret" type="password" autocomplete="off"></label><p><button class="btn" type="submit">Save the Actionstep connection</button></p></form>'
     : '<p class="small">An admin connects Actionstep. Staff can then bring a matter across.</p>';
@@ -114,7 +129,18 @@ async function list() {
     ? '<form id="outlook"><label>Access token<input name="access_token" type="password" autocomplete="off"></label><p><button class="btn" type="submit">Save the Outlook connection</button></p></form>'
     : '<p class="small">An admin connects Outlook. Staff can then file a message onto a matter.</p>';
   const matterOptions = rows.map(m => '<option value="' + esc(m.id) + '">' + esc(m.title) + '</option>').join("");
-  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Matters</h1><p class="note">Open a file. Step 2 on every file is Lexcel v6.1: the Law Society’s requirements for the file, and what this desk does not do for you.</p><p><a class="btn" href="/firm?m=new">New matter</a> <button type="button" class="btn ghost" id="matters-excel">Excel</button></p>'
+  const taskRows = (day.tasks || []).map(t => '<li><a href="/firm?m=' + esc(t.matter_id) + '">' + esc(t.title) + '</a> <span class="small">' + esc(t.matter) + (t.due ? " · " + esc(t.due) : "") + '</span></li>').join("");
+  const apptRows = (day.appointments || []).map(t => '<li><a href="/firm?m=' + esc(t.matter_id) + '">' + esc(t.title) + '</a> <span class="small">' + esc(t.on || "No date") + (t.time ? " " + esc(t.time) : "") + " · " + esc(t.matter) + '</span></li>').join("");
+  const nextRows = (day.next || []).map(t => '<li><a href="/firm?m=' + esc(t.id) + '">' + esc(t.title) + '</a> <span class="small">' + esc(t.next) + '</span></li>').join("");
+  const left = (day.residuals || []).map(t => '<li><a href="/firm?m=' + esc(t.matter_id) + '">' + esc(t.title) + '</a> ' + gbp(t.balance) + '</li>').join("");
+  $desk.innerHTML = '<p class="eyebrow">Firm desk</p><h1>Today</h1><p class="note">One place for the open files, the tasks, the appointments and the client account. The will, the powers of attorney, the tax forms and the estate account stay on the file. ' + esc(day.note || "") + '</p>'
+    + '<form id="find-all" class="line-form"><input name="q" placeholder="Search a client, a matter, a task or an appointment" minlength="2" required><button class="btn" type="submit">Search</button></form><div id="found"></div>'
+    + '<div class="figure-strip"><div><span>Open files</span><b>' + day.open + '</b></div><div><span>Tasks still to do</span><b>' + day.tasks_open + '</b></div><div><span>Client account</span><b>' + (day.client_agrees ? "Agrees" : "Does not agree") + '</b></div><div><span>Closed files still holding client money</span><b>' + (day.residuals || []).length + '</b></div></div>'
+    + '<div class="firm-grid"><div class="firm-card"><h2>Tasks</h2>' + (taskRows ? '<ul>' + taskRows + '</ul>' : '<p class="small">No open task. Add one from the file.</p>') + '</div>'
+    + '<div class="firm-card"><h2>Appointments</h2>' + (apptRows ? '<ul>' + apptRows + '</ul>' : '<p class="small">No appointment. Add one from the file.</p>') + '</div></div>'
+    + '<div class="firm-grid"><div class="firm-card"><h2>Next on each file</h2>' + (nextRows ? '<ul>' + nextRows + '</ul>' : '<p class="small">No open file.</p>') + '</div>'
+    + '<div class="firm-card"><h2>Client money on a closed file</h2>' + (left ? '<ul>' + left + '</ul>' : '<p class="small">None. A closed file should not still hold client money.</p>') + '</div></div>'
+    + '<p><a class="btn" href="/firm?m=new">New matter</a> <button type="button" class="btn ghost" id="matters-excel">Excel</button></p>'
     + '<div class="firm-card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Matter</th><th>Type</th><th>Next</th><th>Done</th></tr></thead><tbody>'
     + (rows.length ? rows.map(m => '<tr><td><a href="/firm?m=' + esc(m.id) + '">' + esc(m.title) + '</a><div class="muted small">' + esc(m.client_name || "No client name") + (m.deceased_name ? " · estate of " + esc(m.deceased_name) : "") + (m.figures ? " · net " + gbp(m.figures.net_probate) : "") + '</div></td><td>' + esc(m.kind_label) + '</td><td>' + (m.next ? esc(m.next.title) : "Checklist complete") + '</td><td>' + m.progress.done + "/" + m.progress.total + '</td></tr>').join("") : '<tr><td colspan="4" class="muted">No matters yet.</td></tr>')
     + '</tbody></table></div></div>'
@@ -127,6 +153,15 @@ async function list() {
     + (outlook.connected ? '<p><button class="btn" type="button" id="outlook-load">Show Outlook mail</button></p><div id="outlook-list"></div>' : "")
     + '</details>';
   document.getElementById("matters-excel").onclick = () => downloadSheet("matters.csv", [["Matter", "Client", "Type", "Next", "Done"]].concat(rows.map(m => [m.title, m.client_name || "", m.kind_label, m.next ? m.next.title : "Checklist complete", m.progress.done + "/" + m.progress.total])));
+  document.getElementById("find-all").onsubmit = async (e) => {
+    e.preventDefault();
+    const q = new FormData(e.target).get("q");
+    const found = await api("/api/firm/find?q=" + encodeURIComponent(q));
+    const hits = found.hits || [];
+    document.getElementById("found").innerHTML = hits.length
+      ? '<ul>' + hits.map(hit => '<li><span class="small">' + esc(hit.kind) + '</span> <a href="/firm?m=' + esc(hit.id) + '">' + esc(hit.label) + '</a> <span class="small">' + esc(hit.detail) + '</span></li>').join("") + '</ul>'
+      : '<p class="note">Nothing on this desk matches.</p>';
+  };
   const form = document.getElementById("actionstep");
   if (form) form.onsubmit = async (e) => {
     e.preventDefault();
@@ -296,6 +331,12 @@ function nextPanel(m, staff) {
   return '<div class="firm-next"><p class="eyebrow">Do this next</p><h2>' + esc(m.next ? m.next.title : "Checklist complete") + '</h2>'
     + (m.next ? '<p>' + esc(m.next.ask) + '</p><p class="small">' + esc(m.next.stage) + '</p>' : '<p>Every item is received, done, or not needed.</p>')
     + '<p class="small">Lexcel 7.1: this next step is the strategy on the file. Lexcel 5.7: the dates below must also sit in the firm’s own diary.</p></div>'
+    + '<div class="firm-grid"><div class="firm-card"><h2>Tasks</h2>'
+    + ((m.work && m.work.tasks || []).map(t => '<p><label class="check"><input type="checkbox" data-task="' + esc(t.id) + '"' + (t.done ? " checked" : "") + '> ' + esc(t.title) + (t.due ? " · " + esc(t.due) : "") + (t.who ? " · " + esc(t.who) : "") + '</label></p>').join("") || '<p class="small">No task yet.</p>')
+    + '<form id="task" class="line-form"><input name="title" required placeholder="What has to be done"><input type="date" name="due"><input name="who" placeholder="Who"><button class="btn" type="submit">Add task</button></form></div>'
+    + '<div class="firm-card"><h2>Appointments</h2>'
+    + ((m.work && m.work.appointments || []).map(t => '<p>' + esc(t.on || "No date") + (t.time ? " " + esc(t.time) : "") + " · " + esc(t.title) + (t.where ? " · " + esc(t.where) : "") + '</p>').join("") || '<p class="small">No appointment yet.</p>')
+    + '<form id="appointment" class="line-form"><input name="title" required placeholder="Who you are seeing"><input type="date" name="on"><input name="time" placeholder="Time"><input name="where" placeholder="Where"><button class="btn" type="submit">Add appointment</button></form></div></div>'
     + '<div class="firm-grid"><div class="firm-card"><form id="meta"><label>Status<select name="status">' + MATTER.map(([v, l]) => '<option value="' + v + '"' + (m.status === v ? " selected" : "") + '>' + l + '</option>').join("") + '</select></label>'
     + '<label>Worked by<select name="assigned_to"><option value="">Anyone</option>' + staff.map(s => '<option' + (m.assigned_to === s.email ? " selected" : "") + '>' + esc(s.email) + '</option>').join("") + '</select></label>'
     + '<label>Client<input name="client_name" value="' + esc(m.client_name) + '"></label><label>Email<input name="client_email" value="' + esc(m.client_email) + '"></label>'
@@ -643,6 +684,21 @@ function bind(id, m) {
   if (draft) draft.onclick = async () => { const r = await api("/api/firm/matters/" + id + "/draft", { method: "POST", body: {} }); location.href = "/#/d/" + r.draft_id + "/0"; };
   const note = document.getElementById("note");
   if (note) note.onsubmit = async (e) => { e.preventDefault(); await api("/api/firm/matters/" + id, { method: "PATCH", body: { note: new FormData(e.target).get("note") } }); reload(); };
+  const task = document.getElementById("task");
+  if (task) task.onsubmit = async (e) => {
+    e.preventDefault();
+    await api("/api/firm/matters/" + id + "/tasks", { method: "POST", body: Object.fromEntries(new FormData(e.target).entries()) });
+    reload();
+  };
+  $desk.querySelectorAll("[data-task]").forEach(box => box.onchange = async () => {
+    await api("/api/firm/matters/" + id + "/tasks/" + box.dataset.task, { method: "POST", body: { done: box.checked } });
+  });
+  const appointment = document.getElementById("appointment");
+  if (appointment) appointment.onsubmit = async (e) => {
+    e.preventDefault();
+    await api("/api/firm/matters/" + id + "/appointments", { method: "POST", body: Object.fromEntries(new FormData(e.target).entries()) });
+    reload();
+  };
   const scheme = document.getElementById("scheme");
   if (scheme) scheme.onsubmit = async (e) => {
     e.preventDefault();

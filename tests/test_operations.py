@@ -62,3 +62,37 @@ def test_every_letter_and_the_main_desk_paths():
         unknown = c.post(f"/api/firm/matters/{mid}/letters", json={"kind": "not-a-letter"})
         assert unknown.status_code == 400
         assert made
+
+
+def test_today_search_tasks_and_a_signed_client_account():
+    with admin_client() as c:
+        opened = c.post("/api/firm/matters", json={"kind": "will", "client_name": "Nora Client", "title": "Will of Nora Client"})
+        assert opened.status_code == 200, opened.text
+        mid = opened.json()["id"]
+        task = c.post(f"/api/firm/matters/{mid}/tasks", json={"title": "Send the draft", "due": "2026-12-01"})
+        assert task.status_code == 200, task.text
+        visit = c.post(f"/api/firm/matters/{mid}/appointments", json={"title": "Signing meeting", "on": "2026-12-02", "time": "10:00"})
+        assert visit.status_code == 200
+        day = c.get("/api/firm/today")
+        assert day.status_code == 200
+        assert any(row["title"] == "Send the draft" for row in day.json()["tasks"])
+        assert any(row["title"] == "Signing meeting" for row in day.json()["appointments"])
+        found = c.get("/api/firm/find", params={"q": "Nora"})
+        assert any(hit["kind"] == "Matter" for hit in found.json()["hits"])
+        posted = c.post("/api/firm/client-account/entries", json={"matter_id": mid, "kind": "in", "what": "On account", "amount": 100})
+        assert posted.status_code == 200, posted.text
+        c.put("/api/firm/client-account/statement", json={"on": "2026-11-27", "balance": 0, "unpresented": 0, "outstanding": 0})
+        refused = c.post("/api/firm/client-account/sign-off", json={"note": "too soon"})
+        assert refused.status_code == 400
+        cash = posted.json()["cash_book"]
+        statement = c.put("/api/firm/client-account/statement", json={"on": "2026-11-27", "balance": cash, "unpresented": 0, "outstanding": 0})
+        assert statement.json()["agrees"] is True
+        signed = c.post("/api/firm/client-account/sign-off", json={"note": "November"})
+        assert signed.status_code == 200, signed.text
+        assert signed.json()["signoffs"][-1]["by"]
+        closed = c.patch(f"/api/firm/matters/{mid}", json={"status": "closed"})
+        assert closed.status_code == 200
+        again = c.get("/api/firm/today").json()
+        assert any(row["matter_id"] == mid for row in again["residuals"])
+        breach = c.post("/api/firm/client-account/breach", json={"note": "Statement was typed late"})
+        assert breach.status_code == 200 and breach.json()["breaches"]
