@@ -467,5 +467,70 @@
    "Each attorney and each replacement attorney then signs section eleven. Someone must witness them. You cannot be that witness. Attorneys can witness each other, but nobody witnesses their own signature.",
    "The person applying to register signs section fifteen last, and dates it after every attorney has signed. If the order is wrong, the LPA cannot be registered, and the attorneys cannot use it."
   ]
+ },
+ "employment_ila_upload": {
+  "title": "The agreement",
+  "lines": [
+   "Upload the draft settlement agreement the employer sent.",
+   "A solicitor reads that draft. Do not sign it yet. Signing before the advice can mean the agreement does not settle the claims."
+  ]
+ },
+ "employment_ila_questionnaire": {
+  "title": "The details",
+  "lines": [
+   "Enter the employer's name, your full name, the job, and the date the employment would end.",
+   "Say which claims the agreement says are settled, what is being paid, and whether the employer is paying for the advice.",
+   "If there is a deadline, enter that too."
+  ]
+ },
+ "employment_ila_quote": {
+  "title": "The fee",
+  "lines": [
+   "A solicitor gives a fixed fee for the independent advice.",
+   "The figure on this screen is the quote. It is not a bill that has already been paid."
+  ]
+ },
+ "employment_ila_conflict": {
+  "title": "Conflict check",
+  "lines": [
+   "The firm checks whether it already acts for the employer, or for anyone else in this dispute.",
+   "If it does, it cannot give this advice. The check is the firm's own record."
+  ]
+ },
+ "employment_ila_booking": {
+  "title": "Book the advice",
+  "lines": [
+   "Book a meeting with a solicitor who can give the independent advice the agreement needs.",
+   "The advice has to be given before you sign. This screen does not give that advice."
+  ]
+ },
+ "employment_ila_certificate": {
+  "title": "The adviser's certificate",
+  "lines": [
+   "After the advice, the adviser signs the certificate on the agreement.",
+   "This screen records whether that has happened. It does not sign the certificate, and it does not make the agreement binding."
+  ]
+ },
+ "employment_ila_review": {
+  "title": "Before you sign",
+  "lines": [
+   "The agreement does not settle employment claims until you have had independent advice and the adviser has signed the certificate.",
+   "Read the draft again after that advice. Do not sign before it."
+  ]
+ },
+ "nuptial_intro": {
+  "title": "A nuptial agreement",
+  "lines": [
+   "A nuptial agreement is made before you marry, or after you are already married.",
+   "In England and Wales it is not automatically binding. A court is more likely to follow it if it is fair, you each had your own legal advice, and you each disclosed your finances.",
+   "Say which agreement this is, list the assets in outline, and say whether that advice has already been given."
+  ]
+ },
+ "nuptial_review": {
+  "title": "Review",
+  "lines": [
+   "Read what you have entered. A solicitor reviews it before anyone signs.",
+   "Neither person should sign until they have had their own advice, and until the finances have been disclosed."
+  ]
  }
 }
